@@ -1,22 +1,16 @@
 # ETAPA 1: Compilación de la aplicación
-FROM debian:latest AS build-env
+FROM debian:stable-slim AS build-env
 
-# Instalar dependencias necesarias para Flutter
+# Instalar dependencias esenciales
 RUN apt-get update && apt-get install -y \
     curl \
     git \
     wget \
     unzip \
-    libgconf-2-4 \
-    gdb \
-    libstdc++6 \
-    libglu1-mesa \
-    fonts-droid-fallback \
-    lib32stdc++6 \
-    python3 \
+    ca-certificates \
     && apt-get clean
 
-# Descargar Flutter SDK (usando la rama estable)
+# Descargar Flutter SDK
 RUN git clone https://github.com/flutter/flutter.git /usr/local/flutter
 ENV PATH="/usr/local/flutter/bin:/usr/local/flutter/bin/cache/dart-sdk/bin:${PATH}"
 
@@ -31,7 +25,6 @@ WORKDIR /app
 COPY . .
 
 # Obtener dependencias y compilar para web
-# Se añade --no-tree-shake-icons para evitar errores de compilación comunes
 RUN flutter pub get
 RUN flutter build web --release --no-tree-shake-icons
 
