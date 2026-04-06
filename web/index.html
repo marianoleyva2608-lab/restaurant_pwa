@@ -41,6 +41,24 @@
     For more details:
     * https://docs.flutter.dev/platform-integration/web/initialization
   -->
+  <script>
+    // Script para detectar nuevas versiones y forzar la recarga del navegador (Limpieza de Caché)
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('flutter_service_worker.js?v=' + new Date().getTime()).then(function (reg) {
+          reg.onupdatefound = function () {
+            const installingWorker = reg.installing;
+            installingWorker.onstatechange = function () {
+              if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                console.log('¡Nueva versión detectada! Recargando para actualizar...');
+                window.location.reload();
+              }
+            };
+          };
+        });
+      });
+    }
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>
