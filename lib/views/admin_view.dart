@@ -999,52 +999,71 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
             actions: [
               TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar', style: TextStyle(color: Colors.grey))),
               ElevatedButton(
-                onPressed: (totalEntered < total || (cardAmount > 0 && !isCardValidated)) && cardAmount > 0
+                onPressed: totalEntered < total 
                   ? null 
-                  : (totalEntered < total ? null : () async {
-                      final supabase = Supabase.instance.client;
-                      try {
-                        await supabase.from('orders').update({
-                          'status': 'completed',
-                          'payment_method': 'mixed',
-                          'amount_cash': cashAmount,
-                          'amount_card': cardAmount
-                        }).inFilter('id', orderIds);
-                        
-                        if (tableId != null) {
-                          await supabase.from('restaurant_tables').update({'status': 'available'}).eq('id', tableId as Object);
-                        }
-                        if (ctx.mounted) {
-                          Navigator.pop(ctx);
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Pago Mixto finalizado'), backgroundColor: Colors.green));
-                          // If they toggled factura, we go directly, else we show the prompt or just end
-                          if (wantFactura) {
-                             Navigator.push(context, MaterialPageRoute(
-                               builder: (_) => BillingView(
-                                 ticket: {
-                                   'id': orderIds.first,
-                                   'created_at': DateTime.now().toIso8601String(),
-                                   'total_amount': total,
-                                   'payment_method': '99',
-                                 },
-                               ),
-                             ));
-                          } else {
-                            _promptFactura(context, orderIds.first, total, '99'); // Also offer it if they missed the toggle
-                          }
-                        }
-                      } catch (e) {
-                          if (ctx.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                  : () async {
+                      if (cardAmount > 0 && !isCardValidated) {
+                        _payWithMercadoPago(context, cardAmount, () async {
+                           setState(() { isCardValidated = true; });
+                           await _executeFinalizeMixedPayment(context, orderIds, total, tableId, cashAmount, cardAmount, wantFactura);
+                        });
+                        return;
                       }
-                  }),
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.orangeAccent),
-                child: const Text('FINALIZAR TODO EL COBRO', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black)),
+                      await _executeFinalizeMixedPayment(context, orderIds, total, tableId, cashAmount, cardAmount, wantFactura);
+                    },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: (cardAmount > 0 && !isCardValidated) ? Colors.blueAccent : Colors.orangeAccent,
+                  minimumSize: const Size(double.infinity, 54),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                ),
+                child: Text(
+                  (cardAmount > 0 && !isCardValidated) ? 'COBRAR TARJETA Y FINALIZAR' : 'FINALIZAR TODO EL COBRO', 
+                  style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black, fontSize: 16)
+                ),
               ),
             ],
           );
         },
       ),
     );
+  }
+
+  Future<void> _executeFinalizeMixedPayment(BuildContext context, List<String> orderIds, double total, String? tableId, double cashAmount, double cardAmount, bool wantFactura) async {
+    final supabase = Supabase.instance.client;
+    try {
+      await supabase.from('orders').update({
+        'status': 'completed',
+        'payment_method': 'mixed',
+        'amount_cash': cashAmount,
+        'amount_card': cardAmount
+      }).inFilter('id', orderIds);
+      
+      if (tableId != null) {
+        await supabase.from('restaurant_tables').update({'status': 'available'}).eq('id', tableId as Object);
+      }
+      
+      if (context.mounted) {
+        Navigator.pop(context); // Close dialog
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Pago Mixto finalizado'), backgroundColor: Colors.green));
+        
+        if (wantFactura) {
+           Navigator.push(context, MaterialPageRoute(
+             builder: (_) => BillingView(
+               ticket: {
+                 'id': orderIds.first,
+                 'created_at': DateTime.now().toIso8601String(),
+                 'total_amount': total,
+                 'payment_method': '99',
+               },
+             ),
+           ));
+        } else {
+          _promptFactura(context, orderIds.first, total, '99');
+        }
+      }
+    } catch (e) {
+      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al finalizar: $e')));
+    }
   }
 
   Future<void> _cancelOrdersWithPin(BuildContext context, List<String> orderIds, String? tableId) async {
