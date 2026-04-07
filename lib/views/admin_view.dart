@@ -645,6 +645,7 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
   Future<void> _showCashPaymentDialog(BuildContext context, List<String> orderIds, double total, String? tableId) async {
     final cashController = TextEditingController();
     double change = 0.0;
+    bool wantFactura = false;
     
     await showDialog(
       context: context,
@@ -697,20 +698,47 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
                 },
               ),
               const SizedBox(height: 24),
-              if (change > 0 || (double.tryParse(cashController.text) ?? 0) >= total)
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-                  decoration: BoxDecoration(
-                    color: Colors.green.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
+                if (change > 0 || (double.tryParse(cashController.text) ?? 0) >= total)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.green.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
+                    ),
+                    child: Column(
+                      children: [
+                        const Text('CAMBIO PARA EL CLIENTE', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 1.2)),
+                        const SizedBox(height: 8),
+                        Text('\$${change.toStringAsFixed(2)}', style: const TextStyle(color: Colors.green, fontSize: 40, fontWeight: FontWeight.w900)),
+                      ],
+                    ),
                   ),
-                  child: Column(
+                const SizedBox(height: 20),
+                // New Facturacion Toggle inside Cash Payment
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1E293B),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.blueAccent.withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('CAMBIO PARA EL CLIENTE', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 1.2)),
-                      const SizedBox(height: 8),
-                      Text('\$${change.toStringAsFixed(2)}', style: const TextStyle(color: Colors.green, fontSize: 40, fontWeight: FontWeight.w900)),
+                      const Row(
+                        children: [
+                          Icon(Icons.receipt_long, color: Colors.blueAccent),
+                          SizedBox(width: 8),
+                          Text('¿REQUIERE FACTURA?', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                        ],
+                      ),
+                      Switch(
+                        value: wantFactura,
+                        activeColor: Colors.blueAccent,
+                        onChanged: (val) => setState(() => wantFactura = val),
+                      ),
                     ],
                   ),
                 ),
@@ -738,7 +766,20 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
                         'payment_method': 'cash',
                         'amount_cash': total
                       }).inFilter('id', orderIds);
-                      _promptFactura(context, orderIds.first, total, '01');
+                      if (wantFactura) {
+                        Navigator.push(context, MaterialPageRoute(
+                          builder: (_) => BillingView(
+                            ticket: {
+                              'id': orderIds.first,
+                              'created_at': DateTime.now().toIso8601String(),
+                              'total_amount': total,
+                              'payment_method': '01',
+                            },
+                          ),
+                        ));
+                      } else {
+                        _promptFactura(context, orderIds.first, total, '01');
+                      }
                     }
                   } catch (e) {
                     if (ctx.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
