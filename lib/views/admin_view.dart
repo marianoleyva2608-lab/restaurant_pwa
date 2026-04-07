@@ -764,6 +764,7 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
     final cashReceivedController = TextEditingController();
     double change = 0.0;
     bool isCardValidated = false;
+    bool wantFactura = false;
 
     await showDialog(
       context: context,
@@ -824,7 +825,7 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
                             double amount = double.tryParse(val) ?? 0.0;
                             if (amount > total) amount = total;
                             setState(() {
-                              cardPartController.text = amount.toStringAsFixed(2);
+                              // We don't update cardPartController.text here to avoid losing cursor
                               cashPartController.text = (total - amount).toStringAsFixed(2);
                               isCardValidated = false;
                             });
@@ -849,13 +850,40 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
                             double amount = double.tryParse(val) ?? 0.0;
                             if (amount > total) amount = total;
                             setState(() {
-                              cashPartController.text = amount.toStringAsFixed(2);
+                              // We don't update cashPartController.text here to avoid losing cursor
                               cardPartController.text = (total - amount).toStringAsFixed(2);
                             });
                           },
                         ),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 20),
+                  // New Facturacion Toggle inside Mixed Payment
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1E293B),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.blueAccent.withOpacity(0.3)),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Row(
+                          children: [
+                            Icon(Icons.receipt_long, color: Colors.blueAccent),
+                            SizedBox(width: 8),
+                            Text('¿REQUIERE FACTURA?', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                          ],
+                        ),
+                        Switch(
+                          value: wantFactura,
+                          activeColor: Colors.blueAccent,
+                          onChanged: (val) => setState(() => wantFactura = val),
+                        ),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 20),
                   if (cardAmount > 0)
@@ -915,7 +943,21 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
                         if (ctx.mounted) {
                           Navigator.pop(ctx);
                           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Pago Mixto finalizado'), backgroundColor: Colors.green));
-                          _promptFactura(context, orderIds.first, total, '99'); // 99 Por definir o Mixto
+                          // If they toggled factura, we go directly, else we show the prompt or just end
+                          if (wantFactura) {
+                             Navigator.push(context, MaterialPageRoute(
+                               builder: (_) => BillingView(
+                                 ticket: {
+                                   'id': orderIds.first,
+                                   'created_at': DateTime.now().toIso8601String(),
+                                   'total_amount': total,
+                                   'payment_method': '99',
+                                 },
+                               ),
+                             ));
+                          } else {
+                            _promptFactura(context, orderIds.first, total, '99'); // Also offer it if they missed the toggle
+                          }
                         }
                       } catch (e) {
                           if (ctx.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
