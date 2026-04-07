@@ -3,9 +3,9 @@
     "short_name": "Mis Hermanas",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#FF6D00",
+    "theme_color": "#FF6D00",
+    "description": "Gorditas Mis Hermanas PWA",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
