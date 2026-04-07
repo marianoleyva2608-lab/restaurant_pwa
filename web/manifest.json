@@ -1,6 +1,6 @@
 {
-    "name": "restaurant_pwa",
-    "short_name": "restaurant_pwa",
+    "name": "Gorditas Mis Hermanas",
+    "short_name": "Mis Hermanas",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

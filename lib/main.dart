@@ -36,7 +36,7 @@ class RestaurantApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Sabor en la Nube',
+      title: 'Gorditas Mis Hermanas',
       theme: ThemeData(
         useMaterial3: true,
         brightness: Brightness.dark,
