@@ -11,6 +11,7 @@ import 'reports_view.dart';
 import 'access_management_view.dart';
 import 'billing_view.dart';
 import 'clients_view.dart';
+import 'dart:html' as html if (dart.library.io) 'dart:io'; 
 
 class AdminView extends StatefulWidget {
   const AdminView({super.key});
@@ -174,6 +175,46 @@ class _AdminViewState extends State<AdminView> {
                           await Globals.setSplitKitchenMode(val);
                           setState(() {});
                         },
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(color: Color(0xFF334155)),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('SISTEMA', style: TextStyle(color: Color(0xFFFF6D00), fontSize: 10, fontWeight: FontWeight.bold)),
+                      const Text('Versión: 1.0.12', style: TextStyle(color: Colors.white54, fontSize: 11)),
+                      const SizedBox(height: 8),
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          // Force reload to clear cache
+                          if (identical(0, 0.0)) { // Web check (simplified)
+                             // In web
+                             // We can try to use html.window.location.reload()
+                             // But since we are in dart, we can use a trick or just inform
+                             ScaffoldMessenger.of(context).showSnackBar(
+                               const SnackBar(content: Text('Recargando aplicación para limpiar caché...'), backgroundColor: Colors.blue)
+                             );
+                             Future.delayed(const Duration(seconds: 1), () {
+                               // We use a try-catch for safety
+                               try {
+                                 (html.window as dynamic).location.reload();
+                               } catch (e) {
+                                 debugPrint('Reload error: $e');
+                               }
+                             });
+                          }
+                        },
+                        icon: const Icon(Icons.refresh, size: 16),
+                        label: const Text('Limpiar Caché', style: TextStyle(fontSize: 11)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF1E293B),
+                          foregroundColor: Colors.white,
+                          minimumSize: const Size.fromHeight(32),
+                        ),
                       ),
                     ],
                   ),

@@ -19,6 +19,8 @@ class _BillingViewState extends State<BillingView> {
   Map<String, dynamic>? _selectedTicket;
   List<Map<String, dynamic>> _realClients = [];
   bool _isLoadingClients = true;
+  List<Map<String, dynamic>> _recentOrders = [];
+  bool _isLoadingOrders = false;
 
   // Selected Values
   String _selectedClient = "PUBLICO EN GENERAL";
@@ -104,6 +106,28 @@ class _BillingViewState extends State<BillingView> {
       _selectedFormaPago = _selectedTicket!['payment_method'];
     }
     _fetchRealClients();
+    if (_selectedTicket == null) {
+      _fetchRecentOrders();
+    }
+  }
+
+  Future<void> _fetchRecentOrders() async {
+    setState(() => _isLoadingOrders = true);
+    try {
+      final res = await _supabase
+          .from('orders')
+          .select()
+          .eq('status', 'completed')
+          .order('created_at', ascending: false)
+          .limit(20);
+      setState(() {
+        _recentOrders = List<Map<String, dynamic>>.from(res);
+        _isLoadingOrders = false;
+      });
+    } catch (e) {
+      print('Error loading orders: $e');
+      setState(() => _isLoadingOrders = false);
+    }
   }
 
   Future<void> _fetchRealClients() async {
@@ -187,16 +211,78 @@ class _BillingViewState extends State<BillingView> {
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(color: Colors.blue),
                         ),
-                        child: const Text(
-                          'CFDI 4.0 - ACTIVO',
-                          style: TextStyle(
-                            color: Colors.blue,
-                            fontWeight: FontWeight.bold,
-                          ),
+                        child: Column(
+                          children: [
+                            const Text(
+                              'CFDI 4.0 - ACTIVO',
+                              style: TextStyle(
+                                color: Colors.blue,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const Text(
+                              'v1.0.12',
+                              style: TextStyle(
+                                color: Colors.blueAccent,
+                                fontSize: 10,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   ),
+
+                  if (_selectedTicket == null) ...[
+                    const SizedBox(height: 24),
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.orange[50],
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.orangeAccent),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Row(
+                            children: [
+                              Icon(Icons.history, color: Colors.orange),
+                              SizedBox(width: 8),
+                              Text('Seleccionar Pedido Reciente para Facturar',
+                                  style: TextStyle(fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          if (_isLoadingOrders)
+                            const CircularProgressIndicator()
+                          else if (_recentOrders.isEmpty)
+                            const Text('No hay pedidos completados recientemente.')
+                          else
+                            DropdownButtonFormField<String>(
+                              decoration: InputDecoration(
+                                filled: true,
+                                fillColor: Colors.white,
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                              hint: const Text('Selecciona un pedido...'),
+                              items: _recentOrders.map((o) {
+                                return DropdownMenuItem<String>(
+                                  value: o['id'],
+                                  child: Text('Folio: ${o['id'].substring(0,8)} - \$${o['total_amount']} (${o['created_at'].toString().split('T')[0]})'),
+                                );
+                              }).toList(),
+                              onChanged: (val) {
+                                setState(() {
+                                  _selectedTicket = _recentOrders.firstWhere((o) => o['id'] == val);
+                                  _selectedFormaPago = _selectedTicket?['payment_method'] ?? '01';
+                                });
+                              },
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
 
                   const SizedBox(height: 32),
 
