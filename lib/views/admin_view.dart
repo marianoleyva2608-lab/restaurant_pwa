@@ -948,6 +948,7 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
                   const SizedBox(height: 20),
                   TextField(
                     controller: cashReceivedController,
+                    autofocus: true,
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
                     style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
                     decoration: InputDecoration(
