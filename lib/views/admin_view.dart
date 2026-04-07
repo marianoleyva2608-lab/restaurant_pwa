@@ -948,18 +948,51 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
                     style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
                     decoration: InputDecoration(
-                      labelText: '¿Cuánto efectivo recibes?',
-                      hintText: 'Monto recibido',
+                      labelText: '¿CUÁNTO EFECTIVO RECIBES? (Cualquier monto restante irá a Tarjeta)',
+                      labelStyle: const TextStyle(color: Colors.orangeAccent, fontSize: 13, fontWeight: FontWeight.bold),
+                      prefixIcon: const Icon(Icons.money, color: Colors.green),
                       filled: true,
                       fillColor: const Color(0xFF1E293B),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                      prefixIcon: const Icon(Icons.attach_money, color: Colors.green),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
+                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Colors.orangeAccent, width: 2)),
+                      hintText: '0.00',
+                      hintStyle: const TextStyle(color: Colors.white24),
                     ),
-                    onChanged: (_) => setState(() {}),
+                    onChanged: (val) {
+                      double received = double.tryParse(val) ?? 0.0;
+                      setState(() {
+                         if (received <= total) {
+                            // The amount received is the cash portion, the rest is card
+                            cashPartController.text = received.toStringAsFixed(2);
+                            cardPartController.text = (total - received).toStringAsFixed(2);
+                            isCardValidated = false;
+                         } else {
+                            // Pay the total with cash, calculate change
+                            cashPartController.text = total.toStringAsFixed(2);
+                            cardPartController.text = "0.00";
+                            isCardValidated = false;
+                         }
+                      });
+                    },
                   ),
-                  const SizedBox(height: 16),
-                  if (change > 0)
-                    Text('Cambio: \$${change.toStringAsFixed(2)}', style: const TextStyle(color: Colors.greenAccent, fontSize: 20, fontWeight: FontWeight.bold)),
+                  if (change > 0 || (double.tryParse(cashReceivedController.text) ?? 0) >= (double.tryParse(cashPartController.text) ?? 0))
+                    Container(
+                      width: double.infinity,
+                      margin: const EdgeInsets.only(top: 16),
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.green.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.green.withOpacity(0.3)),
+                      ),
+                      child: Column(
+                        children: [
+                          const Text('CAMBIO (Efectivo)', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 12)),
+                          const SizedBox(height: 4),
+                          Text('\$${change.toStringAsFixed(2)}', style: const TextStyle(color: Colors.green, fontSize: 32, fontWeight: FontWeight.w900)),
+                        ],
+                      ),
+                    ),
                 ],
               ),
             ),
