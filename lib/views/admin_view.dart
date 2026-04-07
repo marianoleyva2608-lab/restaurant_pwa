@@ -755,17 +755,20 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
                 : () async {
                   final supabase = Supabase.instance.client;
                   try {
-                    await supabase.from('orders').update({'status': 'completed'}).inFilter('id', orderIds);
+                    await supabase.from('orders').update({
+                      'status': 'completed',
+                      'payment_method': 'cash',
+                      'amount_cash': total
+                    }).inFilter('id', orderIds);
+
                     if (tableId != null) {
                       await supabase.from('restaurant_tables').update({'status': 'available'}).eq('id', tableId as Object);
                     }
+                    
                     if (ctx.mounted) {
-                      Navigator.pop(ctx);
+                      Navigator.pop(ctx); // Cerrar diálogo ahora
                       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Pago finalizado con éxito'), backgroundColor: Colors.green));
-                      await supabase.from('orders').update({
-                        'payment_method': 'cash',
-                        'amount_cash': total
-                      }).inFilter('id', orderIds);
+                      
                       if (wantFactura) {
                         Navigator.push(context, MaterialPageRoute(
                           builder: (_) => BillingView(
