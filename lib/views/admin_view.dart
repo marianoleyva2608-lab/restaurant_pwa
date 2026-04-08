@@ -52,185 +52,216 @@ class _AdminViewState extends State<AdminView> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Row(
+  Widget _buildSidebar(bool isDrawer) {
+    return Container(
+      width: isDrawer ? null : 250,
+      color: const Color(0xFF0F172A),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Left Sidebar: Navigation
-          Container(
-            width: 250,
-            color: const Color(0xFF0F172A),
+          Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Image.asset('assets/images/logo.png', height: 80),
+          ),
+          InkWell(
+            onTap: () => _showRenameBranchDialog(context),
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E293B),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFFF6D00).withValues(alpha: 0.3)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('SUCURSAL ACTIVA', style: TextStyle(color: Color(0xFFFF6D00), fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.1)),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Expanded(child: Text(Globals.currentBranch, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14))),
+                      const Icon(Icons.edit, color: Colors.white54, size: 16),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          ListTile(
+            leading: Icon(Icons.dashboard, color: _selectedIndex == 0 ? const Color(0xFFFF6D00) : const Color(0xFF94A3B8)),
+            title: Text('Mesas Activas', style: TextStyle(color: _selectedIndex == 0 ? Colors.white : const Color(0xFF94A3B8), fontWeight: _selectedIndex == 0 ? FontWeight.bold : FontWeight.normal)),
+            selected: _selectedIndex == 0,
+            selectedTileColor: const Color(0xFFFF6D00).withValues(alpha: 0.1),
+            onTap: () {
+              setState(() => _selectedIndex = 0);
+              if (isDrawer) Navigator.pop(context);
+            },
+          ),
+          ListTile(
+            leading: Icon(Icons.restaurant_menu, color: _selectedIndex == 1 ? const Color(0xFFFF6D00) : const Color(0xFF94A3B8)),
+            title: Text('Gestión de Menú', style: TextStyle(color: _selectedIndex == 1 ? Colors.white : const Color(0xFF94A3B8), fontWeight: _selectedIndex == 1 ? FontWeight.bold : FontWeight.normal)),
+            selected: _selectedIndex == 1,
+            selectedTileColor: const Color(0xFFFF6D00).withValues(alpha: 0.1),
+            onTap: () {
+              setState(() => _selectedIndex = 1);
+              if (isDrawer) Navigator.pop(context);
+            },
+          ),
+          ListTile(
+            leading: Icon(Icons.people, color: _selectedIndex == 2 ? const Color(0xFFFF6D00) : const Color(0xFF94A3B8)),
+            title: Text('Gestión de Meseros', style: TextStyle(color: _selectedIndex == 2 ? Colors.white : const Color(0xFF94A3B8), fontWeight: _selectedIndex == 2 ? FontWeight.bold : FontWeight.normal)),
+            selected: _selectedIndex == 2,
+            selectedTileColor: const Color(0xFFFF6D00).withValues(alpha: 0.1),
+            onTap: () {
+              setState(() => _selectedIndex = 2);
+              if (isDrawer) Navigator.pop(context);
+            },
+          ),
+          ListTile(
+            leading: Icon(Icons.grid_view, color: _selectedIndex == 3 ? const Color(0xFFFF6D00) : const Color(0xFF94A3B8)),
+            title: Text('Gestión de Mesas', style: TextStyle(color: _selectedIndex == 3 ? Colors.white : const Color(0xFF94A3B8), fontWeight: _selectedIndex == 3 ? FontWeight.bold : FontWeight.normal)),
+            selected: _selectedIndex == 3,
+            selectedTileColor: const Color(0xFFFF6D00).withValues(alpha: 0.1),
+            onTap: () {
+              setState(() => _selectedIndex = 3);
+              if (isDrawer) Navigator.pop(context);
+            },
+          ),
+          ListTile(
+            leading: Icon(Icons.insert_chart, color: _selectedIndex == 5 ? const Color(0xFFFF6D00) : const Color(0xFF94A3B8)),
+            title: Text('Reportes de Ventas', style: TextStyle(color: _selectedIndex == 5 ? Colors.white : const Color(0xFF94A3B8), fontWeight: _selectedIndex == 5 ? FontWeight.bold : FontWeight.normal)),
+            selected: _selectedIndex == 5,
+            selectedTileColor: const Color(0xFFFF6D00).withValues(alpha: 0.1),
+            onTap: () {
+              setState(() => _selectedIndex = 5);
+              if (isDrawer) Navigator.pop(context);
+            },
+          ),
+          ListTile(
+            leading: Icon(Icons.security, color: _selectedIndex == 4 ? const Color(0xFFFF6D00) : const Color(0xFF94A3B8)),
+            title: Text('Seguridad', style: TextStyle(color: _selectedIndex == 4 ? Colors.white : const Color(0xFF94A3B8), fontWeight: _selectedIndex == 4 ? FontWeight.bold : FontWeight.normal)),
+            selected: _selectedIndex == 4,
+            selectedTileColor: const Color(0xFFFF6D00).withValues(alpha: 0.1),
+            onTap: () {
+              setState(() => _selectedIndex = 4);
+              if (isDrawer) Navigator.pop(context);
+            },
+          ),
+          ListTile(
+            leading: Icon(Icons.manage_accounts, color: _selectedIndex == 6 ? const Color(0xFFFF6D00) : const Color(0xFF94A3B8)),
+            title: Text('Gestión de Acceso', style: TextStyle(color: _selectedIndex == 6 ? Colors.white : const Color(0xFF94A3B8), fontWeight: _selectedIndex == 6 ? FontWeight.bold : FontWeight.normal)),
+            selected: _selectedIndex == 6,
+            selectedTileColor: const Color(0xFFFF6D00).withValues(alpha: 0.1),
+            onTap: () {
+              setState(() => _selectedIndex = 6);
+              if (isDrawer) Navigator.pop(context);
+            },
+          ),
+          ListTile(
+            leading: Icon(Icons.receipt_long, color: _selectedIndex == 7 ? const Color(0xFFFF6D00) : const Color(0xFF94A3B8)),
+            title: Text('Facturación CFDI', style: TextStyle(color: _selectedIndex == 7 ? Colors.white : const Color(0xFF94A3B8), fontWeight: _selectedIndex == 7 ? FontWeight.bold : FontWeight.normal)),
+            selected: _selectedIndex == 7,
+            selectedTileColor: const Color(0xFFFF6D00).withValues(alpha: 0.1),
+            onTap: () {
+              setState(() => _selectedIndex = 7);
+              if (isDrawer) Navigator.pop(context);
+            },
+          ),
+          ListTile(
+            leading: Icon(Icons.people_alt, color: _selectedIndex == 8 ? const Color(0xFFFF6D00) : const Color(0xFF94A3B8)),
+            title: Text('Gestión de Clientes', style: TextStyle(color: _selectedIndex == 8 ? Colors.white : const Color(0xFF94A3B8), fontWeight: _selectedIndex == 8 ? FontWeight.bold : FontWeight.normal)),
+            selected: _selectedIndex == 8,
+            selectedTileColor: const Color(0xFFFF6D00).withValues(alpha: 0.1),
+            onTap: () {
+              setState(() => _selectedIndex = 8);
+              if (isDrawer) Navigator.pop(context);
+            },
+          ),
+          const Divider(color: Color(0xFF334155)),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Padding(
-                  padding: const EdgeInsets.all(24.0),
-                  child: Image.asset('assets/images/logo.png', height: 80),
+                const Text('CONFIGURACIÓN', style: TextStyle(color: Color(0xFFFF6D00), fontSize: 10, fontWeight: FontWeight.bold)),
+                SwitchListTile(
+                  value: Globals.splitKitchenMode,
+                  title: const Text('Cocina Especializada', style: TextStyle(color: Colors.white, fontSize: 13)),
+                  subtitle: const Text('Separa pedidos Para Llevar', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11)),
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  onChanged: (val) async {
+                    await Globals.setSplitKitchenMode(val);
+                    setState(() {});
+                  },
                 ),
-                InkWell(
-                  onTap: () => _showRenameBranchDialog(context),
-                  child: Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF1E293B),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFFF6D00).withValues(alpha: 0.3)),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('SUCURSAL ACTIVA', style: TextStyle(color: Color(0xFFFF6D00), fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.1)),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            Expanded(child: Text(Globals.currentBranch, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14))),
-                            const Icon(Icons.edit, color: Colors.white54, size: 16),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                ListTile(
-                  leading: Icon(Icons.dashboard, color: _selectedIndex == 0 ? const Color(0xFFFF6D00) : const Color(0xFF94A3B8)),
-                  title: Text('Mesas Activas', style: TextStyle(color: _selectedIndex == 0 ? Colors.white : const Color(0xFF94A3B8), fontWeight: _selectedIndex == 0 ? FontWeight.bold : FontWeight.normal)),
-                  selected: _selectedIndex == 0,
-                  selectedTileColor: const Color(0xFFFF6D00).withValues(alpha: 0.1),
-                  onTap: () => setState(() => _selectedIndex = 0),
-                ),
-                ListTile(
-                  leading: Icon(Icons.restaurant_menu, color: _selectedIndex == 1 ? const Color(0xFFFF6D00) : const Color(0xFF94A3B8)),
-                  title: Text('Gestión de Menú', style: TextStyle(color: _selectedIndex == 1 ? Colors.white : const Color(0xFF94A3B8), fontWeight: _selectedIndex == 1 ? FontWeight.bold : FontWeight.normal)),
-                  selected: _selectedIndex == 1,
-                  selectedTileColor: const Color(0xFFFF6D00).withValues(alpha: 0.1),
-                  onTap: () => setState(() => _selectedIndex = 1),
-                ),
-                ListTile(
-                  leading: Icon(Icons.people, color: _selectedIndex == 2 ? const Color(0xFFFF6D00) : const Color(0xFF94A3B8)),
-                  title: Text('Gestión de Meseros', style: TextStyle(color: _selectedIndex == 2 ? Colors.white : const Color(0xFF94A3B8), fontWeight: _selectedIndex == 2 ? FontWeight.bold : FontWeight.normal)),
-                  selected: _selectedIndex == 2,
-                  selectedTileColor: const Color(0xFFFF6D00).withValues(alpha: 0.1),
-                  onTap: () => setState(() => _selectedIndex = 2),
-                ),
-                ListTile(
-                  leading: Icon(Icons.grid_view, color: _selectedIndex == 3 ? const Color(0xFFFF6D00) : const Color(0xFF94A3B8)),
-                  title: Text('Gestión de Mesas', style: TextStyle(color: _selectedIndex == 3 ? Colors.white : const Color(0xFF94A3B8), fontWeight: _selectedIndex == 3 ? FontWeight.bold : FontWeight.normal)),
-                  selected: _selectedIndex == 3,
-                  selectedTileColor: const Color(0xFFFF6D00).withValues(alpha: 0.1),
-                  onTap: () => setState(() => _selectedIndex = 3),
-                ),
-                ListTile(
-                  leading: Icon(Icons.insert_chart, color: _selectedIndex == 5 ? const Color(0xFFFF6D00) : const Color(0xFF94A3B8)),
-                  title: Text('Reportes de Ventas', style: TextStyle(color: _selectedIndex == 5 ? Colors.white : const Color(0xFF94A3B8), fontWeight: _selectedIndex == 5 ? FontWeight.bold : FontWeight.normal)),
-                  selected: _selectedIndex == 5,
-                  selectedTileColor: const Color(0xFFFF6D00).withValues(alpha: 0.1),
-                  onTap: () => setState(() => _selectedIndex = 5),
-                ),
-
-                ListTile(
-                  leading: Icon(Icons.security, color: _selectedIndex == 4 ? const Color(0xFFFF6D00) : const Color(0xFF94A3B8)),
-                  title: Text('Seguridad', style: TextStyle(color: _selectedIndex == 4 ? Colors.white : const Color(0xFF94A3B8), fontWeight: _selectedIndex == 4 ? FontWeight.bold : FontWeight.normal)),
-                  selected: _selectedIndex == 4,
-                  selectedTileColor: const Color(0xFFFF6D00).withValues(alpha: 0.1),
-                  onTap: () => setState(() => _selectedIndex = 4),
-                ),
-                ListTile(
-                  leading: Icon(Icons.manage_accounts, color: _selectedIndex == 6 ? const Color(0xFFFF6D00) : const Color(0xFF94A3B8)),
-                  title: Text('Gestión de Acceso', style: TextStyle(color: _selectedIndex == 6 ? Colors.white : const Color(0xFF94A3B8), fontWeight: _selectedIndex == 6 ? FontWeight.bold : FontWeight.normal)),
-                  selected: _selectedIndex == 6,
-                  selectedTileColor: const Color(0xFFFF6D00).withValues(alpha: 0.1),
-                  onTap: () => setState(() => _selectedIndex = 6),
-                ),
-                ListTile(
-                  leading: Icon(Icons.receipt_long, color: _selectedIndex == 7 ? const Color(0xFFFF6D00) : const Color(0xFF94A3B8)),
-                  title: Text('Facturación CFDI', style: TextStyle(color: _selectedIndex == 7 ? Colors.white : const Color(0xFF94A3B8), fontWeight: _selectedIndex == 7 ? FontWeight.bold : FontWeight.normal)),
-                  selected: _selectedIndex == 7,
-                  selectedTileColor: const Color(0xFFFF6D00).withValues(alpha: 0.1),
-                  onTap: () => setState(() => _selectedIndex = 7),
-                ),
-                ListTile(
-                  leading: Icon(Icons.people_alt, color: _selectedIndex == 8 ? const Color(0xFFFF6D00) : const Color(0xFF94A3B8)),
-                  title: Text('Gestión de Clientes', style: TextStyle(color: _selectedIndex == 8 ? Colors.white : const Color(0xFF94A3B8), fontWeight: _selectedIndex == 8 ? FontWeight.bold : FontWeight.normal)),
-                  selected: _selectedIndex == 8,
-                  selectedTileColor: const Color(0xFFFF6D00).withValues(alpha: 0.1),
-                  onTap: () => setState(() => _selectedIndex = 8),
-                ),
-                const Divider(color: Color(0xFF334155)),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('CONFIGURACIÓN', style: TextStyle(color: Color(0xFFFF6D00), fontSize: 10, fontWeight: FontWeight.bold)),
-                      SwitchListTile(
-                        value: Globals.splitKitchenMode,
-                        title: const Text('Cocina Especializada', style: TextStyle(color: Colors.white, fontSize: 13)),
-                        subtitle: const Text('Separa pedidos Para Llevar', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11)),
-                        dense: true,
-                        contentPadding: EdgeInsets.zero,
-                        onChanged: (val) async {
-                          await Globals.setSplitKitchenMode(val);
-                          setState(() {});
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-                const Divider(color: Color(0xFF334155)),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('SISTEMA', style: TextStyle(color: Color(0xFFFF6D00), fontSize: 10, fontWeight: FontWeight.bold)),
-                      const Text('Versión: 1.0.12', style: TextStyle(color: Colors.white54, fontSize: 11)),
-                      const SizedBox(height: 8),
-                      ElevatedButton.icon(
-                        onPressed: () {
-                          // Force reload to clear cache
-                          if (identical(0, 0.0)) { // Web check (simplified)
-                             // In web
-                             // We can try to use html.window.location.reload()
-                             // But since we are in dart, we can use a trick or just inform
-                             ScaffoldMessenger.of(context).showSnackBar(
-                               const SnackBar(content: Text('Recargando aplicación para limpiar caché...'), backgroundColor: Colors.blue)
-                             );
-                             Future.delayed(const Duration(seconds: 1), () {
-                               // We use a try-catch for safety
-                               try {
-                                 (html.window as dynamic).location.reload();
-                               } catch (e) {
-                                 debugPrint('Reload error: $e');
-                               }
-                             });
-                          }
-                        },
-                        icon: const Icon(Icons.refresh, size: 16),
-                        label: const Text('Limpiar Caché', style: TextStyle(fontSize: 11)),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF1E293B),
-                          foregroundColor: Colors.white,
-                          minimumSize: const Size.fromHeight(32),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const Spacer(),
-                const Divider(color: Color(0xFF334155)),
-                ListTile(
-                  leading: const Icon(Icons.logout, color: Color(0xFF94A3B8)),
-                  title: const Text('Salir al menú', style: TextStyle(color: Color(0xFF94A3B8))),
-                  onTap: () => Navigator.pop(context),
-                ),
-                const SizedBox(height: 16),
               ],
             ),
           ),
-          const VerticalDivider(width: 1, thickness: 1, color: Color(0xFF334155)),
+          const Divider(color: Color(0xFF334155)),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('SISTEMA', style: TextStyle(color: Color(0xFFFF6D00), fontSize: 10, fontWeight: FontWeight.bold)),
+                const Text('Versión: 1.0.12', style: TextStyle(color: Colors.white54, fontSize: 11)),
+                const SizedBox(height: 8),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    if (identical(0, 0.0)) { 
+                       ScaffoldMessenger.of(context).showSnackBar(
+                         const SnackBar(content: Text('Recargando aplicación para limpiar caché...'), backgroundColor: Colors.blue)
+                       );
+                       Future.delayed(const Duration(seconds: 1), () {
+                         try {
+                           (html.window as dynamic).location.reload();
+                         } catch (e) {
+                           debugPrint('Reload error: $e');
+                         }
+                       });
+                    }
+                  },
+                  icon: const Icon(Icons.refresh, size: 16),
+                  label: const Text('Limpiar Caché', style: TextStyle(fontSize: 11)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF1E293B),
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size.fromHeight(32),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Spacer(),
+          const Divider(color: Color(0xFF334155)),
+          ListTile(
+            leading: const Icon(Icons.logout, color: Color(0xFF94A3B8)),
+            title: const Text('Salir al menú', style: TextStyle(color: Color(0xFF94A3B8))),
+            onTap: () => Navigator.pop(context),
+          ),
+          const SizedBox(height: 16),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 1100;
+
+    return Scaffold(
+      drawer: isMobile ? Drawer(child: _buildSidebar(true)) : null,
+      body: Row(
+        children: [
+          // Left Sidebar: Navigation (Only for Desktop)
+          if (!isMobile) _buildSidebar(false),
+          
+          if (!isMobile) const VerticalDivider(width: 1, thickness: 1, color: Color(0xFF334155)),
+          
           // Main Content Section
           Expanded(
             child: _buildMainContent(),
@@ -302,189 +333,258 @@ class _AdminViewState extends State<AdminView> {
   }
 
   Widget _buildTablesDashboard() {
-    return Row(
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 1200; // Un poco más ancho para dar espacio al mapa y panel
+
+    return Stack(
       children: [
-        Expanded(
-          flex: 3,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Padding(
-                padding: EdgeInsets.all(24.0),
-                child: Text(
-                  'Vista General',
-                  style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-                ),
-              ),
-              Expanded(
-                child: StreamBuilder<List<Map<String, dynamic>>>(
-                  stream: _supabase.from('restaurant_tables').stream(primaryKey: ['id']).eq('branch_name', Globals.currentBranch).order('table_number', ascending: true),
-                  builder: (context, tablesSnapshot) {
-                    return StreamBuilder<List<Map<String, dynamic>>>(
-                      stream: _supabase.from('orders').stream(primaryKey: ['id']),
-                      builder: (context, ordersSnapshot) {
-                        if (!tablesSnapshot.hasData || !ordersSnapshot.hasData) {
-                          return const Center(child: CircularProgressIndicator());
-                        }
-                        
-                        final tables = (tablesSnapshot.data as List<Map<String, dynamic>>).where((t) => t['branch_name'] == Globals.currentBranch).toList();
-                        final activeOrders = (ordersSnapshot.data as List<Map<String, dynamic>>).where((o) => 
-                          o['branch_name'] == Globals.currentBranch && 
-                          ['pending', 'ready', 'incomplete'].contains(o['status'])
-                        ).toList();
-                        final nonTableOrders = activeOrders.where((o) => o['table_id'] == null).toList();
+        Row(
+          children: [
+            Expanded(
+              flex: 3,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Row(
+                      children: [
+                        if (isMobile)
+                          IconButton(
+                            icon: const Icon(Icons.menu, color: Colors.white, size: 28),
+                            onPressed: () => Scaffold.of(context).openDrawer(),
+                          ),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Vista General',
+                          style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: StreamBuilder<List<Map<String, dynamic>>>(
+                      stream: _supabase.from('restaurant_tables').stream(primaryKey: ['id']).eq('branch_name', Globals.currentBranch).order('table_number', ascending: true),
+                      builder: (context, tablesSnapshot) {
+                        return StreamBuilder<List<Map<String, dynamic>>>(
+                          stream: _supabase.from('orders').stream(primaryKey: ['id']),
+                          builder: (context, ordersSnapshot) {
+                            if (!tablesSnapshot.hasData || !ordersSnapshot.hasData) {
+                              return const Center(child: CircularProgressIndicator());
+                            }
+                            
+                            final tables = (tablesSnapshot.data as List<Map<String, dynamic>>).where((t) => t['branch_name'] == Globals.currentBranch).toList();
+                            final activeOrders = (ordersSnapshot.data as List<Map<String, dynamic>>).where((o) => 
+                              o['branch_name'] == Globals.currentBranch && 
+                              ['pending', 'ready', 'incomplete'].contains(o['status'])
+                            ).toList();
+                            final nonTableOrders = activeOrders.where((o) => o['table_id'] == null).toList();
 
-                        // Separate map items and floating items
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            if (nonTableOrders.isNotEmpty)
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-                                color: const Color(0xFF1E293B),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text('Órdenes Para Llevar / Delivery Activas', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold)),
-                                    const SizedBox(height: 8),
-                                    SizedBox(
-                                      height: 130,
-                                      child: ListView.separated(
-                                        scrollDirection: Axis.horizontal,
-                                        itemCount: nonTableOrders.length,
-                                        separatorBuilder: (context, index) => const SizedBox(width: 16),
-                                        itemBuilder: (context, index) {
-                                          final order = nonTableOrders[index];
-                                          final isSelected = _selectedOrderId == order['id'];
-                                          final orderType = order['order_type'];
-                                          final orderTypeStr = orderType == 'takeout' ? 'Para Llevar' : 'Delivery';
-                                           
-                                           String? waiterName;
-                                           if (order['waiter_id'] != null) {
-                                             try {
-                                               final w = _waiters.firstWhere((w) => w['id'] == order['waiter_id']);
-                                               waiterName = w['name'].toString().split(' ').first;
-                                             } catch (_) {}
-                                           }
+                            // Separate map items and floating items
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                if (nonTableOrders.isNotEmpty)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                                    color: const Color(0xFF1E293B),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        const Text('Órdenes Para Llevar / Delivery Activas', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold)),
+                                        const SizedBox(height: 8),
+                                        SizedBox(
+                                          height: 130,
+                                          child: ListView.separated(
+                                            scrollDirection: Axis.horizontal,
+                                            itemCount: nonTableOrders.length,
+                                            separatorBuilder: (context, index) => const SizedBox(width: 16),
+                                            itemBuilder: (context, index) {
+                                              final order = nonTableOrders[index];
+                                              final isSelected = _selectedOrderId == order['id'];
+                                              final orderType = order['order_type'];
+                                              final orderTypeStr = orderType == 'takeout' ? 'Para Llevar' : 'Delivery';
+                                               
+                                               String? waiterName;
+                                               if (order['waiter_id'] != null) {
+                                                 try {
+                                                   final w = _waiters.firstWhere((w) => w['id'] == order['waiter_id']);
+                                                   waiterName = w['name'].toString().split(' ').first;
+                                                 } catch (_) {}
+                                               }
 
-                                          return SizedBox(
-                                            width: 160,
-                                            child: _TableCard(
-                                              title: orderTypeStr,
-                                              subtitle: order['customer_name'] ?? 'Cliente',
-                                              icon: orderType == 'takeout' ? Icons.takeout_dining : Icons.delivery_dining,
-                                              color: orderType == 'takeout' ? Colors.orangeAccent : Colors.purpleAccent,
-                                              waiterName: waiterName,
-                                              isOccupied: true, // It's an active order
-                                              isSelected: isSelected,
-                                              onTap: () {
-                                                setState(() {
-                                                  _selectedOrderId = order['id'] as String;
-                                                  _selectedTableId = null;
-                                                  _selectedTableNumber = null;
-                                                });
-                                              },
-                                            ),
-                                          );
-                                        },
-                                      ),
+                                              return SizedBox(
+                                                width: 160,
+                                                child: _TableCard(
+                                                  title: orderTypeStr,
+                                                  subtitle: order['customer_name'] ?? 'Cliente',
+                                                  icon: orderType == 'takeout' ? Icons.takeout_dining : Icons.delivery_dining,
+                                                  color: orderType == 'takeout' ? Colors.orangeAccent : Colors.purpleAccent,
+                                                  waiterName: waiterName,
+                                                  isOccupied: true, // It's an active order
+                                                  isSelected: isSelected,
+                                                  onTap: () {
+                                                    setState(() {
+                                                      _selectedOrderId = order['id'] as String;
+                                                      _selectedTableId = null;
+                                                      _selectedTableNumber = null;
+                                                    });
+                                                  },
+                                                ),
+                                              );
+                                            },
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                  ],
-                                ),
-                              ),
-                            Expanded(
-                              child: ClipRRect(
-                                child: InteractiveViewer(
-                                  transformationController: _transformationController,
-                                  constrained: false,
-                                  panEnabled: true,
-                                  scaleEnabled: true,
-                                  boundaryMargin: const EdgeInsets.all(2000),
-                                  minScale: 0.1,
-                                  maxScale: 2.0,
-                                  child: Container(
-                                    width: 2000,
-                                    height: 2000,
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFF0F172A),
-                                      border: Border.all(color: const Color(0xFF334155)),
-                                    ),
-                                    child: CustomPaint(
-                                      painter: GridPainter(),
-                                      child: Stack(
-                                        children: tables.map((table) {
-                                          final isOccupied = table['status'] == 'occupied';
-                                          final isSelected = _selectedTableId == table['id'];
-                                          double x = (table['pos_x'] as num?)?.toDouble() ?? 50.0;
-                                          double y = (table['pos_y'] as num?)?.toDouble() ?? 50.0;
-                                          String calculatedSubtitle = isOccupied ? 'Ocupada' : 'Libre';
-                                          String? waiterName;
-                                          if (isOccupied) {
-                                            final tOrders = activeOrders.where((o) => o['table_id'] == table['id']).toList();
-                                            if (tOrders.isNotEmpty && tOrders.first['waiter_id'] != null) {
-                                              try {
-                                                final wName = _waiters.firstWhere((w) => w['id'] == tOrders.first['waiter_id'])['name'];
-                                                waiterName = wName.toString().split(' ').first; // Solo primer nombre para el badge
-                                              } catch (_) {}
-                                            }
-                                          }
+                                  ),
+                                Expanded(
+                                  child: ClipRRect(
+                                    child: InteractiveViewer(
+                                      transformationController: _transformationController,
+                                      constrained: false,
+                                      panEnabled: true,
+                                      scaleEnabled: true,
+                                      boundaryMargin: const EdgeInsets.all(2000),
+                                      minScale: 0.1,
+                                      maxScale: 2.0,
+                                      child: Container(
+                                        width: 2000,
+                                        height: 2000,
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFF0F172A),
+                                          border: Border.all(color: const Color(0xFF334155)),
+                                        ),
+                                        child: CustomPaint(
+                                          painter: GridPainter(),
+                                          child: Stack(
+                                            children: tables.map((table) {
+                                              final isOccupied = table['status'] == 'occupied';
+                                              final isSelected = _selectedTableId == table['id'];
+                                              double x = (table['pos_x'] as num?)?.toDouble() ?? 50.0;
+                                              double y = (table['pos_y'] as num?)?.toDouble() ?? 50.0;
+                                              String calculatedSubtitle = isOccupied ? 'Ocupada' : 'Libre';
+                                              String? waiterName;
+                                              if (isOccupied) {
+                                                final tOrders = activeOrders.where((o) => o['table_id'] == table['id']).toList();
+                                                if (tOrders.isNotEmpty && tOrders.first['waiter_id'] != null) {
+                                                  try {
+                                                    final wName = _waiters.firstWhere((w) => w['id'] == tOrders.first['waiter_id'])['name'];
+                                                    waiterName = wName.toString().split(' ').first; // Solo primer nombre para el badge
+                                                  } catch (_) {}
+                                                }
+                                              }
 
-                                          return Positioned(
-                                            left: x,
-                                            top: y,
-                                            child: SizedBox(
-                                              width: 120,
-                                              height: 120,
-                                              child: _TableCard(
-                                                title: 'Mesa ${table['table_number']}',
-                                                subtitle: calculatedSubtitle,
-                                                icon: Icons.table_restaurant,
-                                                isOccupied: isOccupied,
-                                                isSelected: isSelected,
-                                                waiterName: waiterName,
-                                                onTap: () {
-                                                  setState(() {
-                                                    _selectedTableId = table['id'];
-                                                    _selectedTableNumber = table['table_number'].toString();
-                                                    _selectedOrderId = null;
-                                                  });
-                                                },
-                                              ),
-                                            ),
-                                          );
-                                        }).toList(),
+                                              return Positioned(
+                                                left: x,
+                                                top: y,
+                                                child: SizedBox(
+                                                  width: 120,
+                                                  height: 120,
+                                                  child: _TableCard(
+                                                    title: 'Mesa ${table['table_number']}',
+                                                    subtitle: calculatedSubtitle,
+                                                    icon: Icons.table_restaurant,
+                                                    isOccupied: isOccupied,
+                                                    isSelected: isSelected,
+                                                    waiterName: waiterName,
+                                                    onTap: () {
+                                                      setState(() {
+                                                        _selectedTableId = table['id'];
+                                                        _selectedTableNumber = table['table_number'].toString();
+                                                        _selectedOrderId = null;
+                                                      });
+                                                    },
+                                                  ),
+                                                ),
+                                              );
+                                            }).toList(),
+                                          ),
+                                        ),
                                       ),
                                     ),
                                   ),
                                 ),
-                              ),
-                            ),
-                          ],
+                              ],
+                            );
+                          },
                         );
                       },
-                    );
-                  },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (!isMobile) const VerticalDivider(width: 1, thickness: 1, color: Color(0xFF334155)),
+            // Right Section: Order detail for selected table (Only for Desktop)
+            if (!isMobile)
+              Container(
+                width: 350,
+                color: const Color(0xFF0F172A),
+                child: (_selectedTableId == null && _selectedOrderId == null)
+                    ? const Center(
+                        child: Text('Selecciona una mesa u orden', style: TextStyle(color: Colors.grey)),
+                      )
+                    : _TableDetailPanel(
+                        tableId: _selectedTableId, 
+                        tableNumber: _selectedTableNumber,
+                        orderId: _selectedOrderId,
+                        waitersList: _waiters,
+                        onDeselect: () => setState(() {
+                          _selectedTableId = null;
+                          _selectedOrderId = null;
+                        }),
+                      ),
+              ),
+          ],
+        ),
+        
+        // Modal / Overlay for Table Detail (Mobile/Tablet)
+        if (isMobile && (_selectedTableId != null || _selectedOrderId != null))
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: () => setState(() {
+                _selectedTableId = null;
+                _selectedOrderId = null;
+              }),
+              child: Container(
+                color: Colors.black54,
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: Container(
+                    width: screenWidth * 0.85,
+                    constraints: const BoxConstraints(maxWidth: 400),
+                    color: const Color(0xFF0F172A),
+                    child: Stack(
+                      children: [
+                        _TableDetailPanel(
+                          tableId: _selectedTableId, 
+                          tableNumber: _selectedTableNumber,
+                          orderId: _selectedOrderId,
+                          waitersList: _waiters,
+                          onDeselect: () => setState(() {
+                            _selectedTableId = null;
+                            _selectedOrderId = null;
+                          }),
+                        ),
+                        Positioned(
+                          top: 10,
+                          left: 10,
+                          child: IconButton(
+                            icon: const Icon(Icons.close, color: Colors.white),
+                            onPressed: () => setState(() {
+                              _selectedTableId = null;
+                              _selectedOrderId = null;
+                            }),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
-            ],
+            ),
           ),
-        ),
-        const VerticalDivider(width: 1, thickness: 1, color: Color(0xFF334155)),
-        // Right Section: Order detail for selected table
-        Container(
-          width: 350,
-          color: const Color(0xFF0F172A),
-          child: (_selectedTableId == null && _selectedOrderId == null)
-              ? const Center(
-                  child: Text('Selecciona una mesa u orden', style: TextStyle(color: Colors.grey)),
-                )
-              : _TableDetailPanel(
-                  tableId: _selectedTableId, 
-                  tableNumber: _selectedTableNumber,
-                  orderId: _selectedOrderId,
-                  waitersList: _waiters,
-                ),
-        ),
       ],
     );
   }
@@ -598,8 +698,15 @@ class _TableDetailPanel extends StatefulWidget {
   final String? tableNumber;
   final String? orderId;
   final List<Map<String, dynamic>> waitersList;
+  final VoidCallback? onDeselect;
 
-  const _TableDetailPanel({this.tableId, this.tableNumber, this.orderId, this.waitersList = const []});
+  const _TableDetailPanel({
+    this.tableId, 
+    this.tableNumber, 
+    this.orderId, 
+    this.waitersList = const [],
+    this.onDeselect,
+  });
 
   @override
   State<_TableDetailPanel> createState() => _TableDetailPanelState();
@@ -769,6 +876,8 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
                       Navigator.pop(ctx); // Cerrar diálogo ahora
                       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Pago finalizado con éxito'), backgroundColor: Colors.green));
                       
+                      widget.onDeselect?.call(); 
+
                       if (wantFactura) {
                         Navigator.push(context, MaterialPageRoute(
                           builder: (_) => BillingView(
@@ -1050,6 +1159,8 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
         Navigator.pop(context); // Close dialog
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Pago Mixto finalizado'), backgroundColor: Colors.green));
         
+        widget.onDeselect?.call();
+
         if (wantFactura) {
            Navigator.push(context, MaterialPageRoute(
              builder: (_) => BillingView(
@@ -1119,6 +1230,7 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('Cuenta cancelada exitosamente', style: TextStyle(color: Colors.white)), backgroundColor: Colors.red)
                       );
+                      widget.onDeselect?.call();
                     }
                   } else {
                     if (context.mounted) {
@@ -1613,6 +1725,7 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
                                             }
                                             if (context.mounted) {
                                               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cobro con terminal exitoso')));
+                                              widget.onDeselect?.call();
                                               _promptFactura(context, orderIds.first, totalToPay, '04');
                                             }
                                           } catch (e) {

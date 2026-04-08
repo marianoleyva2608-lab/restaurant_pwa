@@ -37,13 +37,22 @@ class _KitchenViewState extends State<KitchenView> {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 800;
+
     return Scaffold(
       appBar: AppBar(
+        leading: screenWidth < 1000 ? Builder(
+          builder: (context) => IconButton(
+            icon: const Icon(Icons.menu),
+            onPressed: () => Scaffold.of(context).openDrawer(),
+          ),
+        ) : null,
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(widget.isDrinksOnly ? 'Bar de Bebidas' : (widget.isTakeoutOnly ? 'Cocina Para Llevar' : 'Línea de Producción'), 
-                 style: const TextStyle(fontWeight: FontWeight.bold)),
+                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: isMobile ? 18 : 22)),
             Text('Sucursal: ${Globals.currentBranch}', style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8))),
           ],
         ),
@@ -116,13 +125,16 @@ class _KitchenViewState extends State<KitchenView> {
                 );
               }
 
+              final screenWidth = MediaQuery.of(context).size.width;
+              final isMobile = screenWidth < 800;
+              
               return GridView.builder(
-                padding: const EdgeInsets.all(24),
-                gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                  maxCrossAxisExtent: 400,
-                  crossAxisSpacing: 16,
-                  mainAxisSpacing: 16,
-                  childAspectRatio: 0.8,
+                padding: EdgeInsets.all(isMobile ? 12 : 24),
+                gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+                  maxCrossAxisExtent: isMobile ? screenWidth : 450,
+                  crossAxisSpacing: isMobile ? 8 : 16,
+                  mainAxisSpacing: isMobile ? 8 : 16,
+                  childAspectRatio: isMobile ? 1.0 : 0.75,
                 ),
                 itemCount: orders.length,
                 itemBuilder: (context, index) {
@@ -134,6 +146,62 @@ class _KitchenViewState extends State<KitchenView> {
           );
         },
       ),
+      drawer: screenWidth < 1000 ? _buildSidebar(context) : null,
+    );
+  }
+
+  Widget _buildSidebar(BuildContext context) {
+    return Drawer(
+      backgroundColor: const Color(0xFF0F172A),
+      child: ListView(
+        padding: EdgeInsets.zero,
+        children: [
+          DrawerHeader(
+            decoration: const BoxDecoration(color: Color(0xFF1E293B)),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.restaurant, color: Color(0xFFFF6D00), size: 40),
+                const SizedBox(height: 12),
+                Text(
+                  widget.isDrinksOnly ? 'Bar' : (widget.isTakeoutOnly ? 'Para Llevar' : 'Cocina'),
+                  style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+                ),
+                Text(Globals.currentBranch, style: const TextStyle(color: Colors.white70)),
+              ],
+            ),
+          ),
+          _sidebarItem(context, Icons.kitchen, 'Línea de Producción', widget.isDrinksOnly == false && widget.isTakeoutOnly == false),
+          _sidebarItem(context, Icons.local_bar, 'Bar de Bebidas', widget.isDrinksOnly),
+          _sidebarItem(context, Icons.takeout_dining, 'Para Llevar / Uber', widget.isTakeoutOnly),
+          const Divider(color: Color(0xFF334155)),
+          ListTile(
+            leading: const Icon(Icons.arrow_back, color: Colors.white54),
+            title: const Text('Volver al Menú Principal', style: TextStyle(color: Colors.white70)),
+            onTap: () => Navigator.pop(context),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _sidebarItem(BuildContext context, IconData icon, String title, bool isSelected) {
+    return ListTile(
+      leading: Icon(icon, color: isSelected ? const Color(0xFFFF6D00) : Colors.white54),
+      title: Text(title, style: TextStyle(color: isSelected ? Colors.white : Colors.white70, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
+      selected: isSelected,
+      selectedTileColor: const Color(0xFFFF6D00).withValues(alpha: 0.1),
+      onTap: () {
+        // Here you would navigate or update state
+        Navigator.pop(context);
+        if (title.contains('Bebidas')) {
+          Navigator.pushReplacement(context, MaterialPageRoute(builder: (c) => const KitchenView(isDrinksOnly: true)));
+        } else if (title.contains('Llevar')) {
+          Navigator.pushReplacement(context, MaterialPageRoute(builder: (c) => const KitchenView(isTakeoutOnly: true)));
+        } else {
+          Navigator.pushReplacement(context, MaterialPageRoute(builder: (c) => const KitchenView()));
+        }
+      },
     );
   }
 }

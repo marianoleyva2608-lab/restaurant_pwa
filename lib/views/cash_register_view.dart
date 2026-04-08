@@ -268,6 +268,9 @@ class _CashRegisterViewState extends State<CashRegisterView> {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 800;
+
     // Calculo de totales del dia según movimientos de salida/entrada en EFECTIVO
     double entradasEfectivo = 0;
     double salidasEfectivo = 0;
@@ -310,13 +313,13 @@ class _CashRegisterViewState extends State<CashRegisterView> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 // Tarjetas resumen superrápidas
-                Row(
+                Wrap(
+                  spacing: 16,
+                  runSpacing: 16,
                   children: [
-                    _buildSummaryCard('Entradas Extra\n(Efectivo)', '+\$${entradasEfectivo.toStringAsFixed(2)}', Colors.greenAccent),
-                    const SizedBox(width: 16),
-                    _buildSummaryCard('Salidas / Gastos\n(Efectivo)', '-\$${salidasEfectivo.toStringAsFixed(2)}', Colors.redAccent),
-                    const SizedBox(width: 16),
-                    _buildSummaryCard('Préstamos \nEntregados Hoy', '\$${prestamosHoy.toStringAsFixed(2)}', Colors.orangeAccent),
+                    _buildSummaryCard('Entradas Extra\n(Efectivo)', '+\$${entradasEfectivo.toStringAsFixed(2)}', Colors.greenAccent, isMobile),
+                    _buildSummaryCard('Salidas / Gastos\n(Efectivo)', '-\$${salidasEfectivo.toStringAsFixed(2)}', Colors.redAccent, isMobile),
+                    _buildSummaryCard('Préstamos \nEntregados Hoy', '\$${prestamosHoy.toStringAsFixed(2)}', Colors.orangeAccent, isMobile),
                   ],
                 ),
                 const SizedBox(height: 24),
@@ -370,23 +373,23 @@ class _CashRegisterViewState extends State<CashRegisterView> {
     );
   }
 
-  Widget _buildSummaryCard(String title, String value, Color accentColor) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: const Color(0xFF1E293B),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFF334155)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 8),
-            Text(value, style: TextStyle(color: accentColor, fontSize: 24, fontWeight: FontWeight.bold)),
-          ],
-        ),
+  Widget _buildSummaryCard(String title, String value, Color accentColor, bool isMobile) {
+    return Container(
+      width: isMobile ? (MediaQuery.of(context).size.width - 64) / 1 : 250, // Adaptive width
+      constraints: BoxConstraints(minWidth: isMobile ? 150 : 200),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E293B),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF334155)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 8),
+          Text(value, style: TextStyle(color: accentColor, fontSize: 24, fontWeight: FontWeight.bold)),
+        ],
       ),
     );
   }

@@ -160,6 +160,7 @@ class _TableManagementViewState extends State<TableManagementView> {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
     return StreamBuilder<List<Map<String, dynamic>>>(
       stream: _supabase.from('restaurant_tables')
           .stream(primaryKey: ['id'])
@@ -173,20 +174,23 @@ class _TableManagementViewState extends State<TableManagementView> {
         _isLoading = false;
 
         return Padding(
-      padding: const EdgeInsets.all(32.0),
+      padding: EdgeInsets.all(screenWidth < 800 ? 16.0 : 32.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          Flex(
+            direction: screenWidth < 800 ? Axis.vertical : Axis.horizontal,
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: screenWidth < 800 ? CrossAxisAlignment.start : CrossAxisAlignment.center,
             children: [
-              const Column(
+              Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Gestión de Mesas', style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.white)),
-                  Text('Configura el mapa de tu restaurante', style: TextStyle(fontSize: 16, color: Color(0xFF94A3B8))),
+                  Text('Gestión de Mesas', style: TextStyle(fontSize: screenWidth < 800 ? 24 : 32, fontWeight: FontWeight.bold, color: Colors.white)),
+                  const Text('Configura el mapa de tu restaurante', style: TextStyle(fontSize: 16, color: Color(0xFF94A3B8))),
                 ],
               ),
+              if (screenWidth < 800) const SizedBox(height: 16),
               Wrap(
                 spacing: 16,
                 runSpacing: 16,

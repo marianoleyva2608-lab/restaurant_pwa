@@ -127,6 +127,10 @@ class _WaiterManagementViewState extends State<WaiterManagementView> {
 
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    final isMobile = width < 700;
+    final crossAxisCount = width < 600 ? 1 : width < 1000 ? 2 : width < 1400 ? 3 : 4;
+
     return StreamBuilder<List<Map<String, dynamic>>>(
       stream: _supabase.from('waiters')
           .stream(primaryKey: ['id'])
@@ -139,14 +143,17 @@ class _WaiterManagementViewState extends State<WaiterManagementView> {
         _waiters = snapshot.data!;
 
         return Padding(
-      padding: const EdgeInsets.all(32.0),
+      padding: EdgeInsets.all(isMobile ? 16.0 : 32.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          Flex(
+            direction: isMobile ? Axis.vertical : Axis.horizontal,
+            crossAxisAlignment: isMobile ? CrossAxisAlignment.start : CrossAxisAlignment.center,
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Gestión de Meseros', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white)),
+              Text('Gestión de Meseros', style: TextStyle(fontSize: isMobile ? 24 : 28, fontWeight: FontWeight.bold, color: Colors.white)),
+              if (isMobile) const SizedBox(height: 16),
               ElevatedButton.icon(
                 onPressed: () => _showWaiterDialog(),
                 icon: const Icon(Icons.add),
@@ -163,9 +170,9 @@ class _WaiterManagementViewState extends State<WaiterManagementView> {
           const SizedBox(height: 32),
           Expanded(
             child: GridView.builder(
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 4,
-                childAspectRatio: 2.5,
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: crossAxisCount,
+                childAspectRatio: isMobile ? 3.0 : 2.5,
                 crossAxisSpacing: 16,
                 mainAxisSpacing: 16,
               ),

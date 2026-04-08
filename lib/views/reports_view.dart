@@ -324,12 +324,16 @@ class _ReportsViewState extends State<ReportsView> {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 1000;
+    final isSmall = screenWidth < 600;
+
     return Scaffold(
       backgroundColor: const Color(0xFF0F172A),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
-              padding: const EdgeInsets.all(32.0),
+              padding: EdgeInsets.all(isSmall ? 16.0 : 32.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -339,8 +343,10 @@ class _ReportsViewState extends State<ReportsView> {
                     crossAxisAlignment: WrapCrossAlignment.center,
                     runSpacing: 16.0,
                     children: [
-                      Row(
+                      Flex(
+                        direction: isSmall ? Axis.vertical : Axis.horizontal,
                         mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: isSmall ? CrossAxisAlignment.start : CrossAxisAlignment.center,
                         children: [
                           const Text(
                             'Historial de Ventas',
@@ -350,7 +356,7 @@ class _ReportsViewState extends State<ReportsView> {
                               color: Colors.white,
                             ),
                           ),
-                          const SizedBox(width: 24),
+                          SizedBox(width: isSmall ? 0 : 24, height: isSmall ? 16 : 0),
                           Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 16,
@@ -439,7 +445,7 @@ class _ReportsViewState extends State<ReportsView> {
                               ),
                             ),
                           ),
-                          const SizedBox(width: 16),
+                          SizedBox(width: isSmall ? 0 : 16, height: isSmall ? 8 : 0),
                           // Branch Filter
                           Container(
                             padding: const EdgeInsets.symmetric(
@@ -489,8 +495,10 @@ class _ReportsViewState extends State<ReportsView> {
                           ),
                         ],
                       ),
-                      Row(
+                      Flex(
+                        direction: isSmall ? Axis.vertical : Axis.horizontal,
                         mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: isSmall ? CrossAxisAlignment.stretch : CrossAxisAlignment.center,
                         children: [
                           ElevatedButton.icon(
                             onPressed: () {
@@ -509,54 +517,59 @@ class _ReportsViewState extends State<ReportsView> {
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                             ),
                           ),
-                          const SizedBox(width: 16),
-                          const Icon(
-                            Icons.notifications,
-                            color: Colors.white54,
-                          ),
-                          const SizedBox(width: 16),
-                          PopupMenuButton<String>(
-                            onSelected: (val) {
-                              if (val == 'csv') _downloadCsv();
-                              if (val == 'pdf') _downloadPdf();
-                            },
-                            itemBuilder: (context) => [
-                              const PopupMenuItem(
-                                value: 'csv',
-                                child: Text('Exportar a Excel (CSV)'),
+                          SizedBox(width: isSmall ? 0 : 12, height: isSmall ? 12 : 0),
+                          Row(
+                            mainAxisAlignment: isSmall ? MainAxisAlignment.spaceBetween : MainAxisAlignment.start,
+                            children: [
+                              const Icon(
+                                Icons.notifications,
+                                color: Colors.white54,
                               ),
-                              const PopupMenuItem(
-                                value: 'pdf',
-                                child: Text('Exportar a PDF (Imprimir)'),
-                              ),
-                            ],
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 12,
-                              ),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFFF6D00),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Row(
-                                children: const [
-                                  Icon(
-                                    Icons.file_download,
-                                    size: 18,
-                                    color: Colors.white,
+                              const SizedBox(width: 16),
+                              PopupMenuButton<String>(
+                                onSelected: (val) {
+                                  if (val == 'csv') _downloadCsv();
+                                  if (val == 'pdf') _downloadPdf();
+                                },
+                                itemBuilder: (context) => [
+                                  const PopupMenuItem(
+                                    value: 'csv',
+                                    child: Text('Exportar a Excel (CSV)'),
                                   ),
-                                  SizedBox(width: 8),
-                                  Text(
-                                    'Exportar Reporte',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                    ),
+                                  const PopupMenuItem(
+                                    value: 'pdf',
+                                    child: Text('Exportar a PDF (Imprimir)'),
                                   ),
                                 ],
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 12,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFFF6D00),
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: Row(
+                                    children: const [
+                                      Icon(
+                                        Icons.file_download,
+                                        size: 18,
+                                        color: Colors.white,
+                                      ),
+                                      SizedBox(width: 8),
+                                      Text(
+                                        'Exportar',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               ),
-                            ),
+                            ],
                           ),
                         ],
                       ),
@@ -564,45 +577,53 @@ class _ReportsViewState extends State<ReportsView> {
                   ),
                   const SizedBox(height: 32),
 
-                  // 4 Top Cards
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildMetricCard(
-                          title: 'VENTAS DEL DÍA',
-                          value: '\$${_totalSales.toStringAsFixed(2)}',
-                          additionalInfo: '+12%',
-                          infoColor: Colors.greenAccent[400],
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: _buildMetricCard(
-                          title: 'ÓRDENES CERRADAS',
-                          value: '$_totalOrders',
-                          additionalInfo: 'Hoy',
-                          infoColor: Colors.grey,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: _buildMetricCard(
-                          title: 'TICKET PROMEDIO',
-                          value: '\$${_ticketPromedio.toStringAsFixed(2)}',
-                          additionalInfo: '-2%',
-                          infoColor: Colors.redAccent[400],
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: _buildMetricCard(
-                          title: 'EFECTIVO EN CAJA',
-                          value: '\$${_efectivoEnCaja.toStringAsFixed(2)}',
-                          additionalInfo: 'Arqueo pendiente',
-                          infoColor: const Color(0xFFFF6D00),
-                        ),
-                      ),
-                    ],
+                  // 4 Top Cards - Responsive GRID
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final cardWidth = (constraints.maxWidth - (isMobile ? 12 : 48)) / (isMobile ? 2 : 4);
+                      return Wrap(
+                        spacing: 16,
+                        runSpacing: 16,
+                        children: [
+                          SizedBox(
+                            width: cardWidth,
+                            child: _buildMetricCard(
+                              title: 'VENTAS DEL DÍA',
+                              value: '\$${_totalSales.toStringAsFixed(2)}',
+                              additionalInfo: '+12%',
+                              infoColor: Colors.greenAccent[400],
+                            ),
+                          ),
+                          SizedBox(
+                            width: cardWidth,
+                            child: _buildMetricCard(
+                              title: 'ÓRDENES',
+                              value: '$_totalOrders',
+                              additionalInfo: 'Hoy',
+                              infoColor: Colors.grey,
+                            ),
+                          ),
+                          SizedBox(
+                            width: cardWidth,
+                            child: _buildMetricCard(
+                              title: 'PROMEDIO',
+                              value: '\$${_ticketPromedio.toStringAsFixed(2)}',
+                              additionalInfo: '-2%',
+                              infoColor: Colors.redAccent[400],
+                            ),
+                          ),
+                          SizedBox(
+                            width: cardWidth,
+                            child: _buildMetricCard(
+                              title: 'EFECTIVO',
+                              value: '\$${_efectivoEnCaja.toStringAsFixed(2)}',
+                              additionalInfo: 'Arqueo',
+                              infoColor: const Color(0xFFFF6D00),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
                   ),
                   const SizedBox(height: 32),
 
@@ -619,17 +640,19 @@ class _ReportsViewState extends State<ReportsView> {
                         // Table Header Actions
                         Padding(
                           padding: const EdgeInsets.all(16.0),
-                          child: Row(
+                          child: Flex(
+                            direction: isMobile ? Axis.vertical : Axis.horizontal,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              Expanded(
-                                flex: 2,
+                              Flexible(
+                                flex: isMobile ? 0 : 2,
                                 child: TextField(
                                   onChanged: (val) {
                                     _searchQuery = val;
                                     _applyFilter();
                                   },
                                   decoration: InputDecoration(
-                                    hintText: 'Buscar orden o cliente...',
+                                    hintText: 'Buscar...',
                                     hintStyle: const TextStyle(
                                       color: Colors.white54,
                                     ),
@@ -650,9 +673,9 @@ class _ReportsViewState extends State<ReportsView> {
                                   style: const TextStyle(color: Colors.white),
                                 ),
                               ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                flex: 1,
+                              if (isMobile) const SizedBox(height: 12) else const SizedBox(width: 16),
+                              Flexible(
+                                flex: isMobile ? 0 : 1,
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 16,
@@ -697,9 +720,9 @@ class _ReportsViewState extends State<ReportsView> {
                                   ),
                                 ),
                               ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                flex: 1,
+                              if (isMobile) const SizedBox(height: 12) else const SizedBox(width: 16),
+                              Flexible(
+                                flex: isMobile ? 0 : 1,
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 16,
@@ -745,7 +768,8 @@ class _ReportsViewState extends State<ReportsView> {
                                   ),
                                 ),
                               ),
-                              const Spacer(),
+                              if (!isMobile) const Spacer(),
+                              if (!isMobile)
                               Container(
                                 padding: const EdgeInsets.all(12),
                                 decoration: const BoxDecoration(
@@ -761,304 +785,130 @@ class _ReportsViewState extends State<ReportsView> {
                             ],
                           ),
                         ),
-                        // Table Headers
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 24.0,
-                            vertical: 8.0,
-                          ),
-                          child: Row(
-                            children: const [
-                              Expanded(
-                                flex: 2,
-                                child: Text(
-                                  'ID ORDEN',
-                                  style: TextStyle(
-                                    color: Colors.white54,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
+                        
+                        // Table Headers & Body with Horizontal Scroll for Mobile
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          physics: isMobile ? const AlwaysScrollableScrollPhysics() : const NeverScrollableScrollPhysics(),
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(
+                              minWidth: isMobile ? 900 : screenWidth - (isSmall ? 32 : 64),
+                            ),
+                            child: Column(
+                              children: [
+                                // Headers
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                  color: const Color(0xFF0F172A).withValues(alpha: 0.5),
+                                  child: Row(
+                                    children: [
+                                      _buildHeaderCell('ID ORDEN', 2),
+                                      _buildHeaderCell('HORA', 2),
+                                      _buildHeaderCell('MESA / CLIENTE', 3),
+                                      _buildHeaderCell('PAGO', 2),
+                                      _buildHeaderCell('MESERO', 2),
+                                      _buildHeaderCell('SUCURSAL', 2),
+                                      _buildHeaderCell('TOTAL', 2, textAlign: TextAlign.right),
+                                      const SizedBox(width: 100), // Actions space
+                                    ],
                                   ),
                                 ),
-                              ),
-                              Expanded(
-                                flex: 2,
-                                child: Text(
-                                  'HORA DE CIERRE',
-                                  style: TextStyle(
-                                    color: Colors.white54,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                              Expanded(
-                                flex: 3,
-                                child: Text(
-                                  'CLIENTE',
-                                  style: TextStyle(
-                                    color: Colors.white54,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                              Expanded(
-                                flex: 2,
-                                child: Text(
-                                  'MÉTODO',
-                                  style: TextStyle(
-                                    color: Colors.white54,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                              Expanded(
-                                flex: 2,
-                                child: Text(
-                                  'ATENDIDO POR',
-                                  style: TextStyle(
-                                    color: Colors.white54,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                              Expanded(
-                                flex: 2,
-                                child: Text(
-                                  'SUCURSAL',
-                                  style: TextStyle(
-                                    color: Colors.white54,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                              Expanded(
-                                flex: 2,
-                                child: Text(
-                                  'TOTAL',
-                                  style: TextStyle(
-                                    color: Colors.white54,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                  textAlign: TextAlign.right,
-                                ),
-                              ),
-                              SizedBox(width: 48), // Padding for eye icon
-                            ],
+                                
+                                // Table Content
+                                _filteredOrders.isEmpty
+                                  ? Container(
+                                      height: 200,
+                                      alignment: Alignment.center,
+                                      child: const Text(
+                                        'No hay datos registrados para esta selección',
+                                        style: TextStyle(color: Colors.white54),
+                                      ),
+                                    )
+                                  : ListView.separated(
+                                      shrinkWrap: true,
+                                      physics: const NeverScrollableScrollPhysics(),
+                                      itemCount: _filteredOrders.length,
+                                      separatorBuilder: (context, index) => const Divider(color: Color(0xFF334155), height: 1),
+                                      itemBuilder: (context, index) {
+                                        final o = _filteredOrders[index];
+                                        final date = DateTime.parse(o['created_at']).toLocal();
+                                        final hora = '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+                                        final mesaStr = _getMesaStr(o);
+                                        final method = o['ui_method'] as String;
+                                        Color methodColor = (method == 'TARJETA') ? const Color(0xFFFF6D00) : (method == 'TRANSFERENCIA' ? Colors.purpleAccent : Colors.green);
+
+                                        return Padding(
+                                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                                          child: Row(
+                                            children: [
+                                              Expanded(flex: 2, child: Text('#ORD-${o['id'].toString().substring(0, 4)}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
+                                              Expanded(flex: 2, child: Text(hora, style: const TextStyle(color: Colors.white70))),
+                                              Expanded(flex: 3, child: Text(mesaStr, style: const TextStyle(color: Colors.white))),
+                                              Expanded(
+                                                flex: 2,
+                                                child: Align(
+                                                  alignment: Alignment.centerLeft,
+                                                  child: Container(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                    decoration: BoxDecoration(
+                                                      color: methodColor.withValues(alpha: 0.2),
+                                                      borderRadius: BorderRadius.circular(12),
+                                                      border: Border.all(color: methodColor.withValues(alpha: 0.5)),
+                                                    ),
+                                                    child: Text(method, style: TextStyle(color: methodColor, fontSize: 10, fontWeight: FontWeight.bold)),
+                                                  ),
+                                                ),
+                                              ),
+                                              Expanded(flex: 2, child: Text(o['waiters']?['name'] ?? 'N/A', style: const TextStyle(color: Colors.white70))),
+                                              Expanded(flex: 2, child: Text(o['branch_name'] ?? 'N/A', style: const TextStyle(color: Colors.white70, fontSize: 12))),
+                                              Expanded(flex: 2, child: Text('\$${o['total_amount']}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold), textAlign: TextAlign.right)),
+                                              SizedBox(
+                                                width: 100,
+                                                child: Row(
+                                                  mainAxisAlignment: MainAxisAlignment.end,
+                                                  children: [
+                                                    IconButton(
+                                                      icon: const Icon(Icons.receipt_long, color: Colors.blueAccent, size: 20),
+                                                      onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => BillingView(ticket: o))),
+                                                    ),
+                                                    const Icon(Icons.remove_red_eye, color: Colors.white54, size: 20),
+                                                  ],
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                      },
+                                    ),
+                              ],
+                            ),
                           ),
                         ),
-                        const Divider(color: Color(0xFF334155), height: 1),
-                        // Table Body
-                        _filteredOrders.isEmpty
-                            ? const SizedBox(
-                                height: 300,
-                                child: Center(
-                                  child: Text(
-                                    'No hay datos',
-                                    style: TextStyle(color: Colors.white54),
-                                  ),
-                                ),
-                              )
-                            : ListView.separated(
-                                shrinkWrap: true,
-                                physics: const NeverScrollableScrollPhysics(),
-                                itemCount: _filteredOrders.length,
-                                separatorBuilder: (context, index) =>
-                                    const Divider(
-                                      color: Color(0xFF334155),
-                                      height: 1,
-                                    ),
-                                itemBuilder: (context, index) {
-                                  final o = _filteredOrders[index];
-                                  final date = DateTime.parse(
-                                    o['created_at'],
-                                  ).toLocal();
-                                  final hora =
-                                      '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}:${date.second.toString().padLeft(2, '0')}';
 
-                                  final mesaStr = _getMesaStr(o);
-
-                                  final method = o['ui_method'] as String;
-                                  Color methodColor = Colors.green;
-                                  if (method == 'TARJETA') {
-                                    methodColor = const Color(0xFFFF6D00);
-                                  }
-                                  if (method == 'TRANSFERENCIA') {
-                                    methodColor = Colors.purpleAccent;
-                                  }
-
-                                  return Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 24.0,
-                                      vertical: 16.0,
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        Expanded(
-                                          flex: 2,
-                                          child: Text(
-                                            '#ORD-${o['id'].toString().length > 4 ? o['id'].toString().substring(0, 4) : o['id']}',
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        ),
-                                        Expanded(
-                                          flex: 2,
-                                          child: Text(
-                                            hora,
-                                            style: const TextStyle(
-                                              color: Colors.white70,
-                                            ),
-                                          ),
-                                        ),
-                                        Expanded(
-                                          flex: 3,
-                                          child: Text(
-                                            mesaStr,
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                            ),
-                                          ),
-                                        ),
-                                        Expanded(
-                                          flex: 2,
-                                          child: Align(
-                                            alignment: Alignment.centerLeft,
-                                            child: Container(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: 8,
-                                                    vertical: 4,
-                                                  ),
-                                              decoration: BoxDecoration(
-                                                color: methodColor.withValues(
-                                                  alpha: 0.2,
-                                                ),
-                                                borderRadius:
-                                                    BorderRadius.circular(12),
-                                                border: Border.all(
-                                                  color: methodColor.withValues(
-                                                    alpha: 0.5,
-                                                  ),
-                                                ),
-                                              ),
-                                              child: Text(
-                                                method,
-                                                style: TextStyle(
-                                                  color: methodColor,
-                                                  fontSize: 10,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                        Expanded(
-                                          flex: 2,
-                                          child: Text(
-                                            o['waiters']?['name'] ?? 'N/A',
-                                            style: const TextStyle(
-                                              color: Colors.white70,
-                                            ),
-                                          ),
-                                        ),
-                                        Expanded(
-                                          flex: 2,
-                                          child: Text(
-                                            o['branch_name'] ?? 'N/A',
-                                            style: const TextStyle(
-                                              color: Colors.white70,
-                                              fontSize: 12,
-                                            ),
-                                          ),
-                                        ),
-                                        Expanded(
-                                          flex: 2,
-                                          child: Text(
-                                            '\$${o['total_amount']}',
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                            textAlign: TextAlign.right,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 24),
-                                        IconButton(
-                                          icon: const Icon(Icons.receipt_long, color: Colors.blueAccent, size: 20),
-                                          tooltip: 'Facturar',
-                                          padding: EdgeInsets.zero,
-                                          constraints: const BoxConstraints(),
-                                          onPressed: () {
-                                            Navigator.push(context, MaterialPageRoute(builder: (_) => BillingView(ticket: o)));
-                                          },
-                                        ),
-                                        const SizedBox(width: 16),
-                                        const Icon(
-                                          Icons.remove_red_eye,
-                                          color: Colors.white54,
-                                          size: 20,
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                },
-                              ),
-                        // Pagination Placeholder
+                        // Pagination
                         Padding(
                           padding: const EdgeInsets.all(16.0),
-                          child: Row(
+                          child: Flex(
+                            direction: isSmall ? Axis.vertical : Axis.horizontal,
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text(
                                 'Mostrando 1-${_filteredOrders.length} de $_totalOrders órdenes',
-                                style: const TextStyle(
-                                  color: Colors.white54,
-                                  fontSize: 12,
-                                ),
+                                style: const TextStyle(color: Colors.white54, fontSize: 12),
                               ),
+                              if (isSmall) const SizedBox(height: 12),
                               Row(
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  const Text(
-                                    'Anterior',
-                                    style: TextStyle(
-                                      color: Colors.white54,
-                                      fontSize: 12,
-                                    ),
-                                  ),
+                                  const Text('Anterior', style: TextStyle(color: Colors.white54, fontSize: 12)),
                                   const SizedBox(width: 12),
                                   Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 6,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFFF6D00),
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: const Text(
-                                      '1',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                    decoration: BoxDecoration(color: const Color(0xFFFF6D00), borderRadius: BorderRadius.circular(6)),
+                                    child: const Text('1', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
                                   ),
                                   const SizedBox(width: 12),
-                                  const Text(
-                                    'Siguiente',
-                                    style: TextStyle(
-                                      color: Colors.white54,
-                                      fontSize: 12,
-                                    ),
-                                  ),
+                                  const Text('Siguiente', style: TextStyle(color: Colors.white54, fontSize: 12)),
                                 ],
                               ),
                             ],
@@ -1070,153 +920,99 @@ class _ReportsViewState extends State<ReportsView> {
 
                   const SizedBox(height: 24),
 
-                  // Bottom Modules
-                  IntrinsicHeight(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        // Productos más vendidos
-                        Expanded(
-                          flex: 2,
-                          child: Container(
-                            padding: const EdgeInsets.all(24),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF1E293B),
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color: const Color(0xFF334155),
+                  // Bottom Modules - Responsive (Row to Column)
+                  Flex(
+                    direction: isMobile ? Axis.vertical : Axis.horizontal,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Productos más vendidos
+                      Expanded(
+                        flex: isMobile ? 0 : 2,
+                        child: Container(
+                          padding: const EdgeInsets.all(24),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF1E293B),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: const Color(0xFF334155)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: const [
+                                  Icon(Icons.star, color: Colors.white54, size: 18),
+                                  SizedBox(width: 8),
+                                  Text('PRODUCTOS MÁS VENDIDOS', style: TextStyle(color: Colors.white54, fontWeight: FontWeight.bold, fontSize: 12)),
+                                ],
                               ),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: const [
-                                    Icon(
-                                      Icons.star,
-                                      color: Colors.white54,
-                                      size: 18,
-                                    ),
-                                    SizedBox(width: 8),
-                                    Text(
-                                      'PRODUCTOS MÁS VENDIDOS',
-                                      style: TextStyle(
-                                        color: Colors.white54,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 16),
-                                Column(
-                                  children: [
-                                    _buildProductRow(
-                                      'Café Americano',
-                                      85,
-                                      100,
-                                      Icons.local_cafe,
-                                    ),
-                                    const SizedBox(height: 16),
-                                    _buildProductRow(
-                                      'Croissant Clásico',
-                                      62,
-                                      100,
-                                      Icons.bakery_dining,
-                                    ),
-                                    const SizedBox(height: 16),
-                                    _buildProductRow(
-                                      'Sandwich de Pavo',
-                                      48,
-                                      100,
-                                      Icons.lunch_dining,
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
+                              const SizedBox(height: 16),
+                              _buildProductRow('Café Americano', 85, 100, Icons.local_cafe),
+                              const SizedBox(height: 16),
+                              _buildProductRow('Croissant Clásico', 62, 100, Icons.bakery_dining),
+                              const SizedBox(height: 16),
+                              _buildProductRow('Sandwich de Pavo', 48, 100, Icons.lunch_dining),
+                            ],
                           ),
                         ),
-                        const SizedBox(width: 24),
-                        // Métodos de Pago
-                        Expanded(
-                          flex: 1,
-                          child: Container(
-                            padding: const EdgeInsets.all(24),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF1E293B),
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color: const Color(0xFF334155),
+                      ),
+                      if (isMobile) const SizedBox(height: 24) else const SizedBox(width: 24),
+                      // Métodos de Pago
+                      Expanded(
+                        flex: isMobile ? 0 : 1,
+                        child: Container(
+                          padding: const EdgeInsets.all(24),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF1E293B),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: const Color(0xFF334155)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Row(
+                                children: const [
+                                  Icon(Icons.payments, color: Colors.white54, size: 18),
+                                  SizedBox(width: 8),
+                                  Text('MÉTODOS DE PAGO', style: TextStyle(color: Colors.white54, fontWeight: FontWeight.bold, fontSize: 12)),
+                                ],
                               ),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                Row(
-                                  children: const [
-                                    Icon(
-                                      Icons.payments,
-                                      color: Colors.white54,
-                                      size: 18,
-                                    ),
-                                    SizedBox(width: 8),
-                                    Text(
-                                      'MÉTODOS DE PAGO',
-                                      style: TextStyle(
-                                        color: Colors.white54,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ],
+                              const SizedBox(height: 24),
+                              _buildPaymentMethodRow('Tarjeta', _ventasTarjeta, Icons.credit_card, const Color(0xFFFF6D00)),
+                              const SizedBox(height: 16),
+                              _buildPaymentMethodRow('Efectivo', _efectivoEnCaja, Icons.money, Colors.greenAccent[400]!),
+                              const SizedBox(height: 16),
+                              _buildPaymentMethodRow('Transferencia', _ventasTransferencia, Icons.account_balance, Colors.purpleAccent),
+                              const SizedBox(height: 24),
+                              ElevatedButton(
+                                onPressed: () {},
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF334155),
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  padding: const EdgeInsets.symmetric(vertical: 16),
                                 ),
-                                const SizedBox(height: 24),
-                                _buildPaymentMethodRow(
-                                  'Tarjeta',
-                                  _ventasTarjeta,
-                                  Icons.credit_card,
-                                  const Color(0xFFFF6D00),
-                                ),
-                                const SizedBox(height: 16),
-                                _buildPaymentMethodRow(
-                                  'Efectivo',
-                                  _efectivoEnCaja,
-                                  Icons.money,
-                                  Colors.greenAccent[400]!,
-                                ),
-                                const SizedBox(height: 16),
-                                _buildPaymentMethodRow(
-                                  'Transferencia',
-                                  _ventasTransferencia,
-                                  Icons.account_balance,
-                                  Colors.purpleAccent,
-                                ),
-                                const SizedBox(height: 24),
-                                ElevatedButton(
-                                  onPressed: () {},
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF334155),
-                                    foregroundColor: Colors.white,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 16,
-                                    ),
-                                  ),
-                                  child: const Text('Ver Desglose Detallado'),
-                                ),
-                              ],
-                            ),
+                                child: const Text('Ver Desglose Detallado'),
+                              ),
+                            ],
                           ),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ],
               ),
             ),
+    );
+  }
+
+  Widget _buildHeaderCell(String text, int flex, {TextAlign textAlign = TextAlign.left}) {
+    return Expanded(
+      flex: flex,
+      child: Text(
+        text,
+        style: const TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.bold),
+        textAlign: textAlign,
+      ),
     );
   }
 

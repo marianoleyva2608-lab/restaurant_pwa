@@ -155,6 +155,9 @@ class _BillingViewState extends State<BillingView> {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 800;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
@@ -177,24 +180,23 @@ class _BillingViewState extends State<BillingView> {
           const SizedBox(width: 16),
         ],
       ),
-      body: Row(
-        children: [
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(32),
+      body: SingleChildScrollView(
+              padding: EdgeInsets.all(isMobile ? 16 : 32),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
+                  Flex(
+                    direction: isMobile ? Axis.vertical : Axis.horizontal,
+                    crossAxisAlignment: isMobile ? CrossAxisAlignment.start : CrossAxisAlignment.center,
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
+                          Text(
                             'Generar Comprobante Fiscal',
                             style: TextStyle(
-                              fontSize: 28,
+                              fontSize: isMobile ? 22 : 28,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -211,6 +213,7 @@ class _BillingViewState extends State<BillingView> {
                           ),
                         ],
                       ),
+                      if (isMobile) const SizedBox(height: 16),
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 16,
@@ -221,16 +224,16 @@ class _BillingViewState extends State<BillingView> {
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(color: Colors.blue),
                         ),
-                        child: Column(
+                        child: const Column(
                           children: [
-                            const Text(
+                            Text(
                               'CFDI 4.0 - ACTIVO',
                               style: TextStyle(
                                 color: Colors.blue,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
-                            const Text(
+                            Text(
                               'v1.0.12',
                               style: TextStyle(
                                 color: Colors.blueAccent,
@@ -297,13 +300,14 @@ class _BillingViewState extends State<BillingView> {
                   const SizedBox(height: 32),
 
                   // Customer & Regime Section
-                  Row(
+                  Flex(
+                    direction: isMobile ? Axis.vertical : Axis.horizontal,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        flex: 2,
+                      Flexible(
+                        flex: isMobile ? 0 : 2,
                         child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             _label('CLIENTE RECEPTOR'),
                             LayoutBuilder(
@@ -382,10 +386,12 @@ class _BillingViewState extends State<BillingView> {
                           ],
                         ),
                       ),
-                      const SizedBox(width: 24),
-                      Expanded(
+                      if (isMobile) const SizedBox(height: 16),
+                      if (!isMobile) const SizedBox(width: 24),
+                      Flexible(
+                         flex: isMobile ? 0 : 1,
                         child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             _label('RÉGIMEN FISCAL'),
                             _dropdown(
@@ -416,11 +422,13 @@ class _BillingViewState extends State<BillingView> {
                   const SizedBox(height: 24),
 
                   // Payment Info Section
-                  Row(
+                  Flex(
+                    direction: isMobile ? Axis.vertical : Axis.horizontal,
                     children: [
-                      Expanded(
+                      Flexible(
+                        flex: isMobile ? 0 : 1,
                         child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             _label('MÉTODO DE PAGO'),
                             _dropdown(
@@ -446,10 +454,12 @@ class _BillingViewState extends State<BillingView> {
                           ],
                         ),
                       ),
-                      const SizedBox(width: 24),
-                      Expanded(
+                      if (isMobile) const SizedBox(height: 16),
+                      if (!isMobile) const SizedBox(width: 24),
+                      Flexible(
+                        flex: isMobile ? 0 : 1,
                         child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             _label('USO DE CFDI'),
                             _dropdown(
@@ -474,10 +484,12 @@ class _BillingViewState extends State<BillingView> {
                           ],
                         ),
                       ),
-                      const SizedBox(width: 24),
-                      Expanded(
+                      if (isMobile) const SizedBox(height: 16),
+                      if (!isMobile) const SizedBox(width: 24),
+                      Flexible(
+                        flex: isMobile ? 0 : 1,
                         child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             _label('FORMA DE PAGO'),
                             _dropdown(
@@ -522,6 +534,7 @@ class _BillingViewState extends State<BillingView> {
                     ),
                     child: Column(
                       children: [
+                        if (!isMobile)
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 24,
@@ -589,6 +602,7 @@ class _BillingViewState extends State<BillingView> {
                           (_selectedTicket?['total_amount'] ?? 0.0) / 1.16,
                           1,
                           (_selectedTicket?['total_amount'] ?? 0.0).toDouble(),
+                          isMobile,
                         ),
 
                         // Footer Totals
@@ -637,8 +651,10 @@ class _BillingViewState extends State<BillingView> {
                   const SizedBox(height: 40),
 
                   // Action Buttons
-                  Row(
+                  Flex(
+                    direction: isMobile ? Axis.vertical : Axis.horizontal,
                     mainAxisAlignment: MainAxisAlignment.end,
+                    crossAxisAlignment: isMobile ? CrossAxisAlignment.stretch : CrossAxisAlignment.center,
                     children: [
                       OutlinedButton(
                         onPressed: () => Navigator.pop(context),
@@ -656,7 +672,7 @@ class _BillingViewState extends State<BillingView> {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 16),
+                      if (isMobile) const SizedBox(height: 12) else const SizedBox(width: 16),
                       ElevatedButton.icon(
                         onPressed: _timbrarFactura,
                         icon: const Icon(Icons.receipt_long, size: 20),
@@ -676,9 +692,6 @@ class _BillingViewState extends State<BillingView> {
                 ],
               ),
             ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -691,8 +704,6 @@ class _BillingViewState extends State<BillingView> {
         : double.tryParse(totalText.toString()) ?? 0.0;
     final subtotal = total / 1.16;
     final iva = total - subtotal;
-    final folioStr =
-        _selectedTicket?['id']?.substring(0, 5).toUpperCase() ?? '100';
 
     final emisorNombre = CFDIConfig.emisorNombre.isNotEmpty
         ? CFDIConfig.emisorNombre
@@ -1014,7 +1025,54 @@ class _BillingViewState extends State<BillingView> {
     double price,
     int qty,
     double total,
+    bool isMobile,
   ) {
+    if (isMobile) {
+      return Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  code,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Colors.blueGrey,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Text(
+                  '\$${total.toStringAsFixed(2)}',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF1E3A8A),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              name,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF1E293B),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '${qty} x \$${price.toStringAsFixed(2)}',
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+            const Divider(height: 24),
+          ],
+        ),
+      );
+    }
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
       child: Row(

@@ -51,16 +51,19 @@ class _ComandasViewState extends State<ComandasView> {
   List<Dish> get _filteredDishes {
     return _dishes.where((dish) {
       if (_selectedCategory != 'Todos') {
-        if (_selectedCategory == 'Entradas' && dish.category != CourseCategory.appetizer) return false;
-        if (_selectedCategory == 'Plato Fuerte' && dish.category != CourseCategory.mainCourse) return false;
-        if (_selectedCategory == 'Postres' && dish.category != CourseCategory.dessert) return false;
-        if (_selectedCategory == 'Bebidas' && dish.category != CourseCategory.drink) return false;
+        if (dish.category != _selectedCategory) return false;
       }
       if (_searchQuery.isNotEmpty) {
         if (!dish.name.toLowerCase().contains(_searchQuery.toLowerCase())) return false;
       }
       return true;
     }).toList();
+  }
+
+  List<String> get _availableCategories {
+    final categories = _dishes.map((d) => d.category).toSet().toList();
+    categories.sort();
+    return ['Todos', ...categories];
   }
 
   Widget _buildCategoryChip(String label) {
@@ -642,31 +645,83 @@ class _ComandasViewState extends State<ComandasView> {
         ),
         SliverToBoxAdapter(
           child: SizedBox(
-            height: 40,
+            height: 48,
             child: ListView(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 16),
+              children: _availableCategories.map(_buildCategoryChip).toList(),
+            ),
+          ),
+        ),
+        ..._buildGroupedMenu(filteredDishes, crossAxisCount),
+        const SliverToBoxAdapter(child: SizedBox(height: 40)),
+      ],
+    );
+  List<Widget> _buildGroupedMenu(List<Dish> items, int crossAxisCount) {
+    if (items.isEmpty) {
+      return [
+        const SliverToBoxAdapter(
+          child: Padding(
+            padding: EdgeInsets.all(32.0),
+            child: Center(child: Text('No hay coincidencias', style: TextStyle(color: Colors.grey))),
+          ),
+        )
+      ];
+    }
+
+    // Group items by category
+    final Map<String, List<Dish>> groups = {};
+    for (var item in items) {
+      groups.putIfAbsent(item.category, () => []).add(item);
+    }
+
+    final sortedCategories = groups.keys.toList()..sort();
+    final List<Widget> slivers = [];
+
+    for (var category in sortedCategories) {
+      final categoryItems = groups[category]!;
+      
+      // Category Header
+      slivers.add(
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+            child: Row(
               children: [
-                _buildCategoryChip('Todos'),
-                _buildCategoryChip('Entradas'),
-                _buildCategoryChip('Plato Fuerte'),
-                _buildCategoryChip('Postres'),
-                _buildCategoryChip('Bebidas'),
+                Container(
+                  width: 4,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFF6D00),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  category.toUpperCase(),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.2,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '(${categoryItems.length})',
+                  style: const TextStyle(fontSize: 14, color: Color(0xFF94A3B8)),
+                ),
               ],
             ),
           ),
         ),
-        const SliverToBoxAdapter(child: SizedBox(height: 16)),
+      );
+
+      // Category Grid
+      slivers.add(
         SliverPadding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0),
-          sliver: filteredDishes.isEmpty 
-          ? const SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.all(32.0),
-                child: Center(child: Text('No hay coincidencias', style: TextStyle(color: Colors.grey))),
-              ),
-            )
-          : SliverGrid(
+          sliver: SliverGrid(
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: crossAxisCount,
               childAspectRatio: 0.75,
@@ -674,17 +729,15 @@ class _ComandasViewState extends State<ComandasView> {
               mainAxisSpacing: 16,
             ),
             delegate: SliverChildBuilderDelegate(
-              (context, index) {
-                final dish = filteredDishes[index];
-                return DishCard(dish: dish);
-              },
-              childCount: filteredDishes.length,
+              (context, index) => DishCard(dish: categoryItems[index]),
+              childCount: categoryItems.length,
             ),
           ),
         ),
-        const SliverToBoxAdapter(child: SizedBox(height: 40)),
-      ],
-    );
+      );
+    }
+
+    return slivers;
   }
 }
 

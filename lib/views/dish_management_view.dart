@@ -101,18 +101,16 @@ class _DishManagementViewState extends State<DishManagementView> {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  DropdownButtonFormField<String>(
+                  TextFormField(
                     initialValue: category,
-                    decoration: const InputDecoration(labelText: 'Categoría'),
-                    items: const [
-                      DropdownMenuItem(value: 'appetizer', child: Text('Entrada')),
-                      DropdownMenuItem(value: 'mainCourse', child: Text('Plato Fuerte')),
-                      DropdownMenuItem(value: 'dessert', child: Text('Postre')),
-                      DropdownMenuItem(value: 'drink', child: Text('Bebida')),
-                    ],
+                    decoration: const InputDecoration(
+                      labelText: 'Categoría (Ej: Enchiladas, Bebidas, Postres)',
+                      helperText: 'Escribe el nombre de la categoría para agrupar los platos.',
+                    ),
                     onChanged: (v) {
-                      if (v != null) category = v;
+                      category = v;
                     },
+                    validator: (v) => v!.isEmpty ? 'Requerido' : null,
                   ),
                   const SizedBox(height: 16),
                   TextFormField(
@@ -241,18 +239,22 @@ class _DishManagementViewState extends State<DishManagementView> {
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.width < 700;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Row(
+          padding: EdgeInsets.all(isMobile ? 16.0 : 24.0),
+          child: Flex(
+            direction: isMobile ? Axis.vertical : Axis.horizontal,
+            crossAxisAlignment: isMobile ? CrossAxisAlignment.start : CrossAxisAlignment.center,
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 'Gestión de Menú',
-                style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+                style: TextStyle(fontSize: isMobile ? 24 : 28, fontWeight: FontWeight.bold),
               ),
+              if (isMobile) const SizedBox(height: 16),
               ElevatedButton.icon(
                 onPressed: () => _showDishDialog(),
                 icon: const Icon(Icons.add),
@@ -277,7 +279,7 @@ class _DishManagementViewState extends State<DishManagementView> {
               final dishes = snapshot.data!;
 
               return ListView.separated(
-                padding: const EdgeInsets.all(24),
+                padding: EdgeInsets.all(isMobile ? 16 : 24),
                 itemCount: dishes.length,
                 separatorBuilder: (context, index) => const Divider(color: Color(0xFF334155)),
                 itemBuilder: (context, index) {
