@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import '../globals.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 
 class PayrollView extends StatefulWidget {
   const PayrollView({super.key});
@@ -62,6 +65,19 @@ class _PayrollViewState extends State<PayrollView> {
             ],
           ),
           const Spacer(),
+          const SizedBox(width: 8),
+          ElevatedButton.icon(
+            onPressed: () => _showWeeklyReportDialog(),
+            icon: const Icon(Icons.print),
+            label: const Text('Reporte Semanal'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF1E293B),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              side: const BorderSide(color: Color(0xFF334155)),
+            ),
+          ),
+          const SizedBox(width: 8),
           if (_selectedWaiterId != null)
             ElevatedButton.icon(
               onPressed: () => _showMovementDialog(),
@@ -340,6 +356,241 @@ class _PayrollViewState extends State<PayrollView> {
           );
         },
       ),
+    );
+  }
+
+  Future<void> _showWeeklyReportDialog() async {
+    DateTime selectedDate = DateTime.now();
+    
+    // Find Monday of selected week
+    DateTime getMonday(DateTime date) => date.subtract(Duration(days: date.weekday - 1));
+    DateTime startOfWeek = getMonday(selectedDate);
+    DateTime endOfWeek = startOfWeek.add(const Duration(days: 6, hours: 23, minutes: 59));
+
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            String weekRange = '${DateFormat('dd/MM').format(startOfWeek)} al ${DateFormat('dd/MM/yyyy').format(endOfWeek)}';
+            
+            return AlertDialog(
+              backgroundColor: const Color(0xFF1E293B),
+              title: Row(
+                children: [
+                   const Icon(Icons.summarize, color: Color(0xFFFF6D00)),
+                   const SizedBox(width: 12),
+                   const Text('Reporte Semanal', style: TextStyle(color: Colors.white)),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'Seleccione la semana para generar el reporte:',
+                    style: TextStyle(color: Color(0xFF94A3B8), fontSize: 14),
+                  ),
+                  const SizedBox(height: 16),
+                  InkWell(
+                    onTap: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: selectedDate,
+                        firstDate: DateTime(2024),
+                        lastDate: DateTime(2030),
+                      );
+                      if (picked != null) {
+                        setDialogState(() {
+                          selectedDate = picked;
+                          startOfWeek = getMonday(selectedDate);
+                          endOfWeek = startOfWeek.add(const Duration(days: 6, hours: 23, minutes: 59));
+                        });
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0F172A),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFF334155)),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(weekRange, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                          const Icon(Icons.calendar_month, color: Color(0xFFFF6D00)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cerrar')),
+                ElevatedButton.icon(
+                  onPressed: () => _generateReport(startOfWeek, endOfWeek, false),
+                  icon: const Icon(Icons.person),
+                  label: const Text('Solo Mesero Actual'),
+                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF334155)),
+                ),
+                ElevatedButton.icon(
+                  onPressed: () => _generateReport(startOfWeek, endOfWeek, true),
+                  icon: const Icon(Icons.people),
+                  label: const Text('Todos los Meseros'),
+                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFF6D00)),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _generateReport(DateTime start, DateTime end, bool allWaiters) async {
+    // 1. Fetch data
+    late List<Map<String, dynamic>> movements;
+    late List<Map<String, dynamic>> waitersList;
+
+    try {
+      if (allWaiters) {
+        final waitersRes = await _supabase.from('waiters').select();
+        waitersList = List<Map<String, dynamic>>.from(waitersRes);
+        
+        final ledgerRes = await _supabase
+            .from('waiter_ledger')
+            .select()
+            .gte('created_at', start.toIso8601String())
+            .lte('created_at', end.toIso8601String())
+            .eq('branch_name', Globals.currentBranch);
+        movements = List<Map<String, dynamic>>.from(ledgerRes);
+      } else {
+        if (_selectedWaiterId == null) return;
+        final waitersRes = await _supabase.from('waiters').select().eq('id', _selectedWaiterId as Object);
+        waitersList = List<Map<String, dynamic>>.from(waitersRes);
+
+        final ledgerRes = await _supabase
+            .from('waiter_ledger')
+            .select()
+            .eq('waiter_id', _selectedWaiterId as Object)
+            .gte('created_at', start.toIso8601String())
+            .lte('created_at', end.toIso8601String())
+            .eq('branch_name', Globals.currentBranch);
+        movements = List<Map<String, dynamic>>.from(ledgerRes);
+      }
+    } catch (e) {
+      debugPrint('Error generating report data: $e');
+      return;
+    }
+
+    // 2. Build PDF
+    final pdf = pw.Document();
+    final weekText = '${DateFormat('dd/MM').format(start)} al ${DateFormat('dd/MM/yyyy').format(end)}';
+
+    pdf.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(32),
+        build: (pw.Context context) {
+          return [
+            pw.Header(
+              level: 0,
+              child: pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Text('Reporte de Nomina - ${Globals.currentBranch}', style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
+                  pw.Text('Semana: $weekText', style: const pw.TextStyle(fontSize: 12)),
+                ],
+              ),
+            ),
+            pw.SizedBox(height: 20),
+            
+            ...waitersList.map((waiter) {
+              final waiterMovements = movements.where((m) => m['waiter_id'] == waiter['id']).toList();
+              if (waiterMovements.isEmpty && !allWaiters) {
+                 return pw.Text('No hay movimientos en esta semana para ${waiter['name']}');
+              }
+              if (waiterMovements.isEmpty) return pw.SizedBox();
+
+              // Summary
+              double earned = 0;
+              double discounts = 0;
+              for (var m in waiterMovements) {
+                final amt = (m['amount'] as num).toDouble();
+                final t = m['type'];
+                if (t == 'salary' || t == 'tip' || t == 'bonus') earned += amt;
+                else discounts += amt;
+              }
+
+              return pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Container(
+                    padding: const pw.EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                    color: PdfColors.grey200,
+                    child: pw.Row(
+                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                      children: [
+                        pw.Text('Mesero: ${waiter['name']}', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                        pw.Text('Neto: \$${(earned - discounts).toStringAsFixed(2)}', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                      ],
+                    ),
+                  ),
+                  pw.Table(
+                    border: pw.TableBorder.all(color: PdfColors.grey300),
+                    children: [
+                      pw.TableRow(
+                        decoration: const pw.BoxDecoration(color: PdfColors.grey100),
+                        children: [
+                          pw.Padding(padding: const pw.EdgeInsets.all(4), child: pw.Text('Fecha', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10))),
+                          pw.Padding(padding: const pw.EdgeInsets.all(4), child: pw.Text('Tipo', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10))),
+                          pw.Padding(padding: const pw.EdgeInsets.all(4), child: pw.Text('Descripción', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10))),
+                          pw.Padding(padding: const pw.EdgeInsets.all(4), child: pw.Text('Monto', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10))),
+                        ],
+                      ),
+                      ...waiterMovements.map((m) {
+                        final amt = (m['amount'] as num).toDouble();
+                        final t = m['type'];
+                        String label = t;
+                        if (t == 'salary') label = 'Sueldo';
+                        if (t == 'tip') label = 'Propina';
+                        if (t == 'loan') label = 'Préstamo';
+                        if (t == 'payment') label = 'Pago';
+                        if (t == 'bonus') label = 'Bono';
+
+                        return pw.TableRow(
+                          children: [
+                            pw.Padding(padding: const pw.EdgeInsets.all(4), child: pw.Text(DateFormat('dd/MM HH:mm').format(DateTime.parse(m['created_at'])), style: const pw.TextStyle(fontSize: 9))),
+                            pw.Padding(padding: const pw.EdgeInsets.all(4), child: pw.Text(label, style: const pw.TextStyle(fontSize: 9))),
+                            pw.Padding(padding: const pw.EdgeInsets.all(4), child: pw.Text(m['description'] ?? '', style: const pw.TextStyle(fontSize: 9))),
+                            pw.Padding(padding: const pw.EdgeInsets.all(4), child: pw.Text('\$${amt.toStringAsFixed(2)}', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold))),
+                          ],
+                        );
+                      }).toList(),
+                    ],
+                  ),
+                  pw.Padding(
+                    padding: const pw.EdgeInsets.only(top: 4, bottom: 20),
+                    child: pw.Row(
+                      mainAxisAlignment: pw.MainAxisAlignment.end,
+                      children: [
+                        pw.Text('Subtotal Ganado: \$${earned.toStringAsFixed(2)}  |  '),
+                        pw.Text('Subtotal Retiro/Préstamo: \$${discounts.toStringAsFixed(2)}'),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            }).toList(),
+          ];
+        },
+      ),
+    );
+
+    // 3. Print or share
+    await Printing.layoutPdf(
+      onLayout: (PdfPageFormat format) async => pdf.save(),
+      name: 'Nomina_${allWaiters ? 'General' : _selectedWaiterName}_$weekText.pdf',
     );
   }
 
