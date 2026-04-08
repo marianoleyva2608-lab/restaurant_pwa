@@ -431,13 +431,19 @@ class _PayrollViewState extends State<PayrollView> {
                   onPressed: () => _generateReport(startOfWeek, endOfWeek, false),
                   icon: const Icon(Icons.person),
                   label: const Text('Solo Mesero Actual'),
-                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF334155)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF334155),
+                    foregroundColor: Colors.white,
+                  ),
                 ),
                 ElevatedButton.icon(
                   onPressed: () => _generateReport(startOfWeek, endOfWeek, true),
                   icon: const Icon(Icons.people),
                   label: const Text('Todos los Meseros'),
-                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFF6D00)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFFF6D00),
+                    foregroundColor: Colors.white,
+                  ),
                 ),
               ],
             );
@@ -659,7 +665,10 @@ class _PayrollViewState extends State<PayrollView> {
                        _fetchLedger();
                     }
                   },
-                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFF6D00)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFFF6D00),
+                    foregroundColor: Colors.white,
+                  ),
                   child: const Text('Guardar'),
                 ),
               ],
