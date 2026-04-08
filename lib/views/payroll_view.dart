@@ -378,7 +378,7 @@ class _PayrollViewState extends State<PayrollView> {
                     controller: amountController,
                     style: const TextStyle(color: Colors.white),
                     keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(labelText: 'Monto ($)', labelStyle: TextStyle(color: Colors.grey)),
+                    decoration: const InputDecoration(labelText: 'Monto (\$)', labelStyle: TextStyle(color: Colors.grey)),
                   ),
                   const SizedBox(height: 16),
                   TextField(

@@ -171,6 +171,16 @@ class _AdminViewState extends State<AdminView> {
             },
           ),
           ListTile(
+            leading: Icon(Icons.people_alt, color: _selectedIndex == 8 ? const Color(0xFFFF6D00) : const Color(0xFF94A3B8)),
+            title: Text('Gestión de Clientes', style: TextStyle(color: _selectedIndex == 8 ? Colors.white : const Color(0xFF94A3B8), fontWeight: _selectedIndex == 8 ? FontWeight.bold : FontWeight.normal)),
+            selected: _selectedIndex == 8,
+            selectedTileColor: const Color(0xFFFF6D00).withValues(alpha: 0.1),
+            onTap: () {
+              setState(() => _selectedIndex = 8);
+              if (isDrawer) Navigator.pop(context);
+            },
+          ),
+          ListTile(
             leading: Icon(Icons.account_balance_wallet, color: _selectedIndex == 9 ? const Color(0xFFFF6D00) : const Color(0xFF94A3B8)),
             title: Text('Nómina', style: TextStyle(color: _selectedIndex == 9 ? Colors.white : const Color(0xFF94A3B8), fontWeight: _selectedIndex == 9 ? FontWeight.bold : FontWeight.normal)),
             selected: _selectedIndex == 9,
