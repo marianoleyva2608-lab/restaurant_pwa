@@ -69,36 +69,60 @@ class DishCard extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          '\$${dish.price.toStringAsFixed(2)}',
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                color: Theme.of(context).colorScheme.primary,
-                                fontWeight: FontWeight.bold,
-                              ),
-                        ),
-                        IconButton.filledTonal(
-                          onPressed: () {
-                            context.read<CartProvider>().addItem(dish);
-                            ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('${dish.name} agregado a la comanda'),
-                                duration: const Duration(seconds: 1),
-                                behavior: SnackBarBehavior.floating,
-                              ),
-                            );
-                          },
-                          icon: const Icon(Icons.add, size: 20),
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(
-                            minHeight: 32,
-                            minWidth: 32,
-                          ),
-                        ),
-                      ],
+                    Builder(
+                      builder: (context) {
+                        final cart = context.watch<CartProvider>();
+                        final quantity = cart.items[dish.id]?.quantity ?? 0;
+                        
+                        return Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              '\$${dish.price.toStringAsFixed(2)}',
+                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                    color: Theme.of(context).colorScheme.primary,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                            ),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (quantity > 0) 
+                                  IconButton.filledTonal(
+                                    onPressed: () {
+                                      context.read<CartProvider>().decrementQuantity(dish.id);
+                                    },
+                                    icon: const Icon(Icons.remove, size: 20),
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(
+                                      minHeight: 32,
+                                      minWidth: 32,
+                                    ),
+                                  ),
+                                if (quantity > 0)
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                                    child: Text(
+                                      '$quantity',
+                                      style: const TextStyle(fontWeight: FontWeight.bold),
+                                    ),
+                                  ),
+                                IconButton.filledTonal(
+                                  onPressed: () {
+                                    context.read<CartProvider>().addItem(dish);
+                                  },
+                                  icon: const Icon(Icons.add, size: 20),
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(
+                                    minHeight: 32,
+                                    minWidth: 32,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        );
+                      }
                     ),
                   ],
                 ),

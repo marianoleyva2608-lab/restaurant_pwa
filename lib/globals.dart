@@ -72,6 +72,25 @@ class Globals {
       setBranch(newName);
     }
   }
+
+  static String translateCategory(String category) {
+    final Map<String, String> translations = {
+      'appetizer': 'Entradas',
+      'mainCourse': 'Platillos',
+      'drink': 'Bebidas',
+      'dessert': 'Postres',
+      'alcohol': 'Alcohol',
+      'side': 'Complementos',
+      'breakfast': 'Desayunos',
+      'salad': 'Ensaladas',
+      'soup': 'Sopas',
+      'tacos': 'Tacos',
+      'tostadas': 'Tostadas',
+      'tortas': 'Tortas',
+      'especialidades': 'Especialidades',
+    };
+    return translations[category] ?? category;
+  }
 }
 
 class CFDIConfig {

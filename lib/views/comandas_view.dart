@@ -48,6 +48,10 @@ class _ComandasViewState extends State<ComandasView> {
   String _selectedCategory = 'Todos';
   String _searchQuery = '';
 
+  String _translateCategory(String category) {
+    return Globals.translateCategory(category);
+  }
+
   List<Dish> get _filteredDishes {
     return _dishes.where((dish) {
       if (_selectedCategory != 'Todos') {
@@ -60,6 +64,7 @@ class _ComandasViewState extends State<ComandasView> {
     }).toList();
   }
 
+
   List<String> get _availableCategories {
     final categories = _dishes.map((d) => d.category).toSet().toList();
     categories.sort();
@@ -70,7 +75,7 @@ class _ComandasViewState extends State<ComandasView> {
     return Padding(
       padding: const EdgeInsets.only(right: 8.0),
       child: FilterChip(
-        label: Text(label),
+        label: Text(_translateCategory(label)),
         selected: _selectedCategory == label,
         onSelected: (_) {
           setState(() {
@@ -252,7 +257,7 @@ class _ComandasViewState extends State<ComandasView> {
         });
       }
     } catch (e) {
-      debugPrint('Error loading waiters: \$e');
+      debugPrint('Error loading waiters: $e');
     }
   }
 
@@ -700,7 +705,7 @@ class _ComandasViewState extends State<ComandasView> {
                 ),
                 const SizedBox(width: 12),
                 Text(
-                  category.toUpperCase(),
+                  _translateCategory(category).toUpperCase(),
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,

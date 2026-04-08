@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/dish.dart';
 import '../providers/cart_provider.dart';
+import '../globals.dart';
 
 class DishDetailView extends StatelessWidget {
   final Dish dish;
@@ -50,7 +51,7 @@ class DishDetailView extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
                   Chip(
-                    label: Text(dish.category.toUpperCase()),
+                    label: Text(Globals.translateCategory(dish.category).toUpperCase()),
                     backgroundColor: Theme.of(context).colorScheme.primaryContainer,
                   ),
                   const SizedBox(height: 24),
