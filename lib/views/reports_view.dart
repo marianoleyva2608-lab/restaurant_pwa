@@ -808,82 +808,83 @@ class _ReportsViewState extends State<ReportsView> {
                                       _buildHeaderCell('PAGO', 2),
                                       _buildHeaderCell('MESERO', 2),
                                       _buildHeaderCell('SUCURSAL', 2),
-                                      _buildHeaderCell('TOTAL', 2, textAlign: TextAlign.right),
-                                      const SizedBox(width: 100), // Actions space
-                                    ],
-                                  ),
-                                ),
-                                
-                                // Table Content
-                                _filteredOrders.isEmpty
-                                  ? Container(
-                                      height: 200,
-                                      alignment: Alignment.center,
-                                      child: const Text(
-                                        'No hay datos registrados para esta selección',
-                                        style: TextStyle(color: Colors.white54),
-                                      ),
-                                    )
-                                  : ListView.separated(
-                                      shrinkWrap: true,
-                                      physics: const NeverScrollableScrollPhysics(),
-                                      itemCount: _filteredOrders.length,
-                                      separatorBuilder: (context, index) => const Divider(color: Color(0xFF334155), height: 1),
-                                      itemBuilder: (context, index) {
-                                        final o = _filteredOrders[index];
-                                        final date = DateTime.parse(o['created_at']).toLocal();
-                                        final hora = '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
-                                        final mesaStr = _getMesaStr(o);
-                                        final method = o['ui_method'] as String;
-                                        Color methodColor = (method == 'TARJETA') ? const Color(0xFFFF6D00) : (method == 'TRANSFERENCIA' ? Colors.purpleAccent : Colors.green);
-
-                                        return Padding(
-                                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                                          child: Row(
-                                            children: [
-                                              Expanded(flex: 2, child: Text('#ORD-${o['id'].toString().substring(0, 4)}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
-                                              Expanded(flex: 2, child: Text(hora, style: const TextStyle(color: Colors.white70))),
-                                              Expanded(flex: 3, child: Text(mesaStr, style: const TextStyle(color: Colors.white))),
-                                              Expanded(
-                                                flex: 2,
-                                                child: Align(
-                                                  alignment: Alignment.centerLeft,
-                                                  child: Container(
-                                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                                    decoration: BoxDecoration(
-                                                      color: methodColor.withValues(alpha: 0.2),
-                                                      borderRadius: BorderRadius.circular(12),
-                                                      border: Border.all(color: methodColor.withValues(alpha: 0.5)),
-                                                    ),
-                                                    child: Text(method, style: TextStyle(color: methodColor, fontSize: 10, fontWeight: FontWeight.bold)),
-                                                  ),
-                                                ),
-                                              ),
-                                              Expanded(flex: 2, child: Text(o['waiters']?['name'] ?? 'N/A', style: const TextStyle(color: Colors.white70))),
-                                              Expanded(flex: 2, child: Text(o['branch_name'] ?? 'N/A', style: const TextStyle(color: Colors.white70, fontSize: 12))),
-                                              Expanded(flex: 2, child: Text('\$${o['total_amount']}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold), textAlign: TextAlign.right)),
-                                              SizedBox(
-                                                width: 100,
-                                                child: Row(
-                                                  mainAxisAlignment: MainAxisAlignment.end,
-                                                  children: [
-                                                    IconButton(
-                                                      icon: const Icon(Icons.receipt_long, color: Colors.blueAccent, size: 20),
-                                                      onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => BillingView(ticket: o))),
-                                                    ),
-                                                    const Icon(Icons.remove_red_eye, color: Colors.white54, size: 20),
-                                                  ],
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        );
-                                      },
-                                    ),
-                              ],
+                                  _buildHeaderCell('TOTAL', 2, textAlign: TextAlign.right),
+                                  const SizedBox(width: 100), // Actions space
+                                ],
+                              ),
                             ),
-                          ),
+                            
+                            // Table Content - Using Column instead of ListView to avoid height issues in some browsers/layouts
+                            if (_filteredOrders.isEmpty)
+                              Container(
+                                height: 200,
+                                alignment: Alignment.center,
+                                child: Text(
+                                  _isLoading ? 'Cargando datos...' : 'No hay datos registrados para esta selección',
+                                  style: const TextStyle(color: Colors.white54),
+                                ),
+                              )
+                            else
+                              ..._filteredOrders.map((o) {
+                                final date = DateTime.tryParse(o['created_at'].toString())?.toLocal() ?? DateTime.now();
+                                final hora = '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+                                final mesaStr = _getMesaStr(o);
+                                final method = o['ui_method']?.toString() ?? 'EFECTIVO';
+                                Color methodColor = (method == 'TARJETA') ? const Color(0xFFFF6D00) : (method == 'TRANSFERENCIA' ? Colors.purpleAccent : Colors.green);
+
+                                return Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Divider(color: Color(0xFF334155), height: 1),
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                                      child: Row(
+                                        children: [
+                                          Expanded(flex: 2, child: Text('#ORD-${o['id'].toString().substring(0, 4)}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
+                                          Expanded(flex: 2, child: Text(hora, style: const TextStyle(color: Colors.white70))),
+                                          Expanded(flex: 3, child: Text(mesaStr, style: const TextStyle(color: Colors.white))),
+                                          Expanded(
+                                            flex: 2,
+                                            child: Align(
+                                              alignment: Alignment.centerLeft,
+                                              child: Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                decoration: BoxDecoration(
+                                                  color: methodColor.withValues(alpha: 0.2),
+                                                  borderRadius: BorderRadius.circular(12),
+                                                  border: Border.all(color: methodColor.withValues(alpha: 0.5)),
+                                                ),
+                                                child: Text(method, style: TextStyle(color: methodColor, fontSize: 10, fontWeight: FontWeight.bold)),
+                                              ),
+                                            ),
+                                          ),
+                                          Expanded(flex: 2, child: Text(o['waiters']?['name'] ?? 'N/A', style: const TextStyle(color: Colors.white70))),
+                                          Expanded(flex: 2, child: Text(o['branch_name'] ?? 'N/A', style: const TextStyle(color: Colors.white70, fontSize: 12))),
+                                          Expanded(flex: 2, child: Text('\$${o['total_amount']}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold), textAlign: TextAlign.right)),
+                                          SizedBox(
+                                            width: 100,
+                                            child: Row(
+                                              mainAxisAlignment: MainAxisAlignment.end,
+                                              children: [
+                                                IconButton(
+                                                  icon: const Icon(Icons.receipt_long, color: Colors.blueAccent, size: 20),
+                                                  tooltip: 'Facturación / Ticket',
+                                                  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => BillingView(ticket: o))),
+                                                ),
+                                                const Icon(Icons.remove_red_eye, color: Colors.white54, size: 20),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              }).toList(),
+                          ],
                         ),
+                      ),
+                    ),
 
                         // Pagination
                         Padding(

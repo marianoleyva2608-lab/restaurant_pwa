@@ -44,6 +44,62 @@ class _OrderSummaryWidgetState extends State<OrderSummaryWidget> {
     }
   }
 
+  Future<void> _deleteExistingItem(Map<String, dynamic> item) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1E293B),
+        title: const Text('¿Quitar elemento?', style: TextStyle(color: Colors.white)),
+        content: Text('¿Deseas eliminar "${item['name']}" de la cuenta?', style: const TextStyle(color: Colors.white70)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar', style: TextStyle(color: Colors.white54))),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(backgroundColor: Colors.red.withOpacity(0.2)),
+            child: const Text('Eliminar', style: TextStyle(color: Colors.redAccent)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    try {
+      final supabase = Supabase.instance.client;
+      
+      // 1. Get the order_item details first to get the price and order_id
+      // item has 'id' (which I should add in _fetchExistingItems)
+      final itemId = item['order_item_id'];
+      final orderId = item['order_id'];
+      final subtotal = (item['price'] as num).toDouble() * (item['quantity'] as num).toInt();
+
+      // 2. Delete the item
+      await supabase.from('order_items').delete().eq('id', itemId);
+
+      // 3. Update the order total
+      final orderRes = await supabase.from('orders').select('total_amount').eq('id', orderId).single();
+      final currentTotal = (orderRes['total_amount'] as num).toDouble();
+      await supabase.from('orders').update({
+        'total_amount': currentTotal - subtotal,
+      }).eq('id', orderId);
+
+      _fetchExistingItems();
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Producto eliminado de la cuenta')),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error deleting item: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al eliminar: $e')),
+        );
+      }
+    }
+  }
+
   Future<void> _fetchExistingItems() async {
     try {
       if (widget.tableId == null) {
@@ -63,6 +119,8 @@ class _OrderSummaryWidgetState extends State<OrderSummaryWidget> {
       for (var order in (response as List)) {
         for (var item in (order['order_items'] as List)) {
           items.add({
+            'order_item_id': item['id'],
+            'order_id': order['id'],
             'name': item['dishes']['name'],
             'quantity': item['quantity'],
             'price': item['price_at_time'],
@@ -220,7 +278,18 @@ class _OrderSummaryWidgetState extends State<OrderSummaryWidget> {
           ..._existingItems.map((item) => ListTile(
                 dense: true,
                 title: Text(item['name'], style: const TextStyle(color: Colors.white70)),
-                trailing: Text('x${item['quantity']}', style: const TextStyle(color: Colors.white70)),
+                subtitle: Text('\$${item['price']} x ${item['quantity']}', style: const TextStyle(color: Colors.white38, fontSize: 10)),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('x${item['quantity']}', style: const TextStyle(color: Color(0xFFFF6D00), fontWeight: FontWeight.bold)),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      icon: const Icon(Icons.remove_circle_outline, color: Colors.redAccent, size: 18),
+                      onPressed: () => _deleteExistingItem(item),
+                    ),
+                  ],
+                ),
               )),
           const Divider(color: Color(0xFF334155), indent: 16, endIndent: 16),
         ],
