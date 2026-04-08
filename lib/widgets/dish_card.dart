@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import '../models/dish.dart';
 import '../providers/cart_provider.dart';
 
-import '../views/dish_detail_view.dart';
 
 class DishCard extends StatelessWidget {
   final Dish dish;
@@ -17,10 +16,14 @@ class DishCard extends StatelessWidget {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: InkWell(
         onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => DishDetailView(dish: dish),
+          context.read<CartProvider>().addItem(dish);
+          ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('${dish.name} agregado'),
+              duration: const Duration(milliseconds: 500),
+              behavior: SnackBarBehavior.floating,
+              width: 200,
             ),
           );
         },
