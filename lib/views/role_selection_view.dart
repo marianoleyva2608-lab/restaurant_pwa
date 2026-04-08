@@ -180,7 +180,11 @@ class _RoleSelectionViewState extends State<RoleSelectionView> {
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  TextField(controller: emailController, decoration: const InputDecoration(labelText: 'Usuario/Email')),
+                  TextField(
+                    autofocus: true,
+                    controller: emailController, 
+                    decoration: const InputDecoration(labelText: 'Usuario/Email')
+                  ),
                   TextField(
                     controller: passwordController, 
                     obscureText: true, 
