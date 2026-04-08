@@ -26,42 +26,7 @@ class _TableManagementViewState extends State<TableManagementView> {
     }
   }
 
-  @override
-  void initState() {
-    super.initState();
-    _transformationController.value = Matrix4.identity()..scale(0.5);
-    _fetchTables();
-  }
-
-  @override
-  void dispose() {
-    _transformationController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _fetchTables() async {
-    try {
-      final response = await _supabase
-          .from('restaurant_tables')
-          .select()
-          .eq('branch_name', Globals.currentBranch)
-          .order('table_number', ascending: true);
-      
-      if (mounted) {
-        setState(() {
-          _tables = List<Map<String, dynamic>>.from(response);
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al cargar mesas: $e')),
-        );
-        setState(() => _isLoading = false);
-      }
-    }
-  }
+  // Removed manual _fetchTables as it will be handled by StreamBuilder
 
   Future<void> _addTable() async {
     final controller = TextEditingController();
@@ -106,7 +71,7 @@ class _TableManagementViewState extends State<TableManagementView> {
           'pos_y': 50.0,
           'branch_name': Globals.currentBranch,
         });
-        _fetchTables();
+        setState(() => _isLoading = false);
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -139,7 +104,7 @@ class _TableManagementViewState extends State<TableManagementView> {
       setState(() => _isLoading = true);
       try {
         await _supabase.from('restaurant_tables').delete().eq('id', id);
-        _fetchTables();
+        setState(() => _isLoading = false);
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -182,8 +147,32 @@ class _TableManagementViewState extends State<TableManagementView> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    _transformationController.value = Matrix4.identity()..scale(0.5);
+  }
+
+  @override
+  void dispose() {
+    _transformationController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Padding(
+    return StreamBuilder<List<Map<String, dynamic>>>(
+      stream: _supabase.from('restaurant_tables')
+          .stream(primaryKey: ['id'])
+          .eq('branch_name', Globals.currentBranch)
+          .order('table_number', ascending: true),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) return Center(child: Text('Error: ${snapshot.error}'));
+        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+        
+        _tables = snapshot.data!;
+        _isLoading = false;
+
+        return Padding(
       padding: const EdgeInsets.all(32.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -342,6 +331,8 @@ class _TableManagementViewState extends State<TableManagementView> {
           ),
         ],
       ),
+    );
+      },
     );
   }
 }

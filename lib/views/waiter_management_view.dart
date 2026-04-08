@@ -12,29 +12,8 @@ class WaiterManagementView extends StatefulWidget {
 class _WaiterManagementViewState extends State<WaiterManagementView> {
   final _supabase = Supabase.instance.client;
   List<Map<String, dynamic>> _waiters = [];
-  bool _isLoading = true;
 
-  @override
-  void initState() {
-    super.initState();
-    _fetchWaiters();
-  }
-
-  Future<void> _fetchWaiters() async {
-    setState(() => _isLoading = true);
-    try {
-      final response = await _supabase.from('waiters').select().eq('branch_name', Globals.currentBranch).order('name');
-      setState(() {
-        _waiters = List<Map<String, dynamic>>.from(response);
-      });
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
+  // Removed manual _fetchWaiters as it will be handled by StreamBuilder
 
   Future<void> _showWaiterDialog([Map<String, dynamic>? waiter]) async {
     final nameController = TextEditingController(text: waiter?['name'] ?? '');
@@ -113,7 +92,7 @@ class _WaiterManagementViewState extends State<WaiterManagementView> {
     );
 
     if (result == true) {
-      _fetchWaiters();
+      // Stream will handle the update
     }
   }
 
@@ -142,15 +121,24 @@ class _WaiterManagementViewState extends State<WaiterManagementView> {
     );
 
     if (confirm == true) {
-      _fetchWaiters();
+      // Stream will handle the update
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) return const Center(child: CircularProgressIndicator());
+    return StreamBuilder<List<Map<String, dynamic>>>(
+      stream: _supabase.from('waiters')
+          .stream(primaryKey: ['id'])
+          .eq('branch_name', Globals.currentBranch)
+          .order('name'),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) return Center(child: Text('Error: ${snapshot.error}'));
+        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+        
+        _waiters = snapshot.data!;
 
-    return Padding(
+        return Padding(
       padding: const EdgeInsets.all(32.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -226,6 +214,8 @@ class _WaiterManagementViewState extends State<WaiterManagementView> {
           ),
         ],
       ),
+    );
+      },
     );
   }
 }

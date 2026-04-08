@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:convert';
 import 'package:pdf/pdf.dart';
@@ -20,7 +21,9 @@ class _BillingViewState extends State<BillingView> {
   List<Map<String, dynamic>> _realClients = [];
   bool _isLoadingClients = true;
   List<Map<String, dynamic>> _recentOrders = [];
-  bool _isLoadingOrders = false;
+  bool _isLoadingOrders = true;
+  StreamSubscription? _clientsSubscription;
+  StreamSubscription? _ordersSubscription;
 
   // Selected Values
   String _selectedClient = "PUBLICO EN GENERAL";
@@ -105,42 +108,49 @@ class _BillingViewState extends State<BillingView> {
     if (_selectedTicket != null && _selectedTicket!['payment_method'] != null) {
       _selectedFormaPago = _selectedTicket!['payment_method'];
     }
-    _fetchRealClients();
+    _setupClientsStream();
     if (_selectedTicket == null) {
-      _fetchRecentOrders();
+      _setupOrdersStream();
     }
   }
 
-  Future<void> _fetchRecentOrders() async {
-    setState(() => _isLoadingOrders = true);
-    try {
-      final res = await _supabase
-          .from('orders')
-          .select()
-          .eq('status', 'completed')
-          .order('created_at', ascending: false)
-          .limit(20);
-      setState(() {
-        _recentOrders = List<Map<String, dynamic>>.from(res);
-        _isLoadingOrders = false;
-      });
-    } catch (e) {
-      print('Error loading orders: $e');
-      setState(() => _isLoadingOrders = false);
-    }
+  void _setupOrdersStream() {
+    _ordersSubscription = _supabase
+        .from('orders')
+        .stream(primaryKey: ['id'])
+        .eq('status', 'completed')
+        .order('created_at', ascending: false)
+        .limit(20)
+        .listen((res) {
+          if (mounted) {
+            setState(() {
+              _recentOrders = List<Map<String, dynamic>>.from(res);
+              _isLoadingOrders = false;
+            });
+          }
+        });
   }
 
-  Future<void> _fetchRealClients() async {
-    try {
-      final res = await _supabase.from('cw_clients').select().order('name');
-      setState(() {
-        _realClients = List<Map<String, dynamic>>.from(res);
-        _isLoadingClients = false;
-      });
-    } catch (e) {
-      print('Error loading clients: $e');
-      setState(() => _isLoadingClients = false);
-    }
+  void _setupClientsStream() {
+    _clientsSubscription = _supabase
+        .from('cw_clients')
+        .stream(primaryKey: ['id'])
+        .order('name')
+        .listen((res) {
+          if (mounted) {
+            setState(() {
+              _realClients = List<Map<String, dynamic>>.from(res);
+              _isLoadingClients = false;
+            });
+          }
+        });
+  }
+
+  @override
+  void dispose() {
+    _clientsSubscription?.cancel();
+    _ordersSubscription?.cancel();
+    super.dispose();
   }
 
   @override

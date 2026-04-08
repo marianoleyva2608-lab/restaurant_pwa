@@ -1397,11 +1397,17 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
             const Divider(height: 1, color: Color(0xFF334155)),
             
             Expanded(
-              child: FutureBuilder<List<Map<String, dynamic>>>(
-                future: supabase.from('order_items').select('''
-                    id, order_id, quantity, status, price_at_time,
-                    dishes (name)
-                  ''').inFilter('order_id', orderIds).order('id'),
+              child: StreamBuilder<List<Map<String, dynamic>>>(
+                stream: supabase.from('order_items')
+                    .stream(primaryKey: ['id'])
+                    .inFilter('order_id', orderIds)
+                    .asyncMap((_) async {
+                      final items = await supabase.from('order_items').select('''
+                        id, order_id, quantity, status, price_at_time,
+                        dishes (name)
+                      ''').inFilter('order_id', orderIds).order('id');
+                      return List<Map<String, dynamic>>.from(items);
+                    }),
                 builder: (context, itemsSnapshot) {
                   if (!itemsSnapshot.hasData) {
                     return const Center(child: CircularProgressIndicator());
@@ -1410,7 +1416,7 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
                   final items = itemsSnapshot.data!;
                   double subtotal = 0.0;
                   for (var it in items) {
-                    if (it['status'] == 'ready') {
+                    if (it['status'] != 'cancelled') {
                       subtotal += ((it['quantity'] as num) * (it['price_at_time'] as num));
                     }
                   }

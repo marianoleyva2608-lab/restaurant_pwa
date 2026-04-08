@@ -29,6 +29,7 @@ class _ComandasViewState extends State<ComandasView> {
   List<Map<String, dynamic>> _waiters = [];
   StreamSubscription<List<Map<String, dynamic>>>? _orderStreamSubscription;
   final Set<String> _notifiedOrders = {};
+  StreamSubscription? _dishesSubscription;
   final TransformationController _mapTransformationController = TransformationController(Matrix4.diagonal3Values(0.5, 0.5, 1.0));
 
   @override
@@ -101,6 +102,26 @@ class _ComandasViewState extends State<ComandasView> {
             }
           }
           
+          // Auto-deseleccion de mesa si se paga o cancela en otro lado
+          if (_selectedTableId != null) {
+            final hasActiveOrder = orders.any((o) => 
+              o['table_id'] == _selectedTableId && 
+              (o['status'] == 'pending' || o['status'] == 'ready')
+            );
+            if (!hasActiveOrder && _selectedOrderType == 'dine_in') {
+               setState(() {
+                 _selectedTableId = null;
+                 _selectedTableNumber = null;
+               });
+               ScaffoldMessenger.of(context).showSnackBar(
+                 const SnackBar(
+                   content: Text('La mesa seleccionada ha sido liberada o pagada.'),
+                   backgroundColor: Colors.blueGrey,
+                 )
+               );
+            }
+          }
+          
           // Después de procesar el primer lote de datos, apagamos la bandera
           if (_isInitialLoad) {
             _isInitialLoad = false;
@@ -113,6 +134,7 @@ class _ComandasViewState extends State<ComandasView> {
   @override
   void dispose() {
     _orderStreamSubscription?.cancel();
+    _dishesSubscription?.cancel();
     _audioPlayer.dispose();
     _mapTransformationController.dispose();
     super.dispose();
@@ -198,20 +220,24 @@ class _ComandasViewState extends State<ComandasView> {
     );
   }
 
-  Future<void> _fetchDishes() async {
-    try {
-      final response = await Supabase.instance.client.from('dishes').select();
-      final dishes = (response as List).map((data) => Dish.fromJson(data)).toList();
-      setState(() {
-        _dishes = dishes;
-        _isLoading = false;
-      });
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al cargar menú: \$e')));
-        setState(() => _isLoading = false);
-      }
-    }
+  void _fetchDishes() {
+    _dishesSubscription = _supabase
+        .from('dishes')
+        .stream(primaryKey: ['id'])
+        .listen((data) {
+          if (mounted) {
+            final dishes = data.map((d) => Dish.fromJson(d)).toList();
+            setState(() {
+              _dishes = dishes;
+              _isLoading = false;
+            });
+          }
+        }, onError: (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al cargar menú en tiempo real: $e')));
+            setState(() => _isLoading = false);
+          }
+        });
   }
 
   Future<void> _fetchWaiters() async {
@@ -228,21 +254,6 @@ class _ComandasViewState extends State<ComandasView> {
   }
 
   Future<void> _showTableSelectionDialog() async {
-    final tablesResponse = await _supabase
-        .from('restaurant_tables')
-        .select()
-        .eq('branch_name', Globals.currentBranch)
-        .order('table_number', ascending: true);
-
-    final ordersResponse = await _supabase
-        .from('orders')
-        .select('table_id')
-        .eq('status', 'pending');
-        
-    final occupiedTableIds = (ordersResponse as List).map((o) => o['table_id']).toSet();
-
-    if (!mounted) return;
-
     String tempOrderType = _selectedOrderType;
     String? tempCustomerName = _customerName;
     final nameController = TextEditingController(text: _customerName);
@@ -287,103 +298,125 @@ class _ComandasViewState extends State<ComandasView> {
                     // Conditional Content
                     Expanded(
                       child: tempOrderType == 'dine_in' 
-                        ? ClipRRect(
-                            borderRadius: BorderRadius.circular(16),
-                            child: InteractiveViewer(
-                              transformationController: _mapTransformationController,
-                              constrained: false,
-                              panEnabled: true,
-                              scaleEnabled: true,
-                              boundaryMargin: const EdgeInsets.all(2000),
-                              minScale: 0.1,
-                              maxScale: 2.0,
-                              child: Container(
-                                width: 2000,
-                                height: 2000,
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF0F172A),
-                                  border: Border.all(color: const Color(0xFF334155)),
-                                ),
-                                child: Stack(
-                                  children: tablesResponse.map((table) {
-                                    final isOccupied = occupiedTableIds.contains(table['id']);
-                                    double x = (table['pos_x'] as num?)?.toDouble() ?? 50.0;
-                                    double y = (table['pos_y'] as num?)?.toDouble() ?? 50.0;
-                                    
-                                    return Positioned(
-                                      left: x,
-                                      top: y,
-                                      child: InkWell(
-                                        onTap: () {
-                                          setState(() {
-                                            _selectedOrderType = 'dine_in';
-                                            _selectedTableId = table['id'];
-                                            _selectedTableNumber = table['table_number'].toString();
-                                            _customerName = null;
-                                          });
-                                          Navigator.pop(context);
-                                        },
-                                        borderRadius: BorderRadius.circular(16),
-                                        child: Container(
-                                          width: 120,
-                                          height: 120,
-                                          decoration: BoxDecoration(
-                                            color: isOccupied ? const Color(0xFF331515) : const Color(0xFF1E293B),
-                                            borderRadius: BorderRadius.circular(16),
-                                            border: Border.all(
-                                              color: isOccupied ? Colors.red[900]! : const Color(0xFF334155),
-                                              width: isOccupied ? 2 : 1,
-                                            ),
-                                            boxShadow: [
-                                              BoxShadow(
-                                                color: Colors.black.withValues(alpha: 0.3),
-                                                blurRadius: 10,
-                                                offset: const Offset(0, 5),
-                                              )
-                                            ],
-                                          ),
-                                          child: Column(
-                                            mainAxisAlignment: MainAxisAlignment.center,
-                                            children: [
-                                              Icon(
-                                                Icons.table_restaurant,
-                                                size: 40,
-                                                color: isOccupied ? Colors.red[400] : const Color(0xFF94A3B8),
-                                              ),
-                                              const SizedBox(height: 8),
-                                              Text(
-                                                'Mesa ${table['table_number']}',
-                                                style: TextStyle(
-                                                  fontSize: 16,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: isOccupied ? Colors.red[200] : Colors.white,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 4),
-                                              Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                                decoration: BoxDecoration(
-                                                  color: isOccupied ? Colors.red.withValues(alpha: 0.2) : Colors.green.withValues(alpha: 0.2),
-                                                  borderRadius: BorderRadius.circular(12),
-                                                ),
-                                                child: Text(
-                                                  isOccupied ? 'Ocupada' : 'Libre',
-                                                  style: TextStyle(
-                                                    fontSize: 10,
-                                                    fontWeight: FontWeight.w500,
-                                                    color: isOccupied ? Colors.red[300] : Colors.green[400],
+                        ? StreamBuilder<List<Map<String, dynamic>>>(
+                            stream: _supabase
+                                .from('restaurant_tables')
+                                .stream(primaryKey: ['id'])
+                                .eq('branch_name', Globals.currentBranch)
+                                .order('table_number', ascending: true),
+                            builder: (context, tablesSnapshot) {
+                              if (!tablesSnapshot.hasData) return const Center(child: CircularProgressIndicator());
+                              final tables = tablesSnapshot.data!;
+
+                              return StreamBuilder<List<Map<String, dynamic>>>(
+                                stream: _supabase
+                                    .from('orders')
+                                    .stream(primaryKey: ['id'])
+                                    .inFilter('status', ['pending', 'ready']),
+                                builder: (context, ordersSnapshot) {
+                                  final occupiedTableIds = (ordersSnapshot.data ?? []).map((o) => o['table_id']).toSet();
+
+                                  return ClipRRect(
+                                    borderRadius: BorderRadius.circular(16),
+                                    child: InteractiveViewer(
+                                      transformationController: _mapTransformationController,
+                                      constrained: false,
+                                      panEnabled: true,
+                                      scaleEnabled: true,
+                                      boundaryMargin: const EdgeInsets.all(2000),
+                                      minScale: 0.1,
+                                      maxScale: 2.0,
+                                      child: Container(
+                                        width: 2000,
+                                        height: 2000,
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFF0F172A),
+                                          border: Border.all(color: const Color(0xFF334155)),
+                                        ),
+                                        child: Stack(
+                                          children: tables.map((table) {
+                                            final isOccupied = occupiedTableIds.contains(table['id']);
+                                            double x = (table['pos_x'] as num?)?.toDouble() ?? 50.0;
+                                            double y = (table['pos_y'] as num?)?.toDouble() ?? 50.0;
+                                            
+                                            return Positioned(
+                                              left: x,
+                                              top: y,
+                                              child: InkWell(
+                                                onTap: () {
+                                                  setState(() {
+                                                    _selectedOrderType = 'dine_in';
+                                                    _selectedTableId = table['id'];
+                                                    _selectedTableNumber = table['table_number'].toString();
+                                                    _customerName = null;
+                                                  });
+                                                  Navigator.pop(context);
+                                                },
+                                                borderRadius: BorderRadius.circular(16),
+                                                child: Container(
+                                                  width: 120,
+                                                  height: 120,
+                                                  decoration: BoxDecoration(
+                                                    color: isOccupied ? const Color(0xFF331515) : const Color(0xFF1E293B),
+                                                    borderRadius: BorderRadius.circular(16),
+                                                    border: Border.all(
+                                                      color: isOccupied ? Colors.red[900]! : const Color(0xFF334155),
+                                                      width: isOccupied ? 2 : 1,
+                                                    ),
+                                                    boxShadow: [
+                                                      BoxShadow(
+                                                        color: Colors.black.withValues(alpha: 0.3),
+                                                        blurRadius: 10,
+                                                        offset: const Offset(0, 5),
+                                                      )
+                                                    ],
+                                                  ),
+                                                  child: Column(
+                                                    mainAxisAlignment: MainAxisAlignment.center,
+                                                    children: [
+                                                      Icon(
+                                                        Icons.table_restaurant,
+                                                        size: 40,
+                                                        color: isOccupied ? Colors.red[400] : const Color(0xFF94A3B8),
+                                                      ),
+                                                      const SizedBox(height: 8),
+                                                      Text(
+                                                        'Mesa ${table['table_number']}',
+                                                        style: TextStyle(
+                                                          fontSize: 16,
+                                                          fontWeight: FontWeight.bold,
+                                                          color: isOccupied ? Colors.red[200] : Colors.white,
+                                                        ),
+                                                      ),
+                                                      const SizedBox(height: 4),
+                                                      Container(
+                                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                                        decoration: BoxDecoration(
+                                                          color: isOccupied ? Colors.red.withValues(alpha: 0.2) : Colors.green.withValues(alpha: 0.2),
+                                                          borderRadius: BorderRadius.circular(12),
+                                                        ),
+                                                        child: Text(
+                                                          isOccupied ? 'Ocupada' : 'Libre',
+                                                          style: TextStyle(
+                                                            fontSize: 10,
+                                                            fontWeight: FontWeight.w500,
+                                                            color: isOccupied ? Colors.red[300] : Colors.green[400],
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ],
                                                   ),
                                                 ),
                                               ),
-                                            ],
-                                          ),
+                                            );
+                                          }).toList(),
                                         ),
                                       ),
-                                    );
-                                  }).toList(),
-                                ),
-                              ),
-                            ),
+                                    ),
+                                  );
+                                },
+                              );
+                            },
                           )
                         : Padding(
                             padding: const EdgeInsets.all(32.0),
