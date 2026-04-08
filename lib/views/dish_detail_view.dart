@@ -50,7 +50,7 @@ class DishDetailView extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
                   Chip(
-                    label: Text(dish.category.name.toUpperCase()),
+                    label: Text(dish.category.toUpperCase()),
                     backgroundColor: Theme.of(context).colorScheme.primaryContainer,
                   ),
                   const SizedBox(height: 24),

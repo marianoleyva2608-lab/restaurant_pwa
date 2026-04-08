@@ -657,6 +657,8 @@ class _ComandasViewState extends State<ComandasView> {
         const SliverToBoxAdapter(child: SizedBox(height: 40)),
       ],
     );
+  }
+
   List<Widget> _buildGroupedMenu(List<Dish> items, int crossAxisCount) {
     if (items.isEmpty) {
       return [
