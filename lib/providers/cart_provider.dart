@@ -4,12 +4,16 @@ import '../models/dish.dart';
 class CartItem {
   final Dish dish;
   int quantity;
+  String clientLabel;
 
-  CartItem({required this.dish, this.quantity = 1});
+  CartItem({required this.dish, this.quantity = 1, this.clientLabel = 'Cliente 1'});
 }
 
 class CartProvider with ChangeNotifier {
   final Map<String, CartItem> _items = {};
+
+  String currentClient = 'Cliente 1';
+  List<String> clients = ['Cliente 1'];
 
   Map<String, CartItem> get items => {..._items};
 
@@ -22,40 +26,68 @@ class CartProvider with ChangeNotifier {
     );
   }
 
-  void addItem(Dish dish) {
-    if (_items.containsKey(dish.id)) {
-      _items[dish.id]!.quantity += 1;
-    } else {
-      _items[dish.id] = CartItem(dish: dish);
-    }
-    notifyListeners();
-  }
-
-  void incrementQuantity(String dishId) {
-    if (_items.containsKey(dishId)) {
-      _items[dishId]!.quantity += 1;
+  void addClient(String name) {
+    if (!clients.contains(name)) {
+      clients = [...clients, name];
       notifyListeners();
     }
   }
 
-  void decrementQuantity(String dishId) {
-    if (!_items.containsKey(dishId)) return;
-
-    if (_items[dishId]!.quantity > 1) {
-      _items[dishId]!.quantity -= 1;
-    } else {
-      _items.remove(dishId);
+  void removeClient(String name) {
+    if (name == 'Cliente 1' && clients.length == 1) return;
+    // Remove all items for this client
+    _items.removeWhere((key, item) => item.clientLabel == name);
+    clients = clients.where((c) => c != name).toList();
+    if (currentClient == name) {
+      currentClient = clients.first;
     }
     notifyListeners();
   }
 
-  void removeItem(String dishId) {
-    _items.remove(dishId);
+  void setCurrentClient(String name) {
+    if (clients.contains(name)) {
+      currentClient = name;
+      notifyListeners();
+    }
+  }
+
+  void addItem(Dish dish) {
+    final key = '${dish.id}_$currentClient';
+    if (_items.containsKey(key)) {
+      _items[key]!.quantity += 1;
+    } else {
+      _items[key] = CartItem(dish: dish, clientLabel: currentClient);
+    }
+    notifyListeners();
+  }
+
+  void incrementQuantity(String itemKey) {
+    if (_items.containsKey(itemKey)) {
+      _items[itemKey]!.quantity += 1;
+      notifyListeners();
+    }
+  }
+
+  void decrementQuantity(String itemKey) {
+    if (!_items.containsKey(itemKey)) return;
+
+    if (_items[itemKey]!.quantity > 1) {
+      _items[itemKey]!.quantity -= 1;
+    } else {
+      _items.remove(itemKey);
+    }
+    notifyListeners();
+  }
+
+  void removeItem(String itemKey) {
+    _items.remove(itemKey);
     notifyListeners();
   }
 
   void clearCart() {
     _items.clear();
+    clients = ['Cliente 1'];
+    currentClient = 'Cliente 1';
     notifyListeners();
   }
 }
