@@ -101,16 +101,31 @@ class _DishManagementViewState extends State<DishManagementView> {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  TextFormField(
-                    initialValue: category,
-                    decoration: const InputDecoration(
-                      labelText: 'Categoría (Ej: Enchiladas, Bebidas, Postres)',
-                      helperText: 'Escribe el nombre de la categoría para agrupar los platos.',
-                    ),
-                    onChanged: (v) {
-                      category = v;
-                    },
-                    validator: (v) => v!.isEmpty ? 'Requerido' : null,
+                  DropdownButtonFormField<String>(
+                    value: [
+                      'guisados','tacos','tostadas','tortas','especialidades',
+                      'mainCourse','breakfast','soup','salad','appetizer',
+                      'side','drink','alcohol','dessert',
+                    ].contains(category) ? category : 'mainCourse',
+                    decoration: const InputDecoration(labelText: 'Categoría'),
+                    items: const [
+                      DropdownMenuItem(value: 'guisados',       child: Text('Guisados')),
+                      DropdownMenuItem(value: 'tacos',          child: Text('Tacos')),
+                      DropdownMenuItem(value: 'tostadas',       child: Text('Tostadas')),
+                      DropdownMenuItem(value: 'tortas',         child: Text('Tortas')),
+                      DropdownMenuItem(value: 'especialidades', child: Text('Especialidades')),
+                      DropdownMenuItem(value: 'mainCourse',     child: Text('Platillos')),
+                      DropdownMenuItem(value: 'breakfast',      child: Text('Desayunos')),
+                      DropdownMenuItem(value: 'soup',           child: Text('Sopas')),
+                      DropdownMenuItem(value: 'salad',          child: Text('Ensaladas')),
+                      DropdownMenuItem(value: 'appetizer',      child: Text('Entradas')),
+                      DropdownMenuItem(value: 'side',           child: Text('Complementos')),
+                      DropdownMenuItem(value: 'drink',          child: Text('Bebidas')),
+                      DropdownMenuItem(value: 'alcohol',        child: Text('Alcohol')),
+                      DropdownMenuItem(value: 'dessert',        child: Text('Postres')),
+                    ],
+                    onChanged: (v) { if (v != null) category = v; },
+                    validator: (v) => v == null || v.isEmpty ? 'Requerido' : null,
                   ),
                   const SizedBox(height: 16),
                   TextFormField(

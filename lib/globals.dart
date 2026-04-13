@@ -92,6 +92,7 @@ class Globals {
       'tostadas': 'Tostadas',
       'tortas': 'Tortas',
       'especialidades': 'Especialidades',
+      'guisados': 'Guisados',
     };
     return translations[category] ?? category;
   }
