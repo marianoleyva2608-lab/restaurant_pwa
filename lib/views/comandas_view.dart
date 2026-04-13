@@ -329,8 +329,8 @@ class _ComandasViewState extends State<ComandasView> {
                                     child: InteractiveViewer(
                                       transformationController: _mapTransformationController,
                                       constrained: false,
-                                      panEnabled: true,
-                                      scaleEnabled: true,
+                                      panEnabled: false,
+                                      scaleEnabled: false,
                                       boundaryMargin: const EdgeInsets.all(2000),
                                       minScale: 0.1,
                                       maxScale: 2.0,
