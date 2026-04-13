@@ -44,6 +44,27 @@ class CartProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  void renameClient(String oldName, String newName) {
+    final trimmed = newName.trim();
+    if (trimmed.isEmpty || trimmed == oldName || clients.contains(trimmed)) return;
+    // Update items
+    final updatedItems = <String, CartItem>{};
+    for (final entry in _items.entries) {
+      if (entry.value.clientLabel == oldName) {
+        final newKey = entry.key.replaceFirst('_$oldName', '_$trimmed');
+        entry.value.clientLabel = trimmed;
+        updatedItems[newKey] = entry.value;
+      } else {
+        updatedItems[entry.key] = entry.value;
+      }
+    }
+    _items = updatedItems;
+    // Update list
+    clients = clients.map((c) => c == oldName ? trimmed : c).toList();
+    if (currentClient == oldName) currentClient = trimmed;
+    notifyListeners();
+  }
+
   void setCurrentClient(String name) {
     if (clients.contains(name)) {
       currentClient = name;
