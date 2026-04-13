@@ -417,65 +417,6 @@ class _OrderSummaryWidgetState extends State<OrderSummaryWidget> {
           ),
         ),
 
-        // ── SELECTOR DE CLIENTES ───────────────────────────────
-        SizedBox(
-          height: 40,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            itemCount: cart.clients.length,
-            itemBuilder: (context, index) {
-              final client = cart.clients[index];
-              final isActive = client == cart.currentClient;
-              return Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: InkWell(
-                  onTap: () => cart.setCurrentClient(client),
-                  borderRadius: BorderRadius.circular(20),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: isActive ? const Color(0xFFFF6D00) : const Color(0xFF1E293B),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: isActive ? const Color(0xFFFF6D00) : const Color(0xFF334155),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (isActive)
-                          const Icon(Icons.check, size: 12, color: Colors.white),
-                        if (isActive) const SizedBox(width: 4),
-                        Text(
-                          client,
-                          style: TextStyle(
-                            color: isActive ? Colors.white : Colors.white54,
-                            fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-                            fontSize: 12,
-                          ),
-                        ),
-                        if (cart.clients.length > 1) ...[
-                          const SizedBox(width: 6),
-                          GestureDetector(
-                            onTap: () => cart.removeClient(client),
-                            child: Icon(
-                              Icons.close,
-                              size: 14,
-                              color: isActive ? Colors.white70 : Colors.white30,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-
         const SizedBox(height: 8),
 
         // ── LISTA AGRUPADA POR CLIENTE ─────────────────────────
@@ -492,38 +433,62 @@ class _OrderSummaryWidgetState extends State<OrderSummaryWidget> {
                   children: [
                     for (final client in cart.clients) ...[
                       if (grouped[client] != null && grouped[client]!.isNotEmpty) ...[
-                        // Client header
-                        Container(
-                          margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF1E293B),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: const Color(0xFF334155)),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.person_outline,
-                                  color: Color(0xFFFF6D00), size: 16),
-                              const SizedBox(width: 8),
-                              Text(
-                                client,
-                                style: const TextStyle(
-                                  color: Color(0xFFFF6D00),
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
-                                  letterSpacing: 0.8,
-                                ),
+                        // Client header — tap to select, X to remove
+                        GestureDetector(
+                          onTap: () => cart.setCurrentClient(client),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 180),
+                            margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: cart.currentClient == client
+                                  ? const Color(0xFFFF6D00).withOpacity(0.15)
+                                  : const Color(0xFF1E293B),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: cart.currentClient == client
+                                    ? const Color(0xFFFF6D00)
+                                    : const Color(0xFF334155),
+                                width: cart.currentClient == client ? 1.5 : 1,
                               ),
-                              const Spacer(),
-                              Text(
-                                '\$${grouped[client]!.fold(0.0, (sum, e) => sum + e.value.dish.price * e.value.quantity).toStringAsFixed(2)}',
-                                style: const TextStyle(
-                                  color: Colors.white54,
-                                  fontSize: 12,
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  cart.currentClient == client
+                                      ? Icons.person
+                                      : Icons.person_outline,
+                                  color: const Color(0xFFFF6D00),
+                                  size: 16,
                                 ),
-                              ),
-                            ],
+                                const SizedBox(width: 8),
+                                Text(
+                                  client,
+                                  style: const TextStyle(
+                                    color: Color(0xFFFF6D00),
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                                if (cart.currentClient == client) ...[
+                                  const SizedBox(width: 6),
+                                  const Icon(Icons.edit, size: 11, color: Color(0xFFFF6D00)),
+                                ],
+                                const Spacer(),
+                                Text(
+                                  '\$${grouped[client]!.fold(0.0, (sum, e) => sum + e.value.dish.price * e.value.quantity).toStringAsFixed(2)}',
+                                  style: const TextStyle(color: Colors.white54, fontSize: 12),
+                                ),
+                                if (cart.clients.length > 1) ...[
+                                  const SizedBox(width: 8),
+                                  GestureDetector(
+                                    onTap: () => cart.removeClient(client),
+                                    child: const Icon(Icons.close, size: 15, color: Colors.white30),
+                                  ),
+                                ],
+                              ],
+                            ),
                           ),
                         ),
                         // Items for this client
