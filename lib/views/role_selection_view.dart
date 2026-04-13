@@ -169,7 +169,21 @@ class _RoleSelectionViewState extends State<RoleSelectionView> {
                   return;
                 }
 
-                // 2. CHECK IF IT IS A REGISTERED CASHIER PIN
+                // 2. CHECK AGAINST admin_users TABLE (multi-admin support)
+                final adminUserResult = await _supabase
+                    .from('admin_users')
+                    .select()
+                    .eq('username', email)
+                    .eq('password', password)
+                    .maybeSingle();
+
+                if (adminUserResult != null) {
+                  Navigator.pop(context);
+                  onAuthenticated();
+                  return;
+                }
+
+                // 3. CHECK IF IT IS A REGISTERED CASHIER PIN
                 final cashierResponse = await _supabase
                     .from('waiters')
                     .select()
@@ -183,7 +197,7 @@ class _RoleSelectionViewState extends State<RoleSelectionView> {
                   return;
                 }
 
-                // 3. ATTEMPT FULL EMAIL/PASS AUTH
+                // 4. ATTEMPT FULL EMAIL/PASS AUTH
                 if (email.isNotEmpty) {
                   final authResponse = await _supabase.auth.signInWithPassword(
                     email: email,
