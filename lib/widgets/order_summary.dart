@@ -392,9 +392,21 @@ class _OrderSummaryWidgetState extends State<OrderSummaryWidget> {
                 ),
               ),
               const Spacer(),
-              IconButton(
-                icon: const Icon(Icons.person_add, color: Color(0xFFFF6D00)),
-                tooltip: 'Agregar cliente',
+              TextButton.icon(
+                icon: const Icon(Icons.person_add, size: 16, color: Color(0xFFFF6D00)),
+                label: const Text(
+                  'Agregar Cliente',
+                  style: TextStyle(
+                    color: Color(0xFFFF6D00),
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                style: TextButton.styleFrom(
+                  backgroundColor: const Color(0xFFFF6D00).withOpacity(0.1),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                ),
                 onPressed: () => _showAddClientDialog(context, cart),
               ),
             ],
