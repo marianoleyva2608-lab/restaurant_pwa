@@ -141,16 +141,6 @@ class _AdminViewState extends State<AdminView> {
             },
           ),
           ListTile(
-            leading: Icon(Icons.security, color: _selectedIndex == 4 ? const Color(0xFFFF6D00) : const Color(0xFF94A3B8)),
-            title: Text('Seguridad', style: TextStyle(color: _selectedIndex == 4 ? Colors.white : const Color(0xFF94A3B8), fontWeight: _selectedIndex == 4 ? FontWeight.bold : FontWeight.normal)),
-            selected: _selectedIndex == 4,
-            selectedTileColor: const Color(0xFFFF6D00).withValues(alpha: 0.1),
-            onTap: () {
-              setState(() => _selectedIndex = 4);
-              if (isDrawer) Navigator.pop(context);
-            },
-          ),
-          ListTile(
             leading: Icon(Icons.manage_accounts, color: _selectedIndex == 6 ? const Color(0xFFFF6D00) : const Color(0xFF94A3B8)),
             title: Text('Gestión de Acceso', style: TextStyle(color: _selectedIndex == 6 ? Colors.white : const Color(0xFF94A3B8), fontWeight: _selectedIndex == 6 ? FontWeight.bold : FontWeight.normal)),
             selected: _selectedIndex == 6,
