@@ -41,7 +41,7 @@ class _RoleSelectionViewState extends State<RoleSelectionView> {
       final settings = await _supabase
           .from('admin_settings')
           .select('setting_key, setting_value')
-          .in_('setting_key', ['master_pin', 'admin_user', 'admin_pass']);
+          .or('setting_key.eq.master_pin,setting_key.eq.admin_user,setting_key.eq.admin_pass');
       for (final row in settings) {
         final key = row['setting_key'] as String;
         final value = row['setting_value'] as String? ?? '';
