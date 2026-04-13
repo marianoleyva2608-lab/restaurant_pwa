@@ -17,7 +17,7 @@ class _RoleSelectionViewState extends State<RoleSelectionView> {
   // --- Valores por defecto para credenciales de seguridad ---
   // Cambiar aquí si se necesita un fallback distinto al valor en DB.
   static const String _defaultMasterPin = '0000';
-  static const String _defaultAdminUser = 'admin1234';
+  static const String _defaultAdminUser = 'admin';
   static const String _defaultAdminPass = '1234';
   // ---------------------------------------------------------
 
