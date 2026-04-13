@@ -12,6 +12,7 @@ class CashRegisterView extends StatefulWidget {
 class _CashRegisterViewState extends State<CashRegisterView> {
   final _supabase = Supabase.instance.client;
   bool _isLoading = true;
+  String? _tableError;
   List<Map<String, dynamic>> _movements = [];
   
   // Variables para agregar un nuevo movimiento
@@ -34,15 +35,17 @@ class _CashRegisterViewState extends State<CashRegisterView> {
   }
 
   Future<void> _fetchMovements() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _tableError = null;
+    });
     try {
-      // Intenta obtener los movimientos si la tabla existe
       final response = await _supabase
           .from('cash_movements')
           .select()
           .eq('branch_name', Globals.currentBranch)
           .order('created_at', ascending: false);
-      
+
       if (mounted) {
         setState(() {
           _movements = List<Map<String, dynamic>>.from(response);
@@ -51,12 +54,18 @@ class _CashRegisterViewState extends State<CashRegisterView> {
       }
     } catch (e) {
       if (mounted) {
-        // Ignora si es un error de tabla no existente para propósitos de UI temporal,
-        // pero avisa al usuario
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Por favor crea la tabla en Supabase. Error: $e'), backgroundColor: Colors.red),
-        );
-        setState(() => _isLoading = false);
+        final errorMsg = e.toString();
+        final isTableMissing = errorMsg.contains('42P01') ||
+            errorMsg.contains('relation') ||
+            errorMsg.contains('does not exist') ||
+            errorMsg.contains('cash_movements');
+        setState(() {
+          _isLoading = false;
+          _tableError = isTableMissing
+              ? 'La tabla "cash_movements" no existe en Supabase.\n\n'
+                'Ejecuta el script SQL para crearla y vuelve a intentarlo.'
+              : 'Error al cargar movimientos: $errorMsg';
+        });
       }
     }
   }
@@ -82,8 +91,7 @@ class _CashRegisterViewState extends State<CashRegisterView> {
         'payment_method': _selectedPaymentMethod,
         'description': _descriptionController.text.trim().isNotEmpty ? _descriptionController.text.trim() : 'Sin descripción',
         'branch_name': Globals.currentBranch,
-        // Usuario o persona que registra (usarías algo del estado si hay auth)
-        'registered_by': 'Admin', 
+        'registered_by': Globals.currentUser,
         'recipient': _selectedRecipient,
       });
 
@@ -96,8 +104,18 @@ class _CashRegisterViewState extends State<CashRegisterView> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Lanza el código SQL primero. Error: $e'), backgroundColor: Colors.red));
-        setState(() => _isLoading = false);
+        final errorMsg = e.toString();
+        final isTableMissing = errorMsg.contains('42P01') ||
+            errorMsg.contains('relation') ||
+            errorMsg.contains('does not exist') ||
+            errorMsg.contains('cash_movements');
+        setState(() {
+          _isLoading = false;
+          _tableError = isTableMissing
+              ? 'La tabla "cash_movements" no existe en Supabase.\n\n'
+                'Ejecuta el script SQL para crearla y vuelve a intentarlo.'
+              : 'Error al guardar movimiento: $errorMsg';
+        });
       }
     }
   }
@@ -305,9 +323,34 @@ class _CashRegisterViewState extends State<CashRegisterView> {
           )
         ],
       ),
-      body: _isLoading 
+      body: _isLoading
         ? const Center(child: CircularProgressIndicator())
-        : Padding(
+        : _tableError != null
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(32.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.warning_amber_rounded, color: Colors.orangeAccent, size: 64),
+                    const SizedBox(height: 16),
+                    Text(
+                      _tableError!,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: Colors.white70, fontSize: 16),
+                    ),
+                    const SizedBox(height: 24),
+                    ElevatedButton.icon(
+                      onPressed: _fetchMovements,
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Reintentar'),
+                      style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFF6D00)),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          : Padding(
             padding: const EdgeInsets.all(24.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,

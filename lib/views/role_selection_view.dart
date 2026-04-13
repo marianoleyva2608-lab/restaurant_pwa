@@ -14,10 +14,47 @@ class RoleSelectionView extends StatefulWidget {
 }
 
 class _RoleSelectionViewState extends State<RoleSelectionView> {
+  // --- Valores por defecto para credenciales de seguridad ---
+  // Cambiar aquí si se necesita un fallback distinto al valor en DB.
+  static const String _defaultMasterPin = '0000';
+  static const String _defaultAdminUser = 'admin1234';
+  static const String _defaultAdminPass = '1234';
+  // ---------------------------------------------------------
+
   final _supabase = Supabase.instance.client;
   bool _isLoading = false;
   bool _hasSelectedBranch = false;
   bool _entered = false;
+
+  String _masterPin = _defaultMasterPin;
+  String _adminUser = _defaultAdminUser;
+  String _adminPass = _defaultAdminPass;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSecuritySettings();
+  }
+
+  Future<void> _loadSecuritySettings() async {
+    try {
+      final settings = await _supabase
+          .from('admin_settings')
+          .select('setting_key, setting_value')
+          .in_('setting_key', ['master_pin', 'admin_user', 'admin_pass']);
+      for (final row in settings) {
+        final key = row['setting_key'] as String;
+        final value = row['setting_value'] as String? ?? '';
+        if (value.isEmpty) continue;
+        if (key == 'master_pin') _masterPin = value;
+        if (key == 'admin_user') _adminUser = value;
+        if (key == 'admin_pass') _adminPass = value;
+      }
+    } catch (e) {
+      // Si falla la carga, se usan los defaults definidos arriba.
+      debugPrint('Error loading security settings: $e');
+    }
+  }
 
   Future<void> _requirePin(BuildContext context, VoidCallback onAuthenticated) async {
     String pin = '';
@@ -32,7 +69,7 @@ class _RoleSelectionViewState extends State<RoleSelectionView> {
           maxLength: 4,
           onChanged: (v) => pin = v,
           onSubmitted: (_) {
-            if (pin == '1234') { 
+            if (pin == _masterPin) {
               Navigator.pop(context);
               onAuthenticated();
             } else {
@@ -45,7 +82,7 @@ class _RoleSelectionViewState extends State<RoleSelectionView> {
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
           ElevatedButton(
             onPressed: () {
-              if (pin == '1234') { 
+              if (pin == _masterPin) {
                 Navigator.pop(context);
                 onAuthenticated();
               } else {
@@ -122,17 +159,11 @@ class _RoleSelectionViewState extends State<RoleSelectionView> {
               if (_isLoading) return;
               final email = emailController.text.trim();
               final password = passwordController.text.trim();
-              
+
               setState(() => _isLoading = true);
               try {
-                // 1. MASTER BYPASS AND LOCAL ADMIN SETTINGS
-                final resUser = await _supabase.from('admin_settings').select('setting_value').eq('setting_key', 'admin_user').maybeSingle();
-                final resPass = await _supabase.from('admin_settings').select('setting_value').eq('setting_key', 'admin_password').maybeSingle();
-                final localUser = resUser?['setting_value'] as String?;
-                final localPass = resPass?['setting_value'] as String?;
-
-                if ((localUser != null && localUser == email && localPass != null && localPass == password) ||
-                    (password == 'admin1234' || password == '1234')) {
+                // 1. CREDENCIALES ADMIN CARGADAS DESDE DB (via _loadSecuritySettings)
+                if (email == _adminUser && password == _adminPass) {
                   Navigator.pop(context);
                   onAuthenticated();
                   return;

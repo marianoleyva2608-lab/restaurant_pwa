@@ -172,29 +172,19 @@ class _PayrollViewState extends State<PayrollView> {
 
       final data = List<Map<String, dynamic>>.from(response);
       
-      // Calculate balance
+      // Cálculo del saldo pendiente:
+      // Positivos (lo que el negocio le DEBE al mesero): salary, bonus, tip
+      // Negativos (reducen lo que se le debe): payment (pago entregado), loan (préstamo), deduction (descuento)
+      // Saldo > 0: el negocio le debe al mesero
+      // Saldo < 0: el mesero le debe al negocio
       double bal = 0;
       for (var row in data) {
         final amt = (row['amount'] as num).toDouble();
         final type = row['type'];
-        if (type == 'pago' || type == 'salary' || type == 'tip' || type == 'bonus') {
+        if (type == 'salary' || type == 'tip' || type == 'bonus') {
           bal += amt;
-        } else if (type == 'loan' || type == 'payment') {
-          // 'payment' in ledger context usually means we are paying OUT to them
-          // Wait, 'payment' type in carwash ledger was 'loan', 'tip', 'purchase', 'bonus', 'payment'
-          // Let's clarify types: 
-          // salary/tip/bonus = positive (money they earned)
-          // payment/loan = negative (money we gave them or they owe)
-          
-          if (type == 'payment') {
-             // If type is payment, it means we PAID the waiter. This reduces the debt or accumulates paid salary.
-             // Actually, letting's define: 
-             // Tips, Salary, Bonus -> Increases what we OWE the waiter.
-             // Payments, Loans -> Decreases what we OWE the waiter.
-             bal -= amt;
-          } else {
-             bal -= amt;
-          }
+        } else if (type == 'payment' || type == 'loan' || type == 'deduction') {
+          bal -= amt;
         }
       }
 
@@ -232,9 +222,13 @@ class _PayrollViewState extends State<PayrollView> {
       child: Row(
         children: [
           _buildCard(
-            'Saldo Pendiente',
-            '\$${_balance.toStringAsFixed(2)}',
-            _balance >= 0 ? Colors.green : Colors.red,
+            _balance > 0
+                ? 'Saldo a Pagar al Mesero'
+                : _balance < 0
+                    ? 'Saldo que Debe el Mesero'
+                    : 'Saldo Pendiente',
+            '\$${_balance.abs().toStringAsFixed(2)}',
+            _balance > 0 ? Colors.green : _balance < 0 ? Colors.red : Colors.grey,
             Icons.account_balance,
           ),
           const SizedBox(width: 24),
@@ -302,6 +296,10 @@ class _PayrollViewState extends State<PayrollView> {
           IconData typeIcon;
           String typeLabel;
 
+          // Tipos que suman al saldo a favor del mesero (positivos)
+          final bool isPositive = type == 'salary' || type == 'tip' || type == 'bonus';
+          // Tipos que restan del saldo (negativos): payment = pago entregado, loan = préstamo, deduction = descuento
+
           switch (type) {
             case 'salary':
               typeColor = Colors.blue;
@@ -313,20 +311,28 @@ class _PayrollViewState extends State<PayrollView> {
               typeIcon = Icons.monetization_on;
               typeLabel = 'Propina';
               break;
-            case 'loan':
-              typeColor = Colors.red;
-              typeIcon = Icons.money_off;
-              typeLabel = 'Préstamo';
-              break;
-            case 'payment':
-              typeColor = Colors.orange;
-              typeIcon = Icons.check_circle;
-              typeLabel = 'Pago Realizado';
-              break;
             case 'bonus':
               typeColor = Colors.purple;
               typeIcon = Icons.star;
               typeLabel = 'Bono';
+              break;
+            case 'payment':
+              // Pago que el negocio le entrega al mesero — reduce la deuda del negocio
+              typeColor = Colors.orange;
+              typeIcon = Icons.check_circle;
+              typeLabel = 'Pago Entregado';
+              break;
+            case 'loan':
+              // Préstamo al mesero — el mesero debe devolver este dinero
+              typeColor = Colors.red;
+              typeIcon = Icons.money_off;
+              typeLabel = 'Préstamo';
+              break;
+            case 'deduction':
+              // Descuento aplicado al mesero
+              typeColor = Colors.deepOrange;
+              typeIcon = Icons.remove_circle;
+              typeLabel = 'Descuento';
               break;
             default:
               typeColor = Colors.grey;
@@ -345,13 +351,24 @@ class _PayrollViewState extends State<PayrollView> {
               '${DateFormat('dd MMM yyyy, HH:mm').format(DateTime.parse(row['created_at']))}${row['description'] != null ? ' - ${row['description']}' : ''}',
               style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
             ),
-            trailing: Text(
-              '\$${amount.toStringAsFixed(2)}',
-              style: TextStyle(
-                color: (type == 'loan' || type == 'payment') ? Colors.red[300] : Colors.green[300],
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  isPositive ? Icons.arrow_upward : Icons.arrow_downward,
+                  color: isPositive ? Colors.green[300] : Colors.red[300],
+                  size: 14,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  '\$${amount.toStringAsFixed(2)}',
+                  style: TextStyle(
+                    color: isPositive ? Colors.green[300] : Colors.red[300],
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+              ],
             ),
           );
         },
@@ -518,15 +535,30 @@ class _PayrollViewState extends State<PayrollView> {
               }
               if (waiterMovements.isEmpty) return pw.SizedBox();
 
-              // Summary
+              // Resumen del período:
+              // earned = salary + bonus + tip (lo que el negocio le debe al mesero)
+              // paid   = payment (pagos ya entregados al mesero)
+              // loans  = loan (préstamos al mesero)
+              // deductions = deduction (descuentos)
+              // saldo neto = earned - paid - loans - deductions
               double earned = 0;
-              double discounts = 0;
+              double paid = 0;
+              double loans = 0;
+              double deductions = 0;
               for (var m in waiterMovements) {
                 final amt = (m['amount'] as num).toDouble();
                 final t = m['type'];
-                if (t == 'salary' || t == 'tip' || t == 'bonus') earned += amt;
-                else discounts += amt;
+                if (t == 'salary' || t == 'tip' || t == 'bonus') {
+                  earned += amt;
+                } else if (t == 'payment') {
+                  paid += amt;
+                } else if (t == 'loan') {
+                  loans += amt;
+                } else if (t == 'deduction') {
+                  deductions += amt;
+                }
               }
+              final double netBalance = earned - paid - loans - deductions;
 
               return pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -538,7 +570,12 @@ class _PayrollViewState extends State<PayrollView> {
                       mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                       children: [
                         pw.Text('Mesero: ${waiter['name']}', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
-                        pw.Text('Neto: \$${(earned - discounts).toStringAsFixed(2)}', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                        pw.Text(
+                          netBalance >= 0
+                              ? 'Saldo a pagar: \$${netBalance.toStringAsFixed(2)}'
+                              : 'Saldo que debe el mesero: \$${netBalance.abs().toStringAsFixed(2)}',
+                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                        ),
                       ],
                     ),
                   ),
@@ -551,24 +588,51 @@ class _PayrollViewState extends State<PayrollView> {
                           pw.Padding(padding: const pw.EdgeInsets.all(4), child: pw.Text('Fecha', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10))),
                           pw.Padding(padding: const pw.EdgeInsets.all(4), child: pw.Text('Tipo', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10))),
                           pw.Padding(padding: const pw.EdgeInsets.all(4), child: pw.Text('Descripción', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10))),
+                          pw.Padding(padding: const pw.EdgeInsets.all(4), child: pw.Text('Efecto', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10))),
                           pw.Padding(padding: const pw.EdgeInsets.all(4), child: pw.Text('Monto', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10))),
                         ],
                       ),
                       ...waiterMovements.map((m) {
                         final amt = (m['amount'] as num).toDouble();
                         final t = m['type'];
-                        String label = t;
-                        if (t == 'salary') label = 'Sueldo';
-                        if (t == 'tip') label = 'Propina';
-                        if (t == 'loan') label = 'Préstamo';
-                        if (t == 'payment') label = 'Pago';
-                        if (t == 'bonus') label = 'Bono';
+                        String label;
+                        String effect;
+                        switch (t) {
+                          case 'salary':
+                            label = 'Sueldo';
+                            effect = '+';
+                            break;
+                          case 'tip':
+                            label = 'Propina';
+                            effect = '+';
+                            break;
+                          case 'bonus':
+                            label = 'Bono';
+                            effect = '+';
+                            break;
+                          case 'payment':
+                            label = 'Pago Entregado';
+                            effect = '-';
+                            break;
+                          case 'loan':
+                            label = 'Préstamo';
+                            effect = '-';
+                            break;
+                          case 'deduction':
+                            label = 'Descuento';
+                            effect = '-';
+                            break;
+                          default:
+                            label = t.toString().toUpperCase();
+                            effect = '?';
+                        }
 
                         return pw.TableRow(
                           children: [
                             pw.Padding(padding: const pw.EdgeInsets.all(4), child: pw.Text(DateFormat('dd/MM HH:mm').format(DateTime.parse(m['created_at'])), style: const pw.TextStyle(fontSize: 9))),
                             pw.Padding(padding: const pw.EdgeInsets.all(4), child: pw.Text(label, style: const pw.TextStyle(fontSize: 9))),
                             pw.Padding(padding: const pw.EdgeInsets.all(4), child: pw.Text(m['description'] ?? '', style: const pw.TextStyle(fontSize: 9))),
+                            pw.Padding(padding: const pw.EdgeInsets.all(4), child: pw.Text(effect, style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold))),
                             pw.Padding(padding: const pw.EdgeInsets.all(4), child: pw.Text('\$${amt.toStringAsFixed(2)}', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold))),
                           ],
                         );
@@ -580,8 +644,10 @@ class _PayrollViewState extends State<PayrollView> {
                     child: pw.Row(
                       mainAxisAlignment: pw.MainAxisAlignment.end,
                       children: [
-                        pw.Text('Subtotal Ganado: \$${earned.toStringAsFixed(2)}  |  '),
-                        pw.Text('Subtotal Retiro/Préstamo: \$${discounts.toStringAsFixed(2)}'),
+                        pw.Text('Devengado (sueldo+bono+propina): \$${earned.toStringAsFixed(2)}  |  '),
+                        pw.Text('Pagos entregados: \$${paid.toStringAsFixed(2)}  |  '),
+                        pw.Text('Préstamos: \$${loans.toStringAsFixed(2)}  |  '),
+                        pw.Text('Descuentos: \$${deductions.toStringAsFixed(2)}'),
                       ],
                     ),
                   ),

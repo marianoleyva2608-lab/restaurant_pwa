@@ -321,27 +321,20 @@ class _OrderTicketState extends State<_OrderTicket> {
       if (mounted) {
         var itemsList = List<Map<String, dynamic>>.from(response);
         
-        // Separar bebidas de comida de manera exhaustiva
-        final drinkTerms = [
-          'bebidas', 'bebida', 'drink', 'drinks', 'refresco', 'refrescos', 
-          'jugo', 'jugos', 'cafe', 'café', 'coffee', 'aguas', 'agua', 
-          'licuado', 'licuados', 'soda', 'sodas', 'beverage', 'beverages'
-        ];
-        
+        // Clasificar bebidas según la categoría del platillo
+        bool isDrink(Map<String, dynamic> item) {
+          final dish = item['dishes'] as Map<String, dynamic>?;
+          final category = dish?['category']?.toString().toLowerCase().trim() ?? '';
+          const drinkCategories = ['drink', 'alcohol', 'bebidas', 'drinks'];
+          return drinkCategories.contains(category);
+        }
+
         if (widget.isDrinksOnly) {
           // Bar: Solo bebidas
-          itemsList = itemsList.where((item) {
-            final dish = item['dishes'] as Map<String, dynamic>?;
-            final category = dish?['category']?.toString().toLowerCase().trim() ?? '';
-            return drinkTerms.contains(category);
-          }).toList();
+          itemsList = itemsList.where(isDrink).toList();
         } else {
-          // Cocina: Excluye absolutamente cualquier bebida
-          itemsList = itemsList.where((item) {
-            final dish = item['dishes'] as Map<String, dynamic>?;
-            final category = dish?['category']?.toString().toLowerCase().trim() ?? '';
-            return !drinkTerms.contains(category);
-          }).toList();
+          // Cocina: Excluye bebidas
+          itemsList = itemsList.where((item) => !isDrink(item)).toList();
         }
 
         setState(() {

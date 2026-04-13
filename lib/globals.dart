@@ -6,6 +6,7 @@ class Globals {
   static String currentBranch = 'Sucursal 1';
   static List<String> branches = ['Sucursal 1', 'Sucursal 2'];
   static bool splitKitchenMode = false;
+  static String currentUser = 'Admin';
   
   static Future<void> loadBranch() async {
     final prefs = await SharedPreferences.getInstance();
@@ -21,6 +22,9 @@ class Globals {
           branches = List<String>.from(jsonDecode(setting['setting_value']));
         } else if (setting['setting_key'] == 'split_kitchen_mode') {
           splitKitchenMode = setting['setting_value'] == 'true';
+        } else if (setting['setting_key'] == 'admin_user') {
+          final val = setting['setting_value'] as String?;
+          if (val != null && val.isNotEmpty) currentUser = val;
         }
       }
     } catch (e) {
