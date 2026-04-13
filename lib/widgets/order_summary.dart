@@ -407,7 +407,11 @@ class _OrderSummaryWidgetState extends State<OrderSummaryWidget> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 ),
-                onPressed: () => _showAddClientDialog(context, cart),
+                onPressed: () {
+                  final name = 'Cliente ${cart.clients.length + 1}';
+                  cart.addClient(name);
+                  cart.setCurrentClient(name);
+                },
               ),
             ],
           ),
@@ -423,29 +427,48 @@ class _OrderSummaryWidgetState extends State<OrderSummaryWidget> {
             itemBuilder: (context, index) {
               final client = cart.clients[index];
               final isActive = client == cart.currentClient;
-              return GestureDetector(
-                onLongPress: cart.clients.length > 1
-                    ? () => _showRemoveClientDialog(context, cart, client)
-                    : null,
-                child: Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: ChoiceChip(
-                    label: Text(
-                      client,
-                      style: TextStyle(
-                        color: isActive ? Colors.white : Colors.white54,
-                        fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-                        fontSize: 12,
+              return Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: InkWell(
+                  onTap: () => cart.setCurrentClient(client),
+                  borderRadius: BorderRadius.circular(20),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: isActive ? const Color(0xFFFF6D00) : const Color(0xFF1E293B),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: isActive ? const Color(0xFFFF6D00) : const Color(0xFF334155),
                       ),
                     ),
-                    selected: isActive,
-                    onSelected: (_) => cart.setCurrentClient(client),
-                    selectedColor: const Color(0xFFFF6D00),
-                    backgroundColor: const Color(0xFF1E293B),
-                    side: BorderSide(
-                      color: isActive ? const Color(0xFFFF6D00) : const Color(0xFF334155),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (isActive)
+                          const Icon(Icons.check, size: 12, color: Colors.white),
+                        if (isActive) const SizedBox(width: 4),
+                        Text(
+                          client,
+                          style: TextStyle(
+                            color: isActive ? Colors.white : Colors.white54,
+                            fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                            fontSize: 12,
+                          ),
+                        ),
+                        if (cart.clients.length > 1) ...[
+                          const SizedBox(width: 6),
+                          GestureDetector(
+                            onTap: () => cart.removeClient(client),
+                            child: Icon(
+                              Icons.close,
+                              size: 14,
+                              color: isActive ? Colors.white70 : Colors.white30,
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
                   ),
                 ),
               );
