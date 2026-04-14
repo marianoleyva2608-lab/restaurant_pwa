@@ -112,6 +112,16 @@ class _AdminViewState extends State<AdminView> {
             },
           ),
           ListTile(
+            leading: Icon(Icons.soup_kitchen, color: _selectedIndex == 10 ? const Color(0xFFFF6D00) : const Color(0xFF94A3B8)),
+            title: Text('Guisados', style: TextStyle(color: _selectedIndex == 10 ? Colors.white : const Color(0xFF94A3B8), fontWeight: _selectedIndex == 10 ? FontWeight.bold : FontWeight.normal)),
+            selected: _selectedIndex == 10,
+            selectedTileColor: const Color(0xFFFF6D00).withValues(alpha: 0.1),
+            onTap: () {
+              setState(() => _selectedIndex = 10);
+              if (isDrawer) Navigator.pop(context);
+            },
+          ),
+          ListTile(
             leading: Icon(Icons.people, color: _selectedIndex == 2 ? const Color(0xFFFF6D00) : const Color(0xFF94A3B8)),
             title: Text('Gestión de Meseros', style: TextStyle(color: _selectedIndex == 2 ? Colors.white : const Color(0xFF94A3B8), fontWeight: _selectedIndex == 2 ? FontWeight.bold : FontWeight.normal)),
             selected: _selectedIndex == 2,
@@ -178,16 +188,6 @@ class _AdminViewState extends State<AdminView> {
             selectedTileColor: const Color(0xFFFF6D00).withValues(alpha: 0.1),
             onTap: () {
               setState(() => _selectedIndex = 9);
-              if (isDrawer) Navigator.pop(context);
-            },
-          ),
-          ListTile(
-            leading: Icon(Icons.restaurant_menu, color: _selectedIndex == 10 ? const Color(0xFFFF6D00) : const Color(0xFF94A3B8)),
-            title: Text('Guisados', style: TextStyle(color: _selectedIndex == 10 ? Colors.white : const Color(0xFF94A3B8), fontWeight: _selectedIndex == 10 ? FontWeight.bold : FontWeight.normal)),
-            selected: _selectedIndex == 10,
-            selectedTileColor: const Color(0xFFFF6D00).withValues(alpha: 0.1),
-            onTap: () {
-              setState(() => _selectedIndex = 10);
               if (isDrawer) Navigator.pop(context);
             },
           ),
