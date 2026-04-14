@@ -104,13 +104,12 @@ class _DishManagementViewState extends State<DishManagementView> {
                   const SizedBox(height: 16),
                   DropdownButtonFormField<String>(
                     value: [
-                      'guisados','tacos','tostadas','tortas','especialidades',
+                      'tacos','tostadas','tortas','especialidades',
                       'mainCourse','breakfast','soup','salad','appetizer',
                       'side','drink','alcohol','dessert',
                     ].contains(category) ? category : 'mainCourse',
                     decoration: const InputDecoration(labelText: 'Categoría'),
                     items: const [
-                      DropdownMenuItem(value: 'guisados',       child: Text('Guisados')),
                       DropdownMenuItem(value: 'tacos',          child: Text('Tacos')),
                       DropdownMenuItem(value: 'tostadas',       child: Text('Tostadas')),
                       DropdownMenuItem(value: 'tortas',         child: Text('Tortas')),
