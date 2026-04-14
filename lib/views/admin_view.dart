@@ -729,44 +729,10 @@ class _TableDetailPanel extends StatefulWidget {
 class _TableDetailPanelState extends State<_TableDetailPanel> {
   double _discountPercent = 0.0;
 
-  void _promptFactura(BuildContext context, String orderId, num totalAmount, String formaPago) async {
-    final wantFactura = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('¿Generar Factura?'),
-        content: const Text('¿El cliente requiere factura (CFDI) para este consumo?\n\nPuedes saltar este paso si el cliente no la necesita.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('No Facturar', style: TextStyle(color: Colors.grey)),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFF6D00)),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Sí, Facturar', style: TextStyle(color: Colors.white)),
-          ),
-        ]
-      )
-    );
-
-    if (wantFactura == true && mounted) {
-      Navigator.push(context, MaterialPageRoute(
-        builder: (_) => BillingView(
-          ticket: {
-            'id': orderId,
-            'created_at': DateTime.now().toIso8601String(),
-            'total_amount': totalAmount,
-            'payment_method': formaPago,
-          },
-        ),
-      ));
-    }
-  }
 
   Future<void> _showCashPaymentDialog(BuildContext context, List<String> orderIds, double total, String? tableId) async {
     final cashController = TextEditingController();
     double change = 0.0;
-    bool wantFactura = false;
     
     await showDialog(
       context: context,
@@ -836,33 +802,6 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
                       ],
                     ),
                   ),
-                const SizedBox(height: 20),
-                // New Facturacion Toggle inside Cash Payment
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1E293B),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.blueAccent.withOpacity(0.3)),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Row(
-                        children: [
-                          Icon(Icons.receipt_long, color: Colors.blueAccent),
-                          SizedBox(width: 8),
-                          Text('¿REQUIERE FACTURA?', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
-                        ],
-                      ),
-                      Switch(
-                        value: wantFactura,
-                        activeColor: Colors.blueAccent,
-                        onChanged: (val) => setState(() => wantFactura = val),
-                      ),
-                    ],
-                  ),
-                ),
             ],
           ),
           actions: [
@@ -892,20 +831,6 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
                       
                       widget.onDeselect?.call(); 
 
-                      if (wantFactura) {
-                        Navigator.push(context, MaterialPageRoute(
-                          builder: (_) => BillingView(
-                            ticket: {
-                              'id': orderIds.first,
-                              'created_at': DateTime.now().toIso8601String(),
-                              'total_amount': total,
-                              'payment_method': '01',
-                            },
-                          ),
-                        ));
-                      } else {
-                        _promptFactura(context, orderIds.first, total, '01');
-                      }
                     }
                   } catch (e) {
                     if (ctx.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
@@ -931,7 +856,6 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
     final cashReceivedController = TextEditingController();
     double change = 0.0;
     bool isCardValidated = false;
-    bool wantFactura = false;
 
     await showDialog(
       context: context,
@@ -1026,33 +950,6 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
                     ],
                   ),
                   const SizedBox(height: 20),
-                  // New Facturacion Toggle inside Mixed Payment
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF1E293B),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.blueAccent.withOpacity(0.3)),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Row(
-                          children: [
-                            Icon(Icons.receipt_long, color: Colors.blueAccent),
-                            SizedBox(width: 8),
-                            Text('¿REQUIERE FACTURA?', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
-                          ],
-                        ),
-                        Switch(
-                          value: wantFactura,
-                          activeColor: Colors.blueAccent,
-                          onChanged: (val) => setState(() => wantFactura = val),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 20),
                   if (cardAmount > 0)
                     ElevatedButton.icon(
                       onPressed: isCardValidated ? null : () {
@@ -1132,11 +1029,11 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
                       if (cardAmount > 0 && !isCardValidated) {
                         _payWithMercadoPago(context, cardAmount, () async {
                            setState(() { isCardValidated = true; });
-                           await _executeFinalizeMixedPayment(context, orderIds, total, tableId, cashAmount, cardAmount, wantFactura);
+                           await _executeFinalizeMixedPayment(context, orderIds, total, tableId, cashAmount, cardAmount);
                         });
                         return;
                       }
-                      await _executeFinalizeMixedPayment(context, orderIds, total, tableId, cashAmount, cardAmount, wantFactura);
+                      await _executeFinalizeMixedPayment(context, orderIds, total, tableId, cashAmount, cardAmount);
                     },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: (cardAmount > 0 && !isCardValidated) ? Colors.blueAccent : Colors.orangeAccent,
@@ -1155,7 +1052,7 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
     );
   }
 
-  Future<void> _executeFinalizeMixedPayment(BuildContext context, List<String> orderIds, double total, String? tableId, double cashAmount, double cardAmount, bool wantFactura) async {
+  Future<void> _executeFinalizeMixedPayment(BuildContext context, List<String> orderIds, double total, String? tableId, double cashAmount, double cardAmount) async {
     final supabase = Supabase.instance.client;
     try {
       await supabase.from('orders').update({
@@ -1164,31 +1061,15 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
         'amount_cash': cashAmount,
         'amount_card': cardAmount
       }).inFilter('id', orderIds);
-      
+
       if (tableId != null) {
         await supabase.from('restaurant_tables').update({'status': 'available'}).eq('id', tableId as Object);
       }
-      
-      if (context.mounted) {
-        Navigator.pop(context); // Close dialog
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Pago Mixto finalizado'), backgroundColor: Colors.green));
-        
-        widget.onDeselect?.call();
 
-        if (wantFactura) {
-           Navigator.push(context, MaterialPageRoute(
-             builder: (_) => BillingView(
-               ticket: {
-                 'id': orderIds.first,
-                 'created_at': DateTime.now().toIso8601String(),
-                 'total_amount': total,
-                 'payment_method': '99',
-               },
-             ),
-           ));
-        } else {
-          _promptFactura(context, orderIds.first, total, '99');
-        }
+      if (context.mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Pago Mixto finalizado'), backgroundColor: Colors.green));
+        widget.onDeselect?.call();
       }
     } catch (e) {
       if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al finalizar: $e')));
@@ -1740,7 +1621,6 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
                                             if (context.mounted) {
                                               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cobro con terminal exitoso')));
                                               widget.onDeselect?.call();
-                                              _promptFactura(context, orderIds.first, totalToPay, '04');
                                             }
                                           } catch (e) {
                                               if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
