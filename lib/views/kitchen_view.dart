@@ -35,6 +35,151 @@ class _KitchenViewState extends State<KitchenView> {
     super.dispose();
   }
 
+  // ── Panel de guisados disponibles ──────────────────────────────────
+  void _showGuisadosSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1E293B),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      isScrollControlled: true,
+      builder: (ctx) {
+        return DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: 0.55,
+          maxChildSize: 0.85,
+          minChildSize: 0.3,
+          builder: (_, controller) {
+            return Column(
+              children: [
+                // Handle
+                Container(
+                  margin: const EdgeInsets.only(top: 12, bottom: 8),
+                  width: 40, height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.white24,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  child: Row(
+                    children: [
+                      Icon(Icons.soup_kitchen, color: Color(0xFFFF6D00), size: 22),
+                      SizedBox(width: 10),
+                      Text(
+                        'Guisados disponibles hoy',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Padding(
+                  padding: EdgeInsets.only(left: 20, right: 20, bottom: 8),
+                  child: Text(
+                    'Desactiva los que ya no hay para que no se puedan ordenar.',
+                    style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
+                  ),
+                ),
+                const Divider(color: Color(0xFF334155)),
+                Expanded(
+                  child: StreamBuilder<List<Map<String, dynamic>>>(
+                    stream: _supabase
+                        .from('guisados')
+                        .stream(primaryKey: ['id'])
+                        .order('name', ascending: true),
+                    builder: (context, snapshot) {
+                      if (!snapshot.hasData) {
+                        return const Center(
+                          child: CircularProgressIndicator(color: Color(0xFFFF6D00)),
+                        );
+                      }
+                      final guisados = snapshot.data!.where((g) {
+                        final branch = g['branch_name'] as String?;
+                        return branch == null || branch == Globals.currentBranch;
+                      }).toList();
+
+                      if (guisados.isEmpty) {
+                        return const Center(
+                          child: Text('No hay guisados registrados.',
+                              style: TextStyle(color: Colors.white54)),
+                        );
+                      }
+
+                      return ListView.builder(
+                        controller: controller,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                        itemCount: guisados.length,
+                        itemBuilder: (_, index) {
+                          final g = guisados[index];
+                          final available = g['available'] as bool? ?? true;
+                          return Container(
+                            margin: const EdgeInsets.symmetric(vertical: 4),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF0F172A),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: ListTile(
+                              leading: CircleAvatar(
+                                backgroundColor: available
+                                    ? const Color(0xFFFF6D00).withOpacity(0.15)
+                                    : const Color(0xFF334155),
+                                child: Icon(
+                                  Icons.lunch_dining,
+                                  color: available
+                                      ? const Color(0xFFFF6D00)
+                                      : Colors.white38,
+                                  size: 20,
+                                ),
+                              ),
+                              title: Text(
+                                g['name'] as String,
+                                style: TextStyle(
+                                  color: available ? Colors.white : Colors.white38,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              subtitle: Text(
+                                available ? 'Disponible' : 'No disponible',
+                                style: TextStyle(
+                                  color: available
+                                      ? const Color(0xFF34D399)
+                                      : Colors.redAccent,
+                                  fontSize: 12,
+                                ),
+                              ),
+                              trailing: Switch(
+                                value: available,
+                                onChanged: (_) async {
+                                  await _supabase
+                                      .from('guisados')
+                                      .update({'available': !available})
+                                      .eq('id', g['id']);
+                                },
+                                activeColor: const Color(0xFFFF6D00),
+                                inactiveThumbColor: Colors.white38,
+                                inactiveTrackColor: const Color(0xFF334155),
+                              ),
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
@@ -57,6 +202,13 @@ class _KitchenViewState extends State<KitchenView> {
           ],
         ),
         actions: [
+          // Botón de guisados: visible en Línea de Producción y Cocina (no en Bar)
+          if (!widget.isDrinksOnly)
+            IconButton(
+              icon: const Icon(Icons.soup_kitchen),
+              tooltip: 'Guisados disponibles',
+              onPressed: () => _showGuisadosSheet(context),
+            ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () => setState(() {}),
