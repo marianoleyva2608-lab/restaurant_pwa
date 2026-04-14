@@ -1,11 +1,14 @@
 -- ============================================================
 -- MENÚ COMPLETO - Gorditas Mis Hermanas
 -- Ejecutar en Supabase > SQL Editor
--- ¡ATENCIÓN! Este script ELIMINA el menú existente y lo reemplaza
 -- ============================================================
 
--- 1. Limpiar menú anterior (solo platillos, no guisados)
-DELETE FROM dishes;
+-- 1. Borrar solo platillos que NO estén en órdenes históricas
+--    (los que sí están en order_items se conservan para no romper el historial)
+DELETE FROM dishes
+WHERE id NOT IN (
+  SELECT DISTINCT dish_id FROM order_items WHERE dish_id IS NOT NULL
+);
 
 -- ============================================================
 -- 2. INSERTAR NUEVO MENÚ
