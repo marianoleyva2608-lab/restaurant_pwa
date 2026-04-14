@@ -733,7 +733,8 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
   Future<void> _showCashPaymentDialog(BuildContext context, List<String> orderIds, double total, String? tableId) async {
     final cashController = TextEditingController();
     double change = 0.0;
-    
+    bool wantFactura = false;
+
     await showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
@@ -802,6 +803,30 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
                       ],
                     ),
                   ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1E293B),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.blueAccent.withOpacity(0.3)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Row(children: [
+                      Icon(Icons.receipt_long, color: Colors.blueAccent),
+                      SizedBox(width: 8),
+                      Text('¿REQUIERE FACTURA?', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                    ]),
+                    Switch(
+                      value: wantFactura,
+                      activeColor: Colors.blueAccent,
+                      onChanged: (val) => setState(() => wantFactura = val),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
           actions: [
@@ -810,8 +835,8 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
               child: const Text('Cancelar', style: TextStyle(color: Color(0xFF94A3B8))),
             ),
             ElevatedButton(
-              onPressed: (double.tryParse(cashController.text) ?? 0) < total 
-                ? null 
+              onPressed: (double.tryParse(cashController.text) ?? 0) < total
+                ? null
                 : () async {
                   final supabase = Supabase.instance.client;
                   try {
@@ -856,6 +881,7 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
     final cashReceivedController = TextEditingController();
     double change = 0.0;
     bool isCardValidated = false;
+    bool wantFactura = false;
 
     await showDialog(
       context: context,
@@ -949,7 +975,31 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1E293B),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.blueAccent.withOpacity(0.3)),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Row(children: [
+                          Icon(Icons.receipt_long, color: Colors.blueAccent),
+                          SizedBox(width: 8),
+                          Text('¿REQUIERE FACTURA?', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                        ]),
+                        Switch(
+                          value: wantFactura,
+                          activeColor: Colors.blueAccent,
+                          onChanged: (val) => setState(() => wantFactura = val),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
                   if (cardAmount > 0)
                     ElevatedButton.icon(
                       onPressed: isCardValidated ? null : () {
