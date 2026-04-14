@@ -13,7 +13,38 @@ class _AccessManagementViewState extends State<AccessManagementView> {
   final _supabase = Supabase.instance.client;
   final _nameController = TextEditingController();
   final _pinController = TextEditingController();
+  final _kitchenPinController = TextEditingController();
+  final _barPinController = TextEditingController();
   bool _isLoading = false;
+  bool _pinsLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPins();
+  }
+
+  Future<void> _loadPins() async {
+    final data = await _supabase.from('admin_settings').select()
+      .or('setting_key.eq.kitchen_pin,setting_key.eq.bar_pin');
+    for (final row in data) {
+      final key = row['setting_key'] as String;
+      final val = row['setting_value'] as String? ?? '';
+      if (key == 'kitchen_pin') _kitchenPinController.text = val;
+      if (key == 'bar_pin') _barPinController.text = val;
+    }
+  }
+
+  Future<void> _savePin(String settingKey, String value) async {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) return;
+    await _supabase.from('admin_settings').upsert({
+      'setting_key': settingKey,
+      'setting_value': trimmed,
+    }, onConflict: 'setting_key');
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('PIN actualizado'), backgroundColor: Colors.green));
+  }
 
   Future<void> _addCashier() async {
     final name = _nameController.text.trim();
@@ -141,6 +172,45 @@ class _AccessManagementViewState extends State<AccessManagementView> {
         ),
         const SizedBox(height: 32),
         
+        // KITCHEN/BAR PIN SECTION
+        Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1E293B),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFF334155)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Row(children: [
+                Icon(Icons.lock_outline, color: Color(0xFFFF6D00)),
+                SizedBox(width: 10),
+                Text('Claves de Acceso por Rol', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+              ]),
+              const SizedBox(height: 6),
+              const Text('Cambia el PIN de cada vista de trabajo', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13)),
+              const SizedBox(height: 20),
+              // Línea de Producción + Cocina
+              _pinRow(
+                icon: Icons.soup_kitchen,
+                label: 'Línea de Producción / Cocina Para Llevar',
+                controller: _kitchenPinController,
+                onSave: () => _savePin('kitchen_pin', _kitchenPinController.text),
+              ),
+              const SizedBox(height: 16),
+              // Bar / Bebidas
+              _pinRow(
+                icon: Icons.local_bar,
+                label: 'Bar / Bebidas',
+                controller: _barPinController,
+                onSave: () => _savePin('bar_pin', _barPinController.text),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 24),
+
         // RENAME BRANCH SECTION
         Container(
           padding: const EdgeInsets.all(24),
@@ -177,6 +247,45 @@ class _AccessManagementViewState extends State<AccessManagementView> {
   }
 
   String _newBranchName = '';
+
+  Widget _pinRow({required IconData icon, required String label, required TextEditingController controller, required VoidCallback onSave}) {
+    return Row(
+      children: [
+        CircleAvatar(
+          backgroundColor: const Color(0xFF0F172A),
+          child: Icon(icon, color: const Color(0xFFFF6D00), size: 20),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: TextField(
+            controller: controller,
+            keyboardType: TextInputType.number,
+            maxLength: 6,
+            obscureText: false,
+            decoration: InputDecoration(
+              labelText: label,
+              labelStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
+              border: const OutlineInputBorder(),
+              counterText: '',
+              prefixIcon: const Icon(Icons.pin, color: Color(0xFF94A3B8)),
+            ),
+            style: const TextStyle(color: Colors.white, letterSpacing: 4, fontWeight: FontWeight.bold),
+          ),
+        ),
+        const SizedBox(width: 12),
+        ElevatedButton(
+          onPressed: onSave,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFFFF6D00),
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+          child: const Text('Guardar'),
+        ),
+      ],
+    );
+  }
 
   Future<void> _renameBranch() async {
     if (_newBranchName.isEmpty) return;

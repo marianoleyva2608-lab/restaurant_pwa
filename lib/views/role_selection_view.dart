@@ -27,6 +27,8 @@ class _RoleSelectionViewState extends State<RoleSelectionView> {
   bool _entered = false;
 
   String _masterPin = _defaultMasterPin;
+  String _kitchenPin = _defaultMasterPin;
+  String _barPin = _defaultMasterPin;
   String _adminUser = _defaultAdminUser;
   String _adminPass = _defaultAdminPass;
 
@@ -41,7 +43,7 @@ class _RoleSelectionViewState extends State<RoleSelectionView> {
       final settings = await _supabase
           .from('admin_settings')
           .select('setting_key, setting_value')
-          .or('setting_key.eq.master_pin,setting_key.eq.admin_user,setting_key.eq.admin_pass');
+          .or('setting_key.eq.master_pin,setting_key.eq.admin_user,setting_key.eq.admin_pass,setting_key.eq.kitchen_pin,setting_key.eq.bar_pin');
       for (final row in settings) {
         final key = row['setting_key'] as String;
         final value = row['setting_value'] as String? ?? '';
@@ -49,6 +51,8 @@ class _RoleSelectionViewState extends State<RoleSelectionView> {
         if (key == 'master_pin') _masterPin = value;
         if (key == 'admin_user') _adminUser = value;
         if (key == 'admin_pass') _adminPass = value;
+        if (key == 'kitchen_pin') _kitchenPin = value;
+        if (key == 'bar_pin') _barPin = value;
       }
     } catch (e) {
       // Si falla la carga, se usan los defaults definidos arriba.
@@ -56,8 +60,9 @@ class _RoleSelectionViewState extends State<RoleSelectionView> {
     }
   }
 
-  Future<void> _requirePin(BuildContext context, VoidCallback onAuthenticated) async {
+  Future<void> _requirePin(BuildContext context, VoidCallback onAuthenticated, {String? pinToCheck}) async {
     String pin = '';
+    final effectivePin = pinToCheck ?? _masterPin;
     await showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -69,7 +74,7 @@ class _RoleSelectionViewState extends State<RoleSelectionView> {
           maxLength: 4,
           onChanged: (v) => pin = v,
           onSubmitted: (_) {
-            if (pin == _masterPin) {
+            if (pin == effectivePin) {
               Navigator.pop(context);
               onAuthenticated();
             } else {
@@ -82,7 +87,7 @@ class _RoleSelectionViewState extends State<RoleSelectionView> {
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
           ElevatedButton(
             onPressed: () {
-              if (pin == _masterPin) {
+              if (pin == effectivePin) {
                 Navigator.pop(context);
                 onAuthenticated();
               } else {
@@ -379,7 +384,7 @@ class _RoleSelectionViewState extends State<RoleSelectionView> {
                     onTap: () {
                       _requirePin(context, () {
                         Navigator.push(context, MaterialPageRoute(builder: (context) => const KitchenView()));
-                      });
+                      }, pinToCheck: _kitchenPin);
                     },
                   ),
                   const SizedBox(height: 16),
@@ -390,7 +395,7 @@ class _RoleSelectionViewState extends State<RoleSelectionView> {
                     onTap: () {
                       _requirePin(context, () {
                         Navigator.push(context, MaterialPageRoute(builder: (context) => const KitchenView(isTakeoutOnly: true)));
-                      });
+                      }, pinToCheck: _kitchenPin);
                     },
                   ),
                   const SizedBox(height: 16),
@@ -401,7 +406,7 @@ class _RoleSelectionViewState extends State<RoleSelectionView> {
                     onTap: () {
                       _requirePin(context, () {
                         Navigator.push(context, MaterialPageRoute(builder: (context) => const KitchenView(isDrinksOnly: true)));
-                      });
+                      }, pinToCheck: _barPin);
                     },
                   ),
                   const SizedBox(height: 32),
