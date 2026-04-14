@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../globals.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dish_management_view.dart';
+import 'guisados_management_view.dart';
 import 'waiter_management_view.dart';
 import 'table_management_view.dart';
 import 'security_management_view.dart';
@@ -180,6 +181,16 @@ class _AdminViewState extends State<AdminView> {
               if (isDrawer) Navigator.pop(context);
             },
           ),
+          ListTile(
+            leading: Icon(Icons.restaurant_menu, color: _selectedIndex == 10 ? const Color(0xFFFF6D00) : const Color(0xFF94A3B8)),
+            title: Text('Guisados', style: TextStyle(color: _selectedIndex == 10 ? Colors.white : const Color(0xFF94A3B8), fontWeight: _selectedIndex == 10 ? FontWeight.bold : FontWeight.normal)),
+            selected: _selectedIndex == 10,
+            selectedTileColor: const Color(0xFFFF6D00).withValues(alpha: 0.1),
+            onTap: () {
+              setState(() => _selectedIndex = 10);
+              if (isDrawer) Navigator.pop(context);
+            },
+          ),
           const Divider(color: Color(0xFF334155)),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -330,6 +341,7 @@ class _AdminViewState extends State<AdminView> {
       case 7: return const BillingView();
       case 8: return const ClientsView();
       case 9: return const PayrollView();
+      case 10: return const GuisadosManagementView();
       default: return _buildTablesDashboard();
     }
   }

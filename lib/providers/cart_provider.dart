@@ -5,8 +5,14 @@ class CartItem {
   final Dish dish;
   int quantity;
   String clientLabel;
+  List<String> guisados;
 
-  CartItem({required this.dish, this.quantity = 1, this.clientLabel = 'Cliente 1'});
+  CartItem({
+    required this.dish,
+    this.quantity = 1,
+    this.clientLabel = 'Cliente 1',
+    this.guisados = const [],
+  });
 }
 
 class CartProvider with ChangeNotifier {
@@ -79,6 +85,18 @@ class CartProvider with ChangeNotifier {
     } else {
       _items[key] = CartItem(dish: dish, clientLabel: currentClient);
     }
+    notifyListeners();
+  }
+
+  /// Adds a dish with specific guisados. Each call creates a unique entry
+  /// (uses a timestamp suffix so multiple guisado combos can coexist).
+  void addItemWithGuisados(Dish dish, List<String> guisados) {
+    final key = '${dish.id}_${currentClient}_${DateTime.now().millisecondsSinceEpoch}';
+    _items[key] = CartItem(
+      dish: dish,
+      clientLabel: currentClient,
+      guisados: List<String>.from(guisados),
+    );
     notifyListeners();
   }
 

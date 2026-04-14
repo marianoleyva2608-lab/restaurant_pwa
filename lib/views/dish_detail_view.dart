@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../models/dish.dart';
 import '../providers/cart_provider.dart';
 import '../globals.dart';
+import '../widgets/dish_card.dart' show addDishToCart;
 
 class DishDetailView extends StatelessWidget {
   final Dish dish;
@@ -77,12 +78,9 @@ class DishDetailView extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(16.0),
           child: ElevatedButton(
-            onPressed: () {
-              context.read<CartProvider>().addItem(dish);
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('${dish.name} añadido')),
-              );
+            onPressed: () async {
+              await addDishToCart(context, dish);
+              if (context.mounted) Navigator.pop(context);
             },
             style: ElevatedButton.styleFrom(
               minimumSize: const Size.fromHeight(56),

@@ -1,8 +1,132 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/dish.dart';
 import '../providers/cart_provider.dart';
+import '../globals.dart';
 
+Future<void> addDishToCart(BuildContext context, Dish dish) async {
+  final cart = context.read<CartProvider>();
+
+  if (!dish.requiresGuisado) {
+    cart.addItem(dish);
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('${dish.name} agregado'),
+        duration: const Duration(milliseconds: 500),
+        behavior: SnackBarBehavior.floating,
+        width: 200,
+      ),
+    );
+    return;
+  }
+
+  // Load guisados
+  final supabase = Supabase.instance.client;
+  List<Map<String, dynamic>> guisados = [];
+  try {
+    final rows = await supabase
+        .from('guisados')
+        .select()
+        .eq('available', true)
+        .order('name');
+    guisados = (rows as List)
+        .cast<Map<String, dynamic>>()
+        .where((g) {
+          final branch = g['branch_name'] as String?;
+          return branch == null || branch == Globals.currentBranch;
+        })
+        .toList();
+  } catch (e) {
+    debugPrint('Error cargando guisados: $e');
+  }
+
+  if (!context.mounted) return;
+
+  List<String> selected = [];
+
+  await showDialog(
+    context: context,
+    builder: (ctx) {
+      return StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          return AlertDialog(
+            backgroundColor: const Color(0xFF1E293B),
+            title: Text(
+              '¿Qué guisado lleva el ${dish.name}?',
+              style: const TextStyle(color: Colors.white, fontSize: 16),
+            ),
+            content: guisados.isEmpty
+                ? const Text(
+                    'No hay guisados disponibles.',
+                    style: TextStyle(color: Colors.white70),
+                  )
+                : SizedBox(
+                    width: 320,
+                    child: ListView(
+                      shrinkWrap: true,
+                      children: guisados.map((g) {
+                        final name = g['name'] as String;
+                        final isChecked = selected.contains(name);
+                        return CheckboxListTile(
+                          value: isChecked,
+                          onChanged: (val) {
+                            setDialogState(() {
+                              if (val == true) {
+                                selected = [...selected, name];
+                              } else {
+                                selected =
+                                    selected.where((s) => s != name).toList();
+                              }
+                            });
+                          },
+                          title: Text(name,
+                              style: const TextStyle(
+                                  color: Colors.white, fontSize: 14)),
+                          checkColor: Colors.white,
+                          activeColor: const Color(0xFFFF6D00),
+                          side: const BorderSide(color: Color(0xFF94A3B8)),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancelar',
+                    style: TextStyle(color: Colors.white54)),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  cart.addItemWithGuisados(dish, selected);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('${dish.name} agregado'),
+                        duration: const Duration(milliseconds: 500),
+                        behavior: SnackBarBehavior.floating,
+                        width: 200,
+                      ),
+                    );
+                  }
+                },
+                style: TextButton.styleFrom(
+                  backgroundColor: const Color(0xFFFF6D00).withOpacity(0.15),
+                ),
+                child: const Text('Agregar a la orden',
+                    style: TextStyle(color: Color(0xFFFF6D00))),
+              ),
+            ],
+          );
+        },
+      );
+    },
+  );
+}
 
 class DishCard extends StatelessWidget {
   final Dish dish;
@@ -15,18 +139,7 @@ class DishCard extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: InkWell(
-        onTap: () {
-          context.read<CartProvider>().addItem(dish);
-          ScaffoldMessenger.of(context).hideCurrentSnackBar();
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('${dish.name} agregado'),
-              duration: const Duration(milliseconds: 500),
-              behavior: SnackBarBehavior.floating,
-              width: 200,
-            ),
-          );
-        },
+        onTap: () => addDishToCart(context, dish),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -108,9 +221,7 @@ class DishCard extends StatelessWidget {
                                     ),
                                   ),
                                 IconButton.filledTonal(
-                                  onPressed: () {
-                                    context.read<CartProvider>().addItem(dish);
-                                  },
+                                  onPressed: () => addDishToCart(context, dish),
                                   icon: const Icon(Icons.add, size: 20),
                                   padding: EdgeInsets.zero,
                                   constraints: const BoxConstraints(

@@ -22,6 +22,7 @@ class _DishManagementViewState extends State<DishManagementView> {
     String? currentImageUrl = isEditing ? dish['image_url'] : null;
     XFile? selectedImage;
     bool isUploading = false;
+    bool requiresGuisado = isEditing ? (dish['requires_guisado'] ?? false) : false;
 
     final formKey = GlobalKey<FormState>();
 
@@ -127,7 +128,16 @@ class _DishManagementViewState extends State<DishManagementView> {
                     onChanged: (v) { if (v != null) category = v; },
                     validator: (v) => v == null || v.isEmpty ? 'Requerido' : null,
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 8),
+                  SwitchListTile(
+                    title: const Text('Requiere selección de guisado'),
+                    subtitle: const Text('Al ordenar, el mesero elegirá el guisado'),
+                    value: requiresGuisado,
+                    onChanged: (v) => setDialogState(() => requiresGuisado = v),
+                    activeColor: const Color(0xFFFF6D00),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                  const SizedBox(height: 8),
                   TextFormField(
                     initialValue: (dish?['max_time'] ?? 15).toString(),
                     decoration: const InputDecoration(
@@ -189,6 +199,7 @@ class _DishManagementViewState extends State<DishManagementView> {
                           'image_url': finalImageUrl,
                           'category': category,
                           'max_time': int.tryParse((dish?['max_time'] ?? 15).toString()) ?? 15,
+                          'requires_guisado': requiresGuisado,
                         };
 
                         if (isEditing) {
@@ -319,7 +330,22 @@ class _DishManagementViewState extends State<DishManagementView> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text('Venta: \$${dish['price']} | Compra: \$${dish['cost'] ?? 0.0}'),
-                        Text('Categoría: ${dish['category']}'),
+                        Row(
+                          children: [
+                            Text('Categoría: ${dish['category']}'),
+                            if (dish['requires_guisado'] == true) ...[
+                              const SizedBox(width: 8),
+                              const Text(
+                                'Con guisado',
+                                style: TextStyle(
+                                  color: Color(0xFFFF6D00),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
                       ],
                     ),
                     trailing: Row(

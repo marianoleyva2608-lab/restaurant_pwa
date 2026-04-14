@@ -1,7 +1,9 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../providers/cart_provider.dart';
+import '../models/dish.dart';
 import '../globals.dart';
 
 class OrderSummaryWidget extends StatefulWidget {
@@ -119,6 +121,7 @@ class _OrderSummaryWidgetState extends State<OrderSummaryWidget> {
             'name': item['dishes']['name'],
             'quantity': item['quantity'],
             'price': item['price_at_time'],
+            'guisados_selected': item['guisados_selected'],
           });
         }
       }
@@ -202,6 +205,9 @@ class _OrderSummaryWidgetState extends State<OrderSummaryWidget> {
             'quantity': item.quantity,
             'price_at_time': item.dish.price,
             'status': 'pending',
+            'guisados_selected': item.guisados.isNotEmpty
+                ? jsonEncode(item.guisados)
+                : null,
           }).toList();
 
       await supabase.from('order_items').insert(orderItems);
@@ -244,6 +250,112 @@ class _OrderSummaryWidgetState extends State<OrderSummaryWidget> {
         setState(() => _isSubmitting = false);
       }
     }
+  }
+
+  /// Called by external widgets (e.g. comandas_view) to add a dish to the cart.
+  /// If the dish requires a guisado, shows the selector dialog first.
+  Future<void> handleAddDish(BuildContext context, Dish dish) async {
+    final cart = context.read<CartProvider>();
+    if (dish.requiresGuisado) {
+      await _showGuisadoSelectorDialog(context, cart, dish);
+    } else {
+      cart.addItem(dish);
+    }
+  }
+
+  Future<void> _showGuisadoSelectorDialog(
+      BuildContext context, CartProvider cart, Dish dish) async {
+    final supabase = Supabase.instance.client;
+    List<Map<String, dynamic>> guisados = [];
+    List<String> selected = [];
+
+    try {
+      final rows = await supabase
+          .from('guisados')
+          .select()
+          .eq('available', true)
+          .order('name');
+      guisados = (rows as List)
+          .cast<Map<String, dynamic>>()
+          .where((g) {
+            final branch = g['branch_name'] as String?;
+            return branch == null || branch == Globals.currentBranch;
+          })
+          .toList();
+    } catch (e) {
+      debugPrint('Error cargando guisados: $e');
+    }
+
+    if (!context.mounted) return;
+
+    await showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            return AlertDialog(
+              backgroundColor: const Color(0xFF1E293B),
+              title: Text(
+                '¿Qué guisado lleva el ${dish.name}?',
+                style: const TextStyle(color: Colors.white, fontSize: 16),
+              ),
+              content: guisados.isEmpty
+                  ? const Text(
+                      'No hay guisados disponibles.',
+                      style: TextStyle(color: Colors.white70),
+                    )
+                  : SizedBox(
+                      width: 320,
+                      child: ListView(
+                        shrinkWrap: true,
+                        children: guisados.map((g) {
+                          final name = g['name'] as String;
+                          final isChecked = selected.contains(name);
+                          return CheckboxListTile(
+                            value: isChecked,
+                            onChanged: (val) {
+                              setDialogState(() {
+                                if (val == true) {
+                                  selected = [...selected, name];
+                                } else {
+                                  selected =
+                                      selected.where((s) => s != name).toList();
+                                }
+                              });
+                            },
+                            title: Text(name,
+                                style: const TextStyle(
+                                    color: Colors.white, fontSize: 14)),
+                            checkColor: Colors.white,
+                            activeColor: const Color(0xFFFF6D00),
+                            side: const BorderSide(color: Color(0xFF94A3B8)),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Cancelar',
+                      style: TextStyle(color: Colors.white54)),
+                ),
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    cart.addItemWithGuisados(dish, selected);
+                  },
+                  style: TextButton.styleFrom(
+                    backgroundColor: const Color(0xFFFF6D00).withOpacity(0.15),
+                  ),
+                  child: const Text('Agregar a la orden',
+                      style: TextStyle(color: Color(0xFFFF6D00))),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
   void _showAddClientDialog(BuildContext context, CartProvider cart) {
@@ -354,12 +466,30 @@ class _OrderSummaryWidgetState extends State<OrderSummaryWidget> {
               ),
             ),
           ),
-          ..._existingItems.map((item) => ListTile(
+          ..._existingItems.map((item) {
+            final rawGuisados = item['guisados_selected'] as String?;
+            List<String> guisadosList = [];
+            if (rawGuisados != null && rawGuisados.isNotEmpty) {
+              try {
+                guisadosList = (jsonDecode(rawGuisados) as List).cast<String>();
+              } catch (_) {}
+            }
+            return ListTile(
                 dense: true,
                 title: Text(item['name'], style: const TextStyle(color: Colors.white70)),
-                subtitle: Text(
-                  '\$${item['price']} x ${item['quantity']}',
-                  style: const TextStyle(color: Colors.white38, fontSize: 10),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '\$${item['price']} x ${item['quantity']}',
+                      style: const TextStyle(color: Colors.white38, fontSize: 10),
+                    ),
+                    if (guisadosList.isNotEmpty)
+                      Text(
+                        guisadosList.join(', '),
+                        style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 10),
+                      ),
+                  ],
                 ),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -373,7 +503,8 @@ class _OrderSummaryWidgetState extends State<OrderSummaryWidget> {
                     ),
                   ],
                 ),
-              )),
+              );
+          }),
           const Divider(color: Color(0xFF334155), indent: 16, endIndent: 16),
         ],
 
@@ -555,10 +686,21 @@ class _OrderSummaryWidgetState extends State<OrderSummaryWidget> {
                                   fontSize: 13,
                                   color: Colors.white),
                             ),
-                            subtitle: Text(
-                              '\$${entry.value.dish.price.toStringAsFixed(2)}',
-                              style: const TextStyle(
-                                  color: Colors.white54, fontSize: 11),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '\$${entry.value.dish.price.toStringAsFixed(2)}',
+                                  style: const TextStyle(
+                                      color: Colors.white54, fontSize: 11),
+                                ),
+                                if (entry.value.guisados.isNotEmpty)
+                                  Text(
+                                    entry.value.guisados.join(', '),
+                                    style: const TextStyle(
+                                        color: Color(0xFF94A3B8), fontSize: 10),
+                                  ),
+                              ],
                             ),
                             trailing: Row(
                               mainAxisSize: MainAxisSize.min,

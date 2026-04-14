@@ -8,6 +8,7 @@ class Dish {
   final bool isPurchase;
   final bool isSale;
   final double cost;
+  final bool requiresGuisado;
 
   const Dish({
     required this.id,
@@ -19,6 +20,7 @@ class Dish {
     this.isPurchase = false,
     this.isSale = true,
     this.cost = 0.0,
+    this.requiresGuisado = false,
   });
 
   factory Dish.fromJson(Map<String, dynamic> json) {
@@ -32,6 +34,7 @@ class Dish {
       isPurchase: json['is_purchase'] ?? false,
       isSale: json['is_sale'] ?? true,
       cost: (json['cost'] as num? ?? 0.0).toDouble(),
+      requiresGuisado: json['requires_guisado'] ?? false,
     );
   }
 }
