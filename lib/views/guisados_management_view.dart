@@ -77,26 +77,32 @@ class _GuisadosManagementViewState extends State<GuisadosManagementView> {
     }
   }
 
-  Future<void> _showAddGuisadoDialog() async {
-    final nameController = TextEditingController();
+  Future<void> _showGuisadoDialog({Map<String, dynamic>? guisado}) async {
+    final isEditing = guisado != null;
+    final nameController = TextEditingController(
+      text: isEditing ? guisado['name'] as String : '',
+    );
 
     await showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1E293B),
-        title: const Text('Nuevo Guisado',
-            style: TextStyle(color: Colors.white)),
+        title: Text(
+          isEditing ? 'Editar Guisado' : 'Nuevo Guisado',
+          style: const TextStyle(color: Colors.white),
+        ),
         content: TextField(
           controller: nameController,
           autofocus: true,
           style: const TextStyle(color: Colors.white),
-          decoration: const InputDecoration(
-            hintText: 'Nombre del guisado (ej. Picadillo)',
-            hintStyle: TextStyle(color: Colors.white38),
-            enabledBorder: UnderlineInputBorder(
+          textCapitalization: TextCapitalization.sentences,
+          decoration: InputDecoration(
+            hintText: isEditing ? guisado['name'] as String : 'Nombre del guisado (ej. Picadillo)',
+            hintStyle: const TextStyle(color: Colors.white38),
+            enabledBorder: const UnderlineInputBorder(
               borderSide: BorderSide(color: Color(0xFFFF6D00)),
             ),
-            focusedBorder: UnderlineInputBorder(
+            focusedBorder: const UnderlineInputBorder(
               borderSide: BorderSide(color: Color(0xFFFF6D00), width: 2),
             ),
           ),
@@ -113,15 +119,22 @@ class _GuisadosManagementViewState extends State<GuisadosManagementView> {
               if (name.isEmpty) return;
               Navigator.pop(ctx);
               try {
-                await _supabase.from('guisados').insert({
-                  'name': name,
-                  'branch_name': null, // disponible para todas
-                  'available': true,
-                });
+                if (isEditing) {
+                  await _supabase
+                      .from('guisados')
+                      .update({'name': name})
+                      .eq('id', guisado['id']);
+                } else {
+                  await _supabase.from('guisados').insert({
+                    'name': name,
+                    'branch_name': null,
+                    'available': true,
+                  });
+                }
               } catch (e) {
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Error al agregar: $e')),
+                    SnackBar(content: Text('Error: $e')),
                   );
                 }
               }
@@ -129,8 +142,10 @@ class _GuisadosManagementViewState extends State<GuisadosManagementView> {
             style: TextButton.styleFrom(
               backgroundColor: const Color(0xFFFF6D00).withOpacity(0.15),
             ),
-            child: const Text('Agregar',
-                style: TextStyle(color: Color(0xFFFF6D00))),
+            child: Text(
+              isEditing ? 'Guardar' : 'Agregar',
+              style: const TextStyle(color: Color(0xFFFF6D00)),
+            ),
           ),
         ],
       ),
@@ -142,7 +157,7 @@ class _GuisadosManagementViewState extends State<GuisadosManagementView> {
     return Scaffold(
       backgroundColor: const Color(0xFF0F172A),
       floatingActionButton: FloatingActionButton(
-        onPressed: _showAddGuisadoDialog,
+        onPressed: () => _showGuisadoDialog(),
         backgroundColor: const Color(0xFFFF6D00),
         child: const Icon(Icons.add, color: Colors.white),
       ),
@@ -245,6 +260,12 @@ class _GuisadosManagementViewState extends State<GuisadosManagementView> {
                               activeColor: const Color(0xFFFF6D00),
                               inactiveThumbColor: Colors.white38,
                               inactiveTrackColor: const Color(0xFF334155),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.edit_outlined,
+                                  color: Colors.blueAccent, size: 20),
+                              onPressed: () => _showGuisadoDialog(guisado: g),
+                              tooltip: 'Editar',
                             ),
                             IconButton(
                               icon: const Icon(Icons.delete_outline,
