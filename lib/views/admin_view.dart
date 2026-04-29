@@ -61,193 +61,202 @@ class _AdminViewState extends State<AdminView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Image.asset('assets/images/logo.png', height: 80),
-          ),
-          InkWell(
-            onTap: () => _showRenameBranchDialog(context),
-            child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1E293B),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFFF6D00).withValues(alpha: 0.3)),
-              ),
+          Expanded(
+            child: SingleChildScrollView(
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Text('SUCURSAL ACTIVA', style: TextStyle(color: Color(0xFFFF6D00), fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.1)),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Expanded(child: Text(Globals.currentBranch, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14))),
-                      const Icon(Icons.edit, color: Colors.white54, size: 16),
-                    ],
+                  Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Image.asset('assets/images/logo.png', height: 80),
                   ),
+                  InkWell(
+                    onTap: () => _showRenameBranchDialog(context),
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1E293B),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFFF6D00).withValues(alpha: 0.3)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('SUCURSAL ACTIVA', style: TextStyle(color: Color(0xFFFF6D00), fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.1)),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Expanded(child: Text(Globals.currentBranch, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14))),
+                              const Icon(Icons.edit, color: Colors.white54, size: 16),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  ListTile(
+                    leading: Icon(Icons.dashboard, color: _selectedIndex == 0 ? const Color(0xFFFF6D00) : const Color(0xFF94A3B8)),
+                    title: Text('Mesas Activas', style: TextStyle(color: _selectedIndex == 0 ? Colors.white : const Color(0xFF94A3B8), fontWeight: _selectedIndex == 0 ? FontWeight.bold : FontWeight.normal)),
+                    selected: _selectedIndex == 0,
+                    selectedTileColor: const Color(0xFFFF6D00).withValues(alpha: 0.1),
+                    onTap: () {
+                      setState(() => _selectedIndex = 0);
+                      if (isDrawer) Navigator.pop(context);
+                    },
+                  ),
+                  ListTile(
+                    leading: Icon(Icons.restaurant_menu, color: _selectedIndex == 1 ? const Color(0xFFFF6D00) : const Color(0xFF94A3B8)),
+                    title: Text('Gestión de Menú', style: TextStyle(color: _selectedIndex == 1 ? Colors.white : const Color(0xFF94A3B8), fontWeight: _selectedIndex == 1 ? FontWeight.bold : FontWeight.normal)),
+                    selected: _selectedIndex == 1,
+                    selectedTileColor: const Color(0xFFFF6D00).withValues(alpha: 0.1),
+                    onTap: () {
+                      setState(() => _selectedIndex = 1);
+                      if (isDrawer) Navigator.pop(context);
+                    },
+                  ),
+                  ListTile(
+                    leading: Icon(Icons.soup_kitchen, color: _selectedIndex == 10 ? const Color(0xFFFF6D00) : const Color(0xFF94A3B8)),
+                    title: Text('Guisados', style: TextStyle(color: _selectedIndex == 10 ? Colors.white : const Color(0xFF94A3B8), fontWeight: _selectedIndex == 10 ? FontWeight.bold : FontWeight.normal)),
+                    selected: _selectedIndex == 10,
+                    selectedTileColor: const Color(0xFFFF6D00).withValues(alpha: 0.1),
+                    onTap: () {
+                      setState(() => _selectedIndex = 10);
+                      if (isDrawer) Navigator.pop(context);
+                    },
+                  ),
+                  ListTile(
+                    leading: Icon(Icons.people, color: _selectedIndex == 2 ? const Color(0xFFFF6D00) : const Color(0xFF94A3B8)),
+                    title: Text('Gestión de Meseros', style: TextStyle(color: _selectedIndex == 2 ? Colors.white : const Color(0xFF94A3B8), fontWeight: _selectedIndex == 2 ? FontWeight.bold : FontWeight.normal)),
+                    selected: _selectedIndex == 2,
+                    selectedTileColor: const Color(0xFFFF6D00).withValues(alpha: 0.1),
+                    onTap: () {
+                      setState(() => _selectedIndex = 2);
+                      if (isDrawer) Navigator.pop(context);
+                    },
+                  ),
+                  ListTile(
+                    leading: Icon(Icons.grid_view, color: _selectedIndex == 3 ? const Color(0xFFFF6D00) : const Color(0xFF94A3B8)),
+                    title: Text('Gestión de Mesas', style: TextStyle(color: _selectedIndex == 3 ? Colors.white : const Color(0xFF94A3B8), fontWeight: _selectedIndex == 3 ? FontWeight.bold : FontWeight.normal)),
+                    selected: _selectedIndex == 3,
+                    selectedTileColor: const Color(0xFFFF6D00).withValues(alpha: 0.1),
+                    onTap: () {
+                      setState(() => _selectedIndex = 3);
+                      if (isDrawer) Navigator.pop(context);
+                    },
+                  ),
+                  ListTile(
+                    leading: Icon(Icons.insert_chart, color: _selectedIndex == 5 ? const Color(0xFFFF6D00) : const Color(0xFF94A3B8)),
+                    title: Text('Reportes de Ventas', style: TextStyle(color: _selectedIndex == 5 ? Colors.white : const Color(0xFF94A3B8), fontWeight: _selectedIndex == 5 ? FontWeight.bold : FontWeight.normal)),
+                    selected: _selectedIndex == 5,
+                    selectedTileColor: const Color(0xFFFF6D00).withValues(alpha: 0.1),
+                    onTap: () {
+                      setState(() => _selectedIndex = 5);
+                      if (isDrawer) Navigator.pop(context);
+                    },
+                  ),
+                  ListTile(
+                    leading: Icon(Icons.manage_accounts, color: _selectedIndex == 6 ? const Color(0xFFFF6D00) : const Color(0xFF94A3B8)),
+                    title: Text('Gestión de Acceso', style: TextStyle(color: _selectedIndex == 6 ? Colors.white : const Color(0xFF94A3B8), fontWeight: _selectedIndex == 6 ? FontWeight.bold : FontWeight.normal)),
+                    selected: _selectedIndex == 6,
+                    selectedTileColor: const Color(0xFFFF6D00).withValues(alpha: 0.1),
+                    onTap: () {
+                      setState(() => _selectedIndex = 6);
+                      if (isDrawer) Navigator.pop(context);
+                    },
+                  ),
+                  ListTile(
+                    leading: Icon(Icons.receipt_long, color: _selectedIndex == 7 ? const Color(0xFFFF6D00) : const Color(0xFF94A3B8)),
+                    title: Text('Facturación CFDI', style: TextStyle(color: _selectedIndex == 7 ? Colors.white : const Color(0xFF94A3B8), fontWeight: _selectedIndex == 7 ? FontWeight.bold : FontWeight.normal)),
+                    selected: _selectedIndex == 7,
+                    selectedTileColor: const Color(0xFFFF6D00).withValues(alpha: 0.1),
+                    onTap: () {
+                      setState(() => _selectedIndex = 7);
+                      if (isDrawer) Navigator.pop(context);
+                    },
+                  ),
+                  ListTile(
+                    leading: Icon(Icons.people_alt, color: _selectedIndex == 8 ? const Color(0xFFFF6D00) : const Color(0xFF94A3B8)),
+                    title: Text('Gestión de Clientes', style: TextStyle(color: _selectedIndex == 8 ? Colors.white : const Color(0xFF94A3B8), fontWeight: _selectedIndex == 8 ? FontWeight.bold : FontWeight.normal)),
+                    selected: _selectedIndex == 8,
+                    selectedTileColor: const Color(0xFFFF6D00).withValues(alpha: 0.1),
+                    onTap: () {
+                      setState(() => _selectedIndex = 8);
+                      if (isDrawer) Navigator.pop(context);
+                    },
+                  ),
+                  ListTile(
+                    leading: Icon(Icons.account_balance_wallet, color: _selectedIndex == 9 ? const Color(0xFFFF6D00) : const Color(0xFF94A3B8)),
+                    title: Text('Nómina', style: TextStyle(color: _selectedIndex == 9 ? Colors.white : const Color(0xFF94A3B8), fontWeight: _selectedIndex == 9 ? FontWeight.bold : FontWeight.normal)),
+                    selected: _selectedIndex == 9,
+                    selectedTileColor: const Color(0xFFFF6D00).withValues(alpha: 0.1),
+                    onTap: () {
+                      setState(() => _selectedIndex = 9);
+                      if (isDrawer) Navigator.pop(context);
+                    },
+                  ),
+                  const Divider(color: Color(0xFF334155)),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('CONFIGURACIÓN', style: TextStyle(color: Color(0xFFFF6D00), fontSize: 10, fontWeight: FontWeight.bold)),
+                        SwitchListTile(
+                          value: Globals.splitKitchenMode,
+                          title: const Text('Cocina Especializada', style: TextStyle(color: Colors.white, fontSize: 13)),
+                          subtitle: const Text('Separa pedidos Para Llevar', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11)),
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                          onChanged: (val) async {
+                            await Globals.setSplitKitchenMode(val);
+                            setState(() {});
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(color: Color(0xFF334155)),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('SISTEMA', style: TextStyle(color: Color(0xFFFF6D00), fontSize: 10, fontWeight: FontWeight.bold)),
+                        const Text('Versión: 1.0.12', style: TextStyle(color: Colors.white54, fontSize: 11)),
+                        const SizedBox(height: 8),
+                        ElevatedButton.icon(
+                          onPressed: () {
+                            if (identical(0, 0.0)) {
+                               ScaffoldMessenger.of(context).showSnackBar(
+                                 const SnackBar(content: Text('Recargando aplicación para limpiar caché...'), backgroundColor: Colors.blue)
+                               );
+                               Future.delayed(const Duration(seconds: 1), () {
+                                 try {
+                                   (html.window as dynamic).location.reload();
+                                 } catch (e) {
+                                   debugPrint('Reload error: $e');
+                                 }
+                               });
+                            }
+                          },
+                          icon: const Icon(Icons.refresh, size: 16),
+                          label: const Text('Limpiar Caché', style: TextStyle(fontSize: 11)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF1E293B),
+                            foregroundColor: Colors.white,
+                            minimumSize: const Size.fromHeight(32),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
                 ],
               ),
             ),
           ),
-          const SizedBox(height: 16),
-          ListTile(
-            leading: Icon(Icons.dashboard, color: _selectedIndex == 0 ? const Color(0xFFFF6D00) : const Color(0xFF94A3B8)),
-            title: Text('Mesas Activas', style: TextStyle(color: _selectedIndex == 0 ? Colors.white : const Color(0xFF94A3B8), fontWeight: _selectedIndex == 0 ? FontWeight.bold : FontWeight.normal)),
-            selected: _selectedIndex == 0,
-            selectedTileColor: const Color(0xFFFF6D00).withValues(alpha: 0.1),
-            onTap: () {
-              setState(() => _selectedIndex = 0);
-              if (isDrawer) Navigator.pop(context);
-            },
-          ),
-          ListTile(
-            leading: Icon(Icons.restaurant_menu, color: _selectedIndex == 1 ? const Color(0xFFFF6D00) : const Color(0xFF94A3B8)),
-            title: Text('Gestión de Menú', style: TextStyle(color: _selectedIndex == 1 ? Colors.white : const Color(0xFF94A3B8), fontWeight: _selectedIndex == 1 ? FontWeight.bold : FontWeight.normal)),
-            selected: _selectedIndex == 1,
-            selectedTileColor: const Color(0xFFFF6D00).withValues(alpha: 0.1),
-            onTap: () {
-              setState(() => _selectedIndex = 1);
-              if (isDrawer) Navigator.pop(context);
-            },
-          ),
-          ListTile(
-            leading: Icon(Icons.soup_kitchen, color: _selectedIndex == 10 ? const Color(0xFFFF6D00) : const Color(0xFF94A3B8)),
-            title: Text('Guisados', style: TextStyle(color: _selectedIndex == 10 ? Colors.white : const Color(0xFF94A3B8), fontWeight: _selectedIndex == 10 ? FontWeight.bold : FontWeight.normal)),
-            selected: _selectedIndex == 10,
-            selectedTileColor: const Color(0xFFFF6D00).withValues(alpha: 0.1),
-            onTap: () {
-              setState(() => _selectedIndex = 10);
-              if (isDrawer) Navigator.pop(context);
-            },
-          ),
-          ListTile(
-            leading: Icon(Icons.people, color: _selectedIndex == 2 ? const Color(0xFFFF6D00) : const Color(0xFF94A3B8)),
-            title: Text('Gestión de Meseros', style: TextStyle(color: _selectedIndex == 2 ? Colors.white : const Color(0xFF94A3B8), fontWeight: _selectedIndex == 2 ? FontWeight.bold : FontWeight.normal)),
-            selected: _selectedIndex == 2,
-            selectedTileColor: const Color(0xFFFF6D00).withValues(alpha: 0.1),
-            onTap: () {
-              setState(() => _selectedIndex = 2);
-              if (isDrawer) Navigator.pop(context);
-            },
-          ),
-          ListTile(
-            leading: Icon(Icons.grid_view, color: _selectedIndex == 3 ? const Color(0xFFFF6D00) : const Color(0xFF94A3B8)),
-            title: Text('Gestión de Mesas', style: TextStyle(color: _selectedIndex == 3 ? Colors.white : const Color(0xFF94A3B8), fontWeight: _selectedIndex == 3 ? FontWeight.bold : FontWeight.normal)),
-            selected: _selectedIndex == 3,
-            selectedTileColor: const Color(0xFFFF6D00).withValues(alpha: 0.1),
-            onTap: () {
-              setState(() => _selectedIndex = 3);
-              if (isDrawer) Navigator.pop(context);
-            },
-          ),
-          ListTile(
-            leading: Icon(Icons.insert_chart, color: _selectedIndex == 5 ? const Color(0xFFFF6D00) : const Color(0xFF94A3B8)),
-            title: Text('Reportes de Ventas', style: TextStyle(color: _selectedIndex == 5 ? Colors.white : const Color(0xFF94A3B8), fontWeight: _selectedIndex == 5 ? FontWeight.bold : FontWeight.normal)),
-            selected: _selectedIndex == 5,
-            selectedTileColor: const Color(0xFFFF6D00).withValues(alpha: 0.1),
-            onTap: () {
-              setState(() => _selectedIndex = 5);
-              if (isDrawer) Navigator.pop(context);
-            },
-          ),
-          ListTile(
-            leading: Icon(Icons.manage_accounts, color: _selectedIndex == 6 ? const Color(0xFFFF6D00) : const Color(0xFF94A3B8)),
-            title: Text('Gestión de Acceso', style: TextStyle(color: _selectedIndex == 6 ? Colors.white : const Color(0xFF94A3B8), fontWeight: _selectedIndex == 6 ? FontWeight.bold : FontWeight.normal)),
-            selected: _selectedIndex == 6,
-            selectedTileColor: const Color(0xFFFF6D00).withValues(alpha: 0.1),
-            onTap: () {
-              setState(() => _selectedIndex = 6);
-              if (isDrawer) Navigator.pop(context);
-            },
-          ),
-          ListTile(
-            leading: Icon(Icons.receipt_long, color: _selectedIndex == 7 ? const Color(0xFFFF6D00) : const Color(0xFF94A3B8)),
-            title: Text('Facturación CFDI', style: TextStyle(color: _selectedIndex == 7 ? Colors.white : const Color(0xFF94A3B8), fontWeight: _selectedIndex == 7 ? FontWeight.bold : FontWeight.normal)),
-            selected: _selectedIndex == 7,
-            selectedTileColor: const Color(0xFFFF6D00).withValues(alpha: 0.1),
-            onTap: () {
-              setState(() => _selectedIndex = 7);
-              if (isDrawer) Navigator.pop(context);
-            },
-          ),
-          ListTile(
-            leading: Icon(Icons.people_alt, color: _selectedIndex == 8 ? const Color(0xFFFF6D00) : const Color(0xFF94A3B8)),
-            title: Text('Gestión de Clientes', style: TextStyle(color: _selectedIndex == 8 ? Colors.white : const Color(0xFF94A3B8), fontWeight: _selectedIndex == 8 ? FontWeight.bold : FontWeight.normal)),
-            selected: _selectedIndex == 8,
-            selectedTileColor: const Color(0xFFFF6D00).withValues(alpha: 0.1),
-            onTap: () {
-              setState(() => _selectedIndex = 8);
-              if (isDrawer) Navigator.pop(context);
-            },
-          ),
-          ListTile(
-            leading: Icon(Icons.account_balance_wallet, color: _selectedIndex == 9 ? const Color(0xFFFF6D00) : const Color(0xFF94A3B8)),
-            title: Text('Nómina', style: TextStyle(color: _selectedIndex == 9 ? Colors.white : const Color(0xFF94A3B8), fontWeight: _selectedIndex == 9 ? FontWeight.bold : FontWeight.normal)),
-            selected: _selectedIndex == 9,
-            selectedTileColor: const Color(0xFFFF6D00).withValues(alpha: 0.1),
-            onTap: () {
-              setState(() => _selectedIndex = 9);
-              if (isDrawer) Navigator.pop(context);
-            },
-          ),
-          const Divider(color: Color(0xFF334155)),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('CONFIGURACIÓN', style: TextStyle(color: Color(0xFFFF6D00), fontSize: 10, fontWeight: FontWeight.bold)),
-                SwitchListTile(
-                  value: Globals.splitKitchenMode,
-                  title: const Text('Cocina Especializada', style: TextStyle(color: Colors.white, fontSize: 13)),
-                  subtitle: const Text('Separa pedidos Para Llevar', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11)),
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  onChanged: (val) async {
-                    await Globals.setSplitKitchenMode(val);
-                    setState(() {});
-                  },
-                ),
-              ],
-            ),
-          ),
-          const Divider(color: Color(0xFF334155)),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('SISTEMA', style: TextStyle(color: Color(0xFFFF6D00), fontSize: 10, fontWeight: FontWeight.bold)),
-                const Text('Versión: 1.0.12', style: TextStyle(color: Colors.white54, fontSize: 11)),
-                const SizedBox(height: 8),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    if (identical(0, 0.0)) { 
-                       ScaffoldMessenger.of(context).showSnackBar(
-                         const SnackBar(content: Text('Recargando aplicación para limpiar caché...'), backgroundColor: Colors.blue)
-                       );
-                       Future.delayed(const Duration(seconds: 1), () {
-                         try {
-                           (html.window as dynamic).location.reload();
-                         } catch (e) {
-                           debugPrint('Reload error: $e');
-                         }
-                       });
-                    }
-                  },
-                  icon: const Icon(Icons.refresh, size: 16),
-                  label: const Text('Limpiar Caché', style: TextStyle(fontSize: 11)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1E293B),
-                    foregroundColor: Colors.white,
-                    minimumSize: const Size.fromHeight(32),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const Spacer(),
           const Divider(color: Color(0xFF334155)),
           ListTile(
             leading: const Icon(Icons.logout, color: Color(0xFF94A3B8)),
@@ -260,20 +269,50 @@ class _AdminViewState extends State<AdminView> {
     );
   }
 
+  String get _currentSectionTitle {
+    const titles = {
+      0: 'Mesas Activas',
+      1: 'Gestión de Menú',
+      2: 'Gestión de Meseros',
+      3: 'Gestión de Mesas',
+      5: 'Reportes de Ventas',
+      6: 'Gestión de Acceso',
+      7: 'Facturación CFDI',
+      8: 'Gestión de Clientes',
+      9: 'Nómina',
+      10: 'Guisados',
+    };
+    return titles[_selectedIndex] ?? 'Administrador';
+  }
+
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final isMobile = screenWidth < 1100;
 
     return Scaffold(
+      appBar: isMobile
+          ? AppBar(
+              backgroundColor: const Color(0xFF0F172A),
+              foregroundColor: Colors.white,
+              title: Text(_currentSectionTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.logout, color: Color(0xFF94A3B8)),
+                  tooltip: 'Salir al menú',
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            )
+          : null,
       drawer: isMobile ? Drawer(child: _buildSidebar(true)) : null,
       body: Row(
         children: [
           // Left Sidebar: Navigation (Only for Desktop)
           if (!isMobile) _buildSidebar(false),
-          
+
           if (!isMobile) const VerticalDivider(width: 1, thickness: 1, color: Color(0xFF334155)),
-          
+
           // Main Content Section
           Expanded(
             child: _buildMainContent(),
@@ -361,19 +400,9 @@ class _AdminViewState extends State<AdminView> {
                 children: [
                   Padding(
                     padding: const EdgeInsets.all(24.0),
-                    child: Row(
-                      children: [
-                        if (isMobile)
-                          IconButton(
-                            icon: const Icon(Icons.menu, color: Colors.white, size: 28),
-                            onPressed: () => Scaffold.of(context).openDrawer(),
-                          ),
-                        const SizedBox(width: 8),
-                        const Text(
-                          'Vista General',
-                          style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-                        ),
-                      ],
+                    child: const Text(
+                      'Vista General',
+                      style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
                     ),
                   ),
                   Expanded(

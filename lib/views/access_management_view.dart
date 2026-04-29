@@ -80,17 +80,18 @@ class _AccessManagementViewState extends State<AccessManagementView> {
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.width < 700;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Gestión de Accesos (Cajeros y Admin)',
-          style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white),
+          style: TextStyle(fontSize: isMobile ? 20 : 28, fontWeight: FontWeight.bold, color: Colors.white),
         ),
         const SizedBox(height: 8),
         Text('Administra quién puede entrar al panel de administración de ${Globals.currentBranch}', style: const TextStyle(color: Color(0xFF94A3B8))),
         const SizedBox(height: 32),
-        
+
         // ADD CASHIER FORM
         Container(
           padding: const EdgeInsets.all(24),
@@ -100,34 +101,59 @@ class _AccessManagementViewState extends State<AccessManagementView> {
             children: [
               const Text('Agregar Nuevo Acceso a Caja', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
               const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    flex: 3,
-                    child: TextField(
-                      controller: _nameController,
-                      decoration: const InputDecoration(labelText: 'Nombre del Cajero', border: OutlineInputBorder(), prefixIcon: Icon(Icons.person)),
+              if (isMobile) ...[
+                TextField(
+                  controller: _nameController,
+                  decoration: const InputDecoration(labelText: 'Nombre del Cajero', border: OutlineInputBorder(), prefixIcon: Icon(Icons.person)),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _pinController,
+                  keyboardType: TextInputType.number,
+                  obscureText: true,
+                  decoration: const InputDecoration(labelText: 'PIN de Acceso', border: OutlineInputBorder(), prefixIcon: Icon(Icons.lock)),
+                ),
+                const SizedBox(height: 12),
+                ElevatedButton.icon(
+                  onPressed: _isLoading ? null : _addCashier,
+                  icon: const Icon(Icons.add),
+                  label: const Text('DAR ACCESO'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFFF6D00),
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size.fromHeight(48),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ] else
+                Row(
+                  children: [
+                    Expanded(
+                      flex: 3,
+                      child: TextField(
+                        controller: _nameController,
+                        decoration: const InputDecoration(labelText: 'Nombre del Cajero', border: OutlineInputBorder(), prefixIcon: Icon(Icons.person)),
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    flex: 2,
-                    child: TextField(
-                      controller: _pinController,
-                      keyboardType: TextInputType.number,
-                      obscureText: true,
-                      decoration: const InputDecoration(labelText: 'PIN de Acceso', border: OutlineInputBorder(), prefixIcon: Icon(Icons.lock)),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      flex: 2,
+                      child: TextField(
+                        controller: _pinController,
+                        keyboardType: TextInputType.number,
+                        obscureText: true,
+                        decoration: const InputDecoration(labelText: 'PIN de Acceso', border: OutlineInputBorder(), prefixIcon: Icon(Icons.lock)),
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 16),
-                  ElevatedButton.icon(
-                    onPressed: _isLoading ? null : _addCashier,
-                    icon: const Icon(Icons.add),
-                    label: const Text('DAR ACCESO'),
-                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFF6D00), foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                  ),
-                ],
-              ),
+                    const SizedBox(width: 16),
+                    ElevatedButton.icon(
+                      onPressed: _isLoading ? null : _addCashier,
+                      icon: const Icon(Icons.add),
+                      label: const Text('DAR ACCESO'),
+                      style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFF6D00), foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                    ),
+                  ],
+                ),
             ],
           ),
         ),

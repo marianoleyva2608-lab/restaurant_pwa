@@ -23,6 +23,21 @@ class _PayrollViewState extends State<PayrollView> {
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.width < 700;
+    if (isMobile) {
+      return Column(
+        children: [
+          _buildHeader(),
+          _buildMobileWaiterDropdown(),
+          const Divider(height: 1, color: Color(0xFF334155)),
+          Expanded(
+            child: _selectedWaiterId == null
+                ? _buildEmptyState()
+                : _buildLedgerView(),
+          ),
+        ],
+      );
+    }
     return Column(
       children: [
         _buildHeader(),
@@ -43,54 +58,135 @@ class _PayrollViewState extends State<PayrollView> {
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildMobileWaiterDropdown() {
     return Container(
-      padding: const EdgeInsets.all(24),
       color: const Color(0xFF0F172A),
-      child: Row(
-        children: [
-          const Icon(Icons.account_balance_wallet, color: Color(0xFFFF6D00), size: 32),
-          const SizedBox(width: 16),
-          const Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Nómina y Pagos',
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
-              ),
-              Text(
-                'Gestión de sueldos, préstamos y propinas para meseros',
-                style: TextStyle(fontSize: 14, color: Color(0xFF94A3B8)),
-              ),
-            ],
-          ),
-          const Spacer(),
-          const SizedBox(width: 8),
-          ElevatedButton.icon(
-            onPressed: () => _showWeeklyReportDialog(),
-            icon: const Icon(Icons.print),
-            label: const Text('Reporte Semanal'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF1E293B),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              side: const BorderSide(color: Color(0xFF334155)),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: StreamBuilder<List<Map<String, dynamic>>>(
+        stream: _supabase.from('waiters').stream(primaryKey: ['id']).eq('branch_name', Globals.currentBranch).order('name', ascending: true),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) return const SizedBox(height: 48, child: Center(child: CircularProgressIndicator()));
+          final waiters = snapshot.data!;
+          if (waiters.isEmpty) return const SizedBox.shrink();
+          return DropdownButtonFormField<String>(
+            value: _selectedWaiterId,
+            dropdownColor: const Color(0xFF1E293B),
+            style: const TextStyle(color: Colors.white),
+            decoration: InputDecoration(
+              labelText: 'Seleccionar mesero',
+              labelStyle: const TextStyle(color: Color(0xFF94A3B8)),
+              prefixIcon: const Icon(Icons.person, color: Color(0xFFFF6D00)),
+              filled: true,
+              fillColor: const Color(0xFF1E293B),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
             ),
-          ),
-          const SizedBox(width: 8),
-          if (_selectedWaiterId != null)
-            ElevatedButton.icon(
-              onPressed: () => _showMovementDialog(),
-              icon: const Icon(Icons.add),
-              label: const Text('Nuevo Movimiento'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFFF6D00),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              ),
-            ),
-        ],
+            items: waiters.map((w) => DropdownMenuItem<String>(
+              value: w['id'] as String,
+              child: Text(w['name'] as String, style: const TextStyle(color: Colors.white)),
+            )).toList(),
+            onChanged: (val) {
+              final waiter = waiters.firstWhere((w) => w['id'] == val);
+              setState(() {
+                _selectedWaiterId = val;
+                _selectedWaiterName = waiter['name'] as String;
+              });
+              _fetchLedger();
+            },
+          );
+        },
       ),
+    );
+  }
+
+  Widget _buildHeader() {
+    final isMobile = MediaQuery.of(context).size.width < 700;
+    return Container(
+      padding: EdgeInsets.all(isMobile ? 16 : 24),
+      color: const Color(0xFF0F172A),
+      child: isMobile
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.account_balance_wallet, color: Color(0xFFFF6D00), size: 28),
+                    SizedBox(width: 12),
+                    Text('Nómina y Pagos', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                const Text('Gestión de sueldos, préstamos y propinas', style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8))),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () => _showWeeklyReportDialog(),
+                        icon: const Icon(Icons.print, size: 16),
+                        label: const Text('Reporte Semanal', style: TextStyle(fontSize: 13)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF1E293B),
+                          foregroundColor: Colors.white,
+                          side: const BorderSide(color: Color(0xFF334155)),
+                        ),
+                      ),
+                    ),
+                    if (_selectedWaiterId != null) ...[
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () => _showMovementDialog(),
+                          icon: const Icon(Icons.add, size: 16),
+                          label: const Text('Nuevo Movimiento', style: TextStyle(fontSize: 13)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFFF6D00),
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ],
+            )
+          : Row(
+              children: [
+                const Icon(Icons.account_balance_wallet, color: Color(0xFFFF6D00), size: 32),
+                const SizedBox(width: 16),
+                const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Nómina y Pagos', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
+                    Text('Gestión de sueldos, préstamos y propinas para meseros', style: TextStyle(fontSize: 14, color: Color(0xFF94A3B8))),
+                  ],
+                ),
+                const Spacer(),
+                const SizedBox(width: 8),
+                ElevatedButton.icon(
+                  onPressed: () => _showWeeklyReportDialog(),
+                  icon: const Icon(Icons.print),
+                  label: const Text('Reporte Semanal'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF1E293B),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    side: const BorderSide(color: Color(0xFF334155)),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                if (_selectedWaiterId != null)
+                  ElevatedButton.icon(
+                    onPressed: () => _showMovementDialog(),
+                    icon: const Icon(Icons.add),
+                    label: const Text('Nuevo Movimiento'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFFF6D00),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    ),
+                  ),
+              ],
+            ),
     );
   }
 
