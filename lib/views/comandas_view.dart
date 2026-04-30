@@ -82,16 +82,18 @@ class _ComandasViewState extends State<ComandasView> {
     return ['Todos', ...categories];
   }
 
-  Widget _buildCategoryChip(String label) {
+  Widget _buildCategoryChip(String label, {bool isMobile = false}) {
     final bool selected = _selectedCategory == label;
-    final Color activeColor = const Color(0xFFE07A30);
+    const activeColor = Color(0xFFE07A30);
     return Padding(
       padding: const EdgeInsets.only(right: 8.0),
       child: GestureDetector(
         onTap: () => setState(() => _selectedCategory = label),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          padding: isMobile
+              ? const EdgeInsets.symmetric(horizontal: 10, vertical: 8)
+              : const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
           decoration: BoxDecoration(
             color: selected ? activeColor : Colors.white.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(24),
@@ -100,25 +102,94 @@ class _ComandasViewState extends State<ComandasView> {
               width: 1.5,
             ),
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Globals.categoryIcon(label),
-                size: 18,
-                color: selected ? Colors.white : Colors.white70,
-              ),
-              const SizedBox(width: 6),
-              Text(
+          child: isMobile
+              ? Column(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Globals.categoryIcon(label),
+                      size: 20,
+                      color: selected ? Colors.white : Colors.white70,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      _translateCategory(label),
+                      style: TextStyle(
+                        fontSize: 9,
+                        fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+                        color: selected ? Colors.white : Colors.white60,
+                        height: 1.0,
+                      ),
+                    ),
+                  ],
+                )
+              : Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Globals.categoryIcon(label),
+                      size: 16,
+                      color: selected ? Colors.white : Colors.white70,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      _translateCategory(label),
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+                        color: selected ? Colors.white : Colors.white70,
+                      ),
+                    ),
+                  ],
+                ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCategoryBlock(String label) {
+    final bool selected = _selectedCategory == label;
+    const activeColor = Color(0xFFE07A30);
+    return GestureDetector(
+      onTap: () => setState(() => _selectedCategory = label),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        width: 72,
+        height: 64,
+        decoration: BoxDecoration(
+          color: selected ? activeColor : const Color(0xFF1E293B),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: selected ? activeColor : const Color(0xFF334155),
+            width: 1.5,
+          ),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Globals.categoryIcon(label),
+              size: 24,
+              color: selected ? Colors.white : Colors.white60,
+            ),
+            const SizedBox(height: 4),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Text(
                 _translateCategory(label),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: 9,
+                  height: 1.1,
                   fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
-                  color: selected ? Colors.white : Colors.white70,
+                  color: selected ? Colors.white : Colors.white60,
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -688,12 +759,14 @@ class _ComandasViewState extends State<ComandasView> {
           ),
         ),
         SliverToBoxAdapter(
-          child: SizedBox(
-            height: 52,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              children: _availableCategories.map(_buildCategoryChip).toList(),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: _availableCategories
+                  .map((c) => _buildCategoryBlock(c))
+                  .toList(),
             ),
           ),
         ),
