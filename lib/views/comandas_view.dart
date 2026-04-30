@@ -627,9 +627,11 @@ class _ComandasViewState extends State<ComandasView> {
 
     // Determine cross axis count based on screen width
     final screenWidth = MediaQuery.of(context).size.width;
-    final availableWidth = screenWidth < 800 ? screenWidth : (screenWidth - 380);
-    int crossAxisCount = (availableWidth / 250).floor();
-    if (crossAxisCount < 1) crossAxisCount = 1;
+    final isMobile = screenWidth < 800;
+    final availableWidth = isMobile ? screenWidth : (screenWidth - 380);
+    int crossAxisCount = isMobile
+        ? (availableWidth / 110).floor().clamp(3, 5)
+        : (availableWidth / 250).floor().clamp(1, 6);
 
     return CustomScrollView(
       slivers: [
@@ -658,13 +660,13 @@ class _ComandasViewState extends State<ComandasView> {
             ),
           ),
         ),
-        ..._buildGroupedMenu(filteredDishes, crossAxisCount),
+        ..._buildGroupedMenu(filteredDishes, crossAxisCount, isMobile),
         const SliverToBoxAdapter(child: SizedBox(height: 40)),
       ],
     );
   }
 
-  List<Widget> _buildGroupedMenu(List<Dish> items, int crossAxisCount) {
+  List<Widget> _buildGroupedMenu(List<Dish> items, int crossAxisCount, bool isMobile) {
     if (items.isEmpty) {
       return [
         const SliverToBoxAdapter(
@@ -727,13 +729,13 @@ class _ComandasViewState extends State<ComandasView> {
       // Category Grid
       slivers.add(
         SliverPadding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          padding: EdgeInsets.symmetric(horizontal: isMobile ? 8.0 : 16.0),
           sliver: SliverGrid(
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: crossAxisCount,
-              childAspectRatio: 0.75,
-              crossAxisSpacing: 16,
-              mainAxisSpacing: 16,
+              childAspectRatio: isMobile ? 0.85 : 0.75,
+              crossAxisSpacing: isMobile ? 8 : 16,
+              mainAxisSpacing: isMobile ? 8 : 16,
             ),
             delegate: SliverChildBuilderDelegate(
               (context, index) => DishCard(dish: categoryItems[index]),
