@@ -295,6 +295,12 @@ class _AdminViewState extends State<AdminView> {
           ? AppBar(
               backgroundColor: const Color(0xFF0F172A),
               foregroundColor: Colors.white,
+              leading: Builder(
+                builder: (context) => IconButton(
+                  icon: const Icon(Icons.menu),
+                  onPressed: () => Scaffold.of(context).openDrawer(),
+                ),
+              ),
               title: Text(_currentSectionTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
               actions: [
                 IconButton(
