@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -46,6 +45,10 @@ Future<void> addDishToCart(BuildContext context, Dish dish) async {
   if (!context.mounted) return;
 
   List<String> selected = [];
+  final bool isGordita = dish.category == 'gorditas' ||
+      dish.name.toLowerCase().contains('gordita');
+  bool conQueso = false;
+  bool frita = false;
 
   await showDialog(
     context: context,
@@ -58,40 +61,95 @@ Future<void> addDishToCart(BuildContext context, Dish dish) async {
               '¿Qué guisado lleva el ${dish.name}?',
               style: const TextStyle(color: Colors.white, fontSize: 16),
             ),
-            content: guisados.isEmpty
-                ? const Text(
-                    'No hay guisados disponibles.',
-                    style: TextStyle(color: Colors.white70),
-                  )
-                : SizedBox(
-                    width: 320,
-                    child: ListView(
-                      shrinkWrap: true,
-                      children: guisados.map((g) {
-                        final name = g['name'] as String;
-                        final isChecked = selected.contains(name);
-                        return CheckboxListTile(
-                          value: isChecked,
-                          onChanged: (val) {
-                            setDialogState(() {
-                              if (val == true) {
-                                selected = [...selected, name];
-                              } else {
-                                selected =
-                                    selected.where((s) => s != name).toList();
-                              }
-                            });
-                          },
-                          title: Text(name,
-                              style: const TextStyle(
-                                  color: Colors.white, fontSize: 14)),
-                          checkColor: Colors.white,
-                          activeColor: const Color(0xFFFF6D00),
-                          side: const BorderSide(color: Color(0xFF94A3B8)),
-                        );
-                      }).toList(),
+            content: SizedBox(
+              width: 320,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Toggles de queso y frita (solo gorditas)
+                  if (isGordita) ...[
+                    const Text(
+                      'Opciones',
+                      style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 1),
                     ),
-                  ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        _ToggleOption(
+                          icon: Icons.egg_alt,
+                          label: 'Con Queso',
+                          value: conQueso,
+                          onChanged: (v) => setDialogState(() => conQueso = v),
+                        ),
+                        const SizedBox(width: 10),
+                        _ToggleOption(
+                          icon: Icons.local_fire_department,
+                          label: 'Frita',
+                          value: frita,
+                          onChanged: (v) => setDialogState(() => frita = v),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    const Divider(color: Color(0xFF334155)),
+                    const SizedBox(height: 8),
+                  ],
+                  // Lista de guisados
+                  if (guisados.isEmpty)
+                    const Text(
+                      'No hay guisados disponibles.',
+                      style: TextStyle(color: Colors.white70),
+                    )
+                  else ...[
+                    const Text(
+                      'Guisado',
+                      style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 1),
+                    ),
+                    const SizedBox(height: 4),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxHeight: 260),
+                      child: ListView(
+                        shrinkWrap: true,
+                        children: guisados.map((g) {
+                          final name = g['name'] as String;
+                          final isChecked = selected.contains(name);
+                          return CheckboxListTile(
+                            value: isChecked,
+                            onChanged: (val) {
+                              setDialogState(() {
+                                if (val == true) {
+                                  selected = [...selected, name];
+                                } else {
+                                  selected =
+                                      selected.where((s) => s != name).toList();
+                                }
+                              });
+                            },
+                            title: Text(name,
+                                style: const TextStyle(
+                                    color: Colors.white, fontSize: 14)),
+                            checkColor: Colors.white,
+                            activeColor: const Color(0xFFFF6D00),
+                            side: const BorderSide(color: Color(0xFF94A3B8)),
+                            dense: true,
+                            contentPadding: EdgeInsets.zero,
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx),
@@ -101,7 +159,12 @@ Future<void> addDishToCart(BuildContext context, Dish dish) async {
               TextButton(
                 onPressed: () {
                   Navigator.pop(ctx);
-                  cart.addItemWithGuisados(dish, selected);
+                  final extras = [
+                    if (conQueso) 'Con queso',
+                    if (frita) 'Frita',
+                    ...selected,
+                  ];
+                  cart.addItemWithGuisados(dish, extras);
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).hideCurrentSnackBar();
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -115,7 +178,8 @@ Future<void> addDishToCart(BuildContext context, Dish dish) async {
                   }
                 },
                 style: TextButton.styleFrom(
-                  backgroundColor: const Color(0xFFFF6D00).withOpacity(0.15),
+                  backgroundColor:
+                      const Color(0xFFFF6D00).withValues(alpha: 0.15),
                 ),
                 child: const Text('Agregar a la orden',
                     style: TextStyle(color: Color(0xFFFF6D00))),
@@ -237,6 +301,55 @@ class DishCard extends StatelessWidget {
                     ),
                   ],
                 ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ToggleOption extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  const _ToggleOption({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    const activeColor = Color(0xFFFF6D00);
+    return GestureDetector(
+      onTap: () => onChanged(!value),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: value ? activeColor : const Color(0xFF334155),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: value ? activeColor : const Color(0xFF475569),
+            width: 1.5,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 18, color: value ? Colors.white : Colors.white54),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: value ? FontWeight.w700 : FontWeight.w400,
+                color: value ? Colors.white : Colors.white54,
               ),
             ),
           ],

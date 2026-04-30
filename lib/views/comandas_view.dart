@@ -57,6 +57,13 @@ class _ComandasViewState extends State<ComandasView> {
       if (_selectedCategory != 'Todos') {
         if (dish.category != _selectedCategory) return false;
       }
+      // En la categoría gorditas solo mostrar Maíz y Harina
+      if (dish.category == 'gorditas') {
+        final n = dish.name.toLowerCase();
+        if (!n.contains('maíz') && !n.contains('maiz') && !n.contains('harina')) {
+          return false;
+        }
+      }
       if (_searchQuery.isNotEmpty) {
         if (!dish.name.toLowerCase().contains(_searchQuery.toLowerCase())) return false;
       }
@@ -72,17 +79,43 @@ class _ComandasViewState extends State<ComandasView> {
   }
 
   Widget _buildCategoryChip(String label) {
+    final bool selected = _selectedCategory == label;
+    final Color activeColor = const Color(0xFFE07A30);
     return Padding(
       padding: const EdgeInsets.only(right: 8.0),
-      child: FilterChip(
-        label: Text(_translateCategory(label)),
-        selected: _selectedCategory == label,
-        onSelected: (_) {
-          setState(() {
-            _selectedCategory = label;
-          });
-        },
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: GestureDetector(
+        onTap: () => setState(() => _selectedCategory = label),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: selected ? activeColor : Colors.white.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: selected ? activeColor : Colors.white.withValues(alpha: 0.15),
+              width: 1.5,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Globals.categoryIcon(label),
+                size: 18,
+                color: selected ? Colors.white : Colors.white70,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                _translateCategory(label),
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+                  color: selected ? Colors.white : Colors.white70,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -652,7 +685,7 @@ class _ComandasViewState extends State<ComandasView> {
         ),
         SliverToBoxAdapter(
           child: SizedBox(
-            height: 48,
+            height: 52,
             child: ListView(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 16),
