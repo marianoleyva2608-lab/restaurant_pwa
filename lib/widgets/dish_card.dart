@@ -63,7 +63,7 @@ Future<void> addDishToCart(BuildContext context, Dish dish) async {
               style: const TextStyle(color: Colors.white, fontSize: 16),
             ),
             content: SizedBox(
-              width: 320,
+              width: 520,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -120,75 +120,83 @@ Future<void> addDishToCart(BuildContext context, Dish dish) async {
                     ),
                     const SizedBox(height: 8),
                     ConstrainedBox(
-                      constraints: const BoxConstraints(maxHeight: 320),
-                      child: SingleChildScrollView(
-                        child: Wrap(
-                          spacing: 8,
-                          runSpacing: 4,
-                          children: guisados.map((g) {
-                            final name = g['name'] as String;
-                            final isChecked = selected.contains(name);
-                            return SizedBox(
-                              width: 148,
-                              child: InkWell(
+                      constraints: const BoxConstraints(maxHeight: 420),
+                      child: GridView.builder(
+                        shrinkWrap: true,
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 3,
+                          crossAxisSpacing: 8,
+                          mainAxisSpacing: 6,
+                          childAspectRatio: 2.8,
+                        ),
+                        itemCount: guisados.length,
+                        itemBuilder: (ctx2, gi) {
+                          final g = guisados[gi];
+                          final name = g['name'] as String;
+                          final isChecked = selected.contains(name);
+                          return InkWell(
+                            borderRadius: BorderRadius.circular(8),
+                            onTap: () {
+                              setDialogState(() {
+                                if (isChecked) {
+                                  selected =
+                                      selected.where((s) => s != name).toList();
+                                } else {
+                                  selected = [...selected, name];
+                                }
+                              });
+                            },
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 150),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: isChecked
+                                    ? const Color(0xFFFF6D00)
+                                        .withValues(alpha: 0.15)
+                                    : const Color(0xFF1E293B),
                                 borderRadius: BorderRadius.circular(8),
-                                onTap: () {
-                                  setDialogState(() {
-                                    if (isChecked) {
-                                      selected = selected.where((s) => s != name).toList();
-                                    } else {
-                                      selected = [...selected, name];
-                                    }
-                                  });
-                                },
-                                child: AnimatedContainer(
-                                  duration: const Duration(milliseconds: 150),
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                  decoration: BoxDecoration(
-                                    color: isChecked
-                                        ? const Color(0xFFFF6D00).withValues(alpha: 0.15)
-                                        : const Color(0xFF1E293B),
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(
-                                      color: isChecked
-                                          ? const Color(0xFFFF6D00)
-                                          : const Color(0xFF334155),
-                                      width: 1.5,
-                                    ),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Icon(
-                                        isChecked
-                                            ? Icons.check_circle
-                                            : Icons.radio_button_unchecked,
-                                        size: 16,
-                                        color: isChecked
-                                            ? const Color(0xFFFF6D00)
-                                            : const Color(0xFF64748B),
-                                      ),
-                                      const SizedBox(width: 6),
-                                      Expanded(
-                                        child: Text(
-                                          name,
-                                          style: TextStyle(
-                                            color: isChecked ? Colors.white : Colors.white70,
-                                            fontSize: 12,
-                                            fontWeight: isChecked
-                                                ? FontWeight.w600
-                                                : FontWeight.w400,
-                                          ),
-                                          maxLines: 2,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
+                                border: Border.all(
+                                  color: isChecked
+                                      ? const Color(0xFFFF6D00)
+                                      : const Color(0xFF334155),
+                                  width: 1.5,
                                 ),
                               ),
-                            );
-                          }).toList(),
-                        ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    isChecked
+                                        ? Icons.check_circle
+                                        : Icons.radio_button_unchecked,
+                                    size: 14,
+                                    color: isChecked
+                                        ? const Color(0xFFFF6D00)
+                                        : const Color(0xFF64748B),
+                                  ),
+                                  const SizedBox(width: 5),
+                                  Expanded(
+                                    child: Text(
+                                      name,
+                                      style: TextStyle(
+                                        color: isChecked
+                                            ? Colors.white
+                                            : Colors.white70,
+                                        fontSize: 11,
+                                        fontWeight: isChecked
+                                            ? FontWeight.w600
+                                            : FontWeight.w400,
+                                      ),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
                       ),
                     ),
                   ],
