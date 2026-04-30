@@ -53,22 +53,26 @@ class _ComandasViewState extends State<ComandasView> {
   }
 
   List<Dish> get _filteredDishes {
-    return _dishes.where((dish) {
-      if (_selectedCategory != 'Todos') {
-        if (dish.category != _selectedCategory) return false;
-      }
-      // En la categoría gorditas solo mostrar Maíz y Harina
+    const gordtasPermitidas = {'gordita de maíz', 'gordita de maiz', 'gordita de harina'};
+    final seenNames = <String>{};
+
+    final result = <Dish>[];
+    for (final dish in _dishes) {
+      if (_selectedCategory != 'Todos' && dish.category != _selectedCategory) continue;
+
+      // Gorditas: solo Maíz y Harina (nombre exacto), sin duplicados por nombre
       if (dish.category == 'gorditas') {
-        final n = dish.name.toLowerCase();
-        if (!n.contains('maíz') && !n.contains('maiz') && !n.contains('harina')) {
-          return false;
-        }
+        final n = dish.name.toLowerCase().trim();
+        if (!gordtasPermitidas.contains(n)) continue;
+        if (!seenNames.add(n)) continue; // ya existe uno con ese nombre
       }
-      if (_searchQuery.isNotEmpty) {
-        if (!dish.name.toLowerCase().contains(_searchQuery.toLowerCase())) return false;
-      }
-      return true;
-    }).toList();
+
+      if (_searchQuery.isNotEmpty &&
+          !dish.name.toLowerCase().contains(_searchQuery.toLowerCase())) continue;
+
+      result.add(dish);
+    }
+    return result;
   }
 
 
