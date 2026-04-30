@@ -741,37 +741,39 @@ class _ComandasViewState extends State<ComandasView> {
         ? (availableWidth / 110).floor().clamp(3, 5)
         : (availableWidth / 250).floor().clamp(1, 6);
 
-    return CustomScrollView(
-      slivers: [
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: SearchBar(
-              hintText: 'Buscar platillo...',
-              leading: const Icon(Icons.search),
-              elevation: const WidgetStatePropertyAll(1),
-              onChanged: (val) {
-                setState(() {
-                  _searchQuery = val;
-                });
-              },
-            ),
+    return Column(
+      children: [
+        // ── Búsqueda (fija) ──
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+          child: SearchBar(
+            hintText: 'Buscar platillo...',
+            leading: const Icon(Icons.search),
+            elevation: const WidgetStatePropertyAll(1),
+            onChanged: (val) => setState(() => _searchQuery = val),
           ),
         ),
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: _availableCategories
-                  .map((c) => _buildCategoryBlock(c))
-                  .toList(),
-            ),
+        // ── Bloques de categorías (fijos) ──
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _availableCategories
+                .map(_buildCategoryBlock)
+                .toList(),
           ),
         ),
-        ..._buildGroupedMenu(filteredDishes, crossAxisCount, isMobile),
-        const SliverToBoxAdapter(child: SizedBox(height: 40)),
+        const Divider(height: 1, thickness: 1, color: Color(0xFF1E293B)),
+        // ── Grid de platillos (scrollable) ──
+        Expanded(
+          child: CustomScrollView(
+            slivers: [
+              ..._buildGroupedMenu(filteredDishes, crossAxisCount, isMobile),
+              const SliverToBoxAdapter(child: SizedBox(height: 40)),
+            ],
+          ),
+        ),
       ],
     );
   }
