@@ -1379,6 +1379,182 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
     }
   }
 
+  Future<void> _payWithClip(
+    BuildContext context,
+    List<String> orderIds,
+    double amount,
+    String? tableId,
+    String tableLabel,
+  ) async {
+    // 1. Crear link de pago en Clip
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const AlertDialog(
+        backgroundColor: Color(0xFF1E293B),
+        title: Row(children: [
+          SizedBox(width: 8),
+          Text('Generando link...', style: TextStyle(color: Colors.white)),
+        ]),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          CircularProgressIndicator(color: Color(0xFFFF6D00)),
+          SizedBox(height: 16),
+          Text('Contactando Clip...', style: TextStyle(color: Colors.white70)),
+        ]),
+      ),
+    );
+
+    String? paymentUrl;
+    String? checkoutId;
+
+    try {
+      final orderNumber = 'REST-${tableLabel.replaceAll(' ', '')}-${DateTime.now().millisecondsSinceEpoch}';
+      final response = await http.post(
+        Uri.parse('http://192.168.1.88:8081/clip/v1/checkout'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'amount': amount,
+          'purchase_order_number': orderNumber,
+          'redirect_url': 'https://restaurant-pwa.c4o2yg.easypanel.host',
+        }),
+      ).timeout(const Duration(seconds: 10));
+
+      if (context.mounted) Navigator.pop(context);
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = json.decode(response.body);
+        paymentUrl = data['payment_request_url'] ??
+            data['url'] ??
+            data['checkout_url'] ??
+            data['link'];
+        checkoutId = data['id']?.toString();
+      } else {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Error Clip (${response.statusCode}): ${response.body}'),
+            backgroundColor: Colors.red,
+          ));
+        }
+        return;
+      }
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Error de red con Clip: $e'),
+          backgroundColor: Colors.red,
+        ));
+      }
+      return;
+    }
+
+    if (paymentUrl == null || paymentUrl.isEmpty) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Clip no devolvió un link de pago válido.'),
+          backgroundColor: Colors.red,
+        ));
+      }
+      return;
+    }
+
+    // 2. Abrir el link de pago en nueva pestaña
+    html.window.open(paymentUrl, '_blank');
+
+    // 3. Mostrar diálogo de confirmación manual
+    if (!context.mounted) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        backgroundColor: const Color(0xFF0F172A),
+        title: const Row(children: [
+          Icon(Icons.credit_card, color: Color(0xFFFF6D00), size: 28),
+          SizedBox(width: 12),
+          Text('Pago con Clip', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        ]),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E293B),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Column(children: [
+                const Text('Total a cobrar:', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 14)),
+                const SizedBox(height: 4),
+                Text('\$${amount.toStringAsFixed(2)}',
+                    style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold)),
+              ]),
+            ),
+            const SizedBox(height: 16),
+            const Icon(Icons.open_in_new, color: Color(0xFFFF6D00), size: 40),
+            const SizedBox(height: 8),
+            const Text(
+              'Se abrió la página de pago de Clip en una nueva pestaña.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.white70),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Cuando el cliente haya pagado, presiona "Confirmar pago".',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar', style: TextStyle(color: Color(0xFF94A3B8))),
+          ),
+          ElevatedButton.icon(
+            onPressed: () => Navigator.pop(ctx, true),
+            icon: const Icon(Icons.check_circle),
+            label: const Text('Confirmar pago', style: TextStyle(fontWeight: FontWeight.bold)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFFF6D00),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    // 4. Marcar órdenes como pagadas
+    try {
+      final supabase = Supabase.instance.client;
+      await supabase.from('orders').update({
+        'status': 'completed',
+        'payment_method': 'card',
+        'amount_card': amount,
+      }).inFilter('id', orderIds);
+
+      if (tableId != null) {
+        await supabase.from('restaurant_tables').update({'status': 'available'}).eq('id', tableId as Object);
+      }
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Pago con Clip registrado correctamente'),
+          backgroundColor: Colors.green,
+        ));
+        widget.onDeselect?.call();
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al guardar: $e')));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final supabase = Supabase.instance.client;
@@ -1723,6 +1899,25 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
                                   ),
                                 ),
                               ],
+                            ),
+                            const SizedBox(height: 16),
+                            ElevatedButton.icon(
+                              onPressed: () => _payWithClip(
+                                context,
+                                orderIds,
+                                totalToPay,
+                                widget.tableId,
+                                panelTitle,
+                              ),
+                              icon: const Icon(Icons.credit_card, size: 26),
+                              label: const Text('Pagar con Clip', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                              style: ElevatedButton.styleFrom(
+                                minimumSize: const Size.fromHeight(60),
+                                backgroundColor: const Color(0xFFFF6D00),
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                elevation: 4,
+                              ),
                             ),
                             const SizedBox(height: 16),
                             ElevatedButton.icon(

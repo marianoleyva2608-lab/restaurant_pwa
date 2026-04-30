@@ -35,6 +35,37 @@ const requestListener = function (req, res) {
     });
 
     req.pipe(proxy, { end: true });
+
+  } else if (req.url.startsWith('/clip/')) {
+    const clipPath = req.url.replace('/clip/', '/');
+    const CLIP_API_KEY    = 'test_d22cc57f-3c03-41a0-876b-a8280133aefb';
+    const CLIP_SECRET_KEY = '06470f91-c6d2-440c-87dd-3615a876b381';
+    const authHeader = 'Basic ' + Buffer.from(`${CLIP_API_KEY}:${CLIP_SECRET_KEY}`).toString('base64');
+
+    const options = {
+      hostname: 'api-checkoutx.clip.mx',
+      port: 443,
+      path: clipPath,
+      method: req.method,
+      headers: {
+        'Authorization': authHeader,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      }
+    };
+
+    const proxy = https.request(options, function(proxy_res) {
+      res.writeHead(proxy_res.statusCode, { 'Content-Type': 'application/json' });
+      proxy_res.pipe(res, { end: true });
+    });
+
+    proxy.on('error', (e) => {
+      res.writeHead(500);
+      res.end(JSON.stringify({ error: e.message }));
+    });
+
+    req.pipe(proxy, { end: true });
+
   } else {
     res.writeHead(404);
     res.end('Not Found');
