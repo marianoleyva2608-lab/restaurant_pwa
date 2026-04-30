@@ -753,14 +753,17 @@ class _ComandasViewState extends State<ComandasView> {
             onChanged: (val) => setState(() => _searchQuery = val),
           ),
         ),
-        // ── Bloques de categorías (fijos) ──
-        Padding(
-          padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-          child: Wrap(
-            spacing: 8,
-            runSpacing: 8,
+        // ── Bloques de categorías (scroll horizontal) ──
+        SizedBox(
+          height: 80,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
             children: _availableCategories
-                .map(_buildCategoryBlock)
+                .map((label) => Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: _buildCategoryBlock(label),
+                    ))
                 .toList(),
           ),
         ),
