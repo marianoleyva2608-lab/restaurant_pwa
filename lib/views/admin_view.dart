@@ -33,6 +33,7 @@ class _AdminViewState extends State<AdminView> {
   String? _selectedOrderId;
 
   final TransformationController _transformationController = TransformationController();
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   @override
   void initState() {
@@ -291,15 +292,14 @@ class _AdminViewState extends State<AdminView> {
     final isMobile = screenWidth < 1100;
 
     return Scaffold(
+      key: _scaffoldKey,
       appBar: isMobile
           ? AppBar(
               backgroundColor: const Color(0xFF0F172A),
               foregroundColor: Colors.white,
-              leading: Builder(
-                builder: (context) => IconButton(
-                  icon: const Icon(Icons.menu),
-                  onPressed: () => Scaffold.of(context).openDrawer(),
-                ),
+              leading: IconButton(
+                icon: const Icon(Icons.menu),
+                onPressed: () => _scaffoldKey.currentState?.openDrawer(),
               ),
               title: Text(_currentSectionTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
               actions: [
