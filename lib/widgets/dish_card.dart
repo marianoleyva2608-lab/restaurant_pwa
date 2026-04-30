@@ -107,43 +107,84 @@ Future<void> addDishToCart(BuildContext context, Dish dish) async {
                     )
                   else ...[
                     const Text(
-                      'Guisado',
+                      'GUISADO',
                       style: TextStyle(
                           color: Colors.white70,
-                          fontSize: 12,
+                          fontSize: 11,
                           fontWeight: FontWeight.w600,
                           letterSpacing: 1),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 8),
                     ConstrainedBox(
-                      constraints: const BoxConstraints(maxHeight: 260),
-                      child: ListView(
-                        shrinkWrap: true,
-                        children: guisados.map((g) {
-                          final name = g['name'] as String;
-                          final isChecked = selected.contains(name);
-                          return CheckboxListTile(
-                            value: isChecked,
-                            onChanged: (val) {
-                              setDialogState(() {
-                                if (val == true) {
-                                  selected = [...selected, name];
-                                } else {
-                                  selected =
-                                      selected.where((s) => s != name).toList();
-                                }
-                              });
-                            },
-                            title: Text(name,
-                                style: const TextStyle(
-                                    color: Colors.white, fontSize: 14)),
-                            checkColor: Colors.white,
-                            activeColor: const Color(0xFFFF6D00),
-                            side: const BorderSide(color: Color(0xFF94A3B8)),
-                            dense: true,
-                            contentPadding: EdgeInsets.zero,
-                          );
-                        }).toList(),
+                      constraints: const BoxConstraints(maxHeight: 320),
+                      child: SingleChildScrollView(
+                        child: Wrap(
+                          spacing: 8,
+                          runSpacing: 4,
+                          children: guisados.map((g) {
+                            final name = g['name'] as String;
+                            final isChecked = selected.contains(name);
+                            return SizedBox(
+                              width: 148,
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(8),
+                                onTap: () {
+                                  setDialogState(() {
+                                    if (isChecked) {
+                                      selected = selected.where((s) => s != name).toList();
+                                    } else {
+                                      selected = [...selected, name];
+                                    }
+                                  });
+                                },
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 150),
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: isChecked
+                                        ? const Color(0xFFFF6D00).withValues(alpha: 0.15)
+                                        : const Color(0xFF1E293B),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: isChecked
+                                          ? const Color(0xFFFF6D00)
+                                          : const Color(0xFF334155),
+                                      width: 1.5,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        isChecked
+                                            ? Icons.check_circle
+                                            : Icons.radio_button_unchecked,
+                                        size: 16,
+                                        color: isChecked
+                                            ? const Color(0xFFFF6D00)
+                                            : const Color(0xFF64748B),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Expanded(
+                                        child: Text(
+                                          name,
+                                          style: TextStyle(
+                                            color: isChecked ? Colors.white : Colors.white70,
+                                            fontSize: 12,
+                                            fontWeight: isChecked
+                                                ? FontWeight.w600
+                                                : FontWeight.w400,
+                                          ),
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
                       ),
                     ),
                   ],
