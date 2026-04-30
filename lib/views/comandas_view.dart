@@ -642,38 +642,37 @@ class _ComandasViewState extends State<ComandasView> {
           const SizedBox(width: 16),
         ],
       ),
-      body: MediaQuery.of(context).size.width < 800
-        ? Column(
-            children: [
-              Expanded(
-                flex: 3,
-                child: _buildMenuContent(context),
-              ),
-              const Divider(height: 1, thickness: 1, color: Color(0xFF334155)),
-              Expanded(
-                flex: 2,
-                child: _buildOrderSummaryContent(),
-              ),
-            ],
-          )
-        : Row(
-            children: [
-              // Left Side: Menu Grid
-              Expanded(
-                flex: 2,
-                child: _buildMenuContent(context),
-              ),
-              
-              const VerticalDivider(width: 1, thickness: 1, color: Color(0xFF334155)),
-              
-              // Right Side: Order Summary Persistent Sidebar
-              Container(
-                width: 380,
-                color: const Color(0xFF0F172A),
-                child: _buildOrderSummaryContent(),
-              ),
-            ],
-          ),
+      body: _buildAdaptiveBody(context),
+    );
+  }
+
+  Widget _buildAdaptiveBody(BuildContext context) {
+    final w = MediaQuery.of(context).size.width;
+    final isPhone = w < 600;
+    final isDesktop = w >= 1024;
+
+    if (isPhone) {
+      // Celular: menú arriba (3/5), resumen abajo (2/5)
+      return Column(
+        children: [
+          Expanded(flex: 3, child: _buildMenuContent(context)),
+          const Divider(height: 1, thickness: 1, color: Color(0xFF334155)),
+          Expanded(flex: 2, child: _buildOrderSummaryContent()),
+        ],
+      );
+    }
+
+    // Tablet y escritorio: lado a lado
+    final sidebarWidth = isDesktop ? 380.0 : 320.0;
+    return Row(
+      children: [
+        Expanded(child: _buildMenuContent(context)),
+        const VerticalDivider(width: 1, thickness: 1, color: Color(0xFF334155)),
+        SizedBox(
+          width: sidebarWidth,
+          child: _buildOrderSummaryContent(),
+        ),
+      ],
     );
   }
 
@@ -733,13 +732,20 @@ class _ComandasViewState extends State<ComandasView> {
       return const Center(child: Text('El menú está vacío', style: TextStyle(color: Colors.grey)));
     }
 
-    // Determine cross axis count based on screen width
     final screenWidth = MediaQuery.of(context).size.width;
-    final isMobile = screenWidth < 800;
-    final availableWidth = isMobile ? screenWidth : (screenWidth - 380);
-    int crossAxisCount = isMobile
-        ? (availableWidth / 110).floor().clamp(3, 5)
-        : (availableWidth / 250).floor().clamp(1, 6);
+    final isPhone = screenWidth < 600;
+    final isDesktop = screenWidth >= 1024;
+    final isTablet = !isPhone && !isDesktop;
+    final sidebarWidth = isDesktop ? 380.0 : (isTablet ? 320.0 : 0.0);
+    final availableWidth = screenWidth - sidebarWidth;
+    int crossAxisCount;
+    if (isPhone) {
+      crossAxisCount = (availableWidth / 160).floor().clamp(2, 3);
+    } else if (isTablet) {
+      crossAxisCount = (availableWidth / 200).floor().clamp(2, 4);
+    } else {
+      crossAxisCount = (availableWidth / 250).floor().clamp(2, 6);
+    }
 
     return Column(
       children: [
@@ -753,26 +759,36 @@ class _ComandasViewState extends State<ComandasView> {
             onChanged: (val) => setState(() => _searchQuery = val),
           ),
         ),
-        // ── Bloques de categorías (scroll horizontal) ──
-        SizedBox(
-          height: 80,
-          child: ListView(
-            scrollDirection: Axis.horizontal,
+        // ── Categorías: scroll horizontal en celular/tablet, Wrap en escritorio ──
+        if (isDesktop)
+          Padding(
             padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-            children: _availableCategories
-                .map((label) => Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: _buildCategoryBlock(label),
-                    ))
-                .toList(),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: _availableCategories.map(_buildCategoryBlock).toList(),
+            ),
+          )
+        else
+          SizedBox(
+            height: 80,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+              children: _availableCategories
+                  .map((label) => Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: _buildCategoryBlock(label),
+                      ))
+                  .toList(),
+            ),
           ),
-        ),
         const Divider(height: 1, thickness: 1, color: Color(0xFF1E293B)),
         // ── Grid de platillos (scrollable) ──
         Expanded(
           child: CustomScrollView(
             slivers: [
-              ..._buildGroupedMenu(filteredDishes, crossAxisCount, isMobile),
+              ..._buildGroupedMenu(filteredDishes, crossAxisCount, isPhone),
               const SliverToBoxAdapter(child: SizedBox(height: 40)),
             ],
           ),
@@ -781,7 +797,8 @@ class _ComandasViewState extends State<ComandasView> {
     );
   }
 
-  List<Widget> _buildGroupedMenu(List<Dish> items, int crossAxisCount, bool isMobile) {
+  List<Widget> _buildGroupedMenu(List<Dish> items, int crossAxisCount, bool isPhone) {
+    final isMobile = isPhone;
     if (items.isEmpty) {
       return [
         const SliverToBoxAdapter(
