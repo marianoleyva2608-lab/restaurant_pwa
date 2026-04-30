@@ -47,6 +47,7 @@ Future<void> addDishToCart(BuildContext context, Dish dish) async {
   List<String> selected = [];
   final bool isGordita = dish.category == 'gorditas' ||
       dish.name.toLowerCase().contains('gordita');
+  final bool canBeFrita = !dish.name.toLowerCase().contains('harina');
   bool conQueso = false;
   bool frita = false;
 
@@ -91,7 +92,10 @@ Future<void> addDishToCart(BuildContext context, Dish dish) async {
                           icon: Icons.local_fire_department,
                           label: 'Frita',
                           value: frita,
-                          onChanged: (v) => setDialogState(() => frita = v),
+                          enabled: canBeFrita,
+                          onChanged: canBeFrita
+                              ? (v) => setDialogState(() => frita = v)
+                              : (_) {},
                         ),
                       ],
                     ),
@@ -355,6 +359,7 @@ class _ToggleOption extends StatelessWidget {
   final IconData icon;
   final String label;
   final bool value;
+  final bool enabled;
   final ValueChanged<bool> onChanged;
 
   const _ToggleOption({
@@ -362,37 +367,49 @@ class _ToggleOption extends StatelessWidget {
     required this.label,
     required this.value,
     required this.onChanged,
+    this.enabled = true,
   });
 
   @override
   Widget build(BuildContext context) {
     const activeColor = Color(0xFFFF6D00);
+    final effectiveColor = enabled
+        ? (value ? activeColor : const Color(0xFF334155))
+        : const Color(0xFF1E293B);
+    final borderColor = enabled
+        ? (value ? activeColor : const Color(0xFF475569))
+        : const Color(0xFF2D3748);
+    final contentColor = enabled
+        ? (value ? Colors.white : Colors.white54)
+        : Colors.white24;
+
     return GestureDetector(
-      onTap: () => onChanged(!value),
+      onTap: enabled ? () => onChanged(!value) : null,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 160),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
-          color: value ? activeColor : const Color(0xFF334155),
+          color: effectiveColor,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: value ? activeColor : const Color(0xFF475569),
-            width: 1.5,
-          ),
+          border: Border.all(color: borderColor, width: 1.5),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 18, color: value ? Colors.white : Colors.white54),
+            Icon(icon, size: 18, color: contentColor),
             const SizedBox(width: 6),
             Text(
               label,
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: value ? FontWeight.w700 : FontWeight.w400,
-                color: value ? Colors.white : Colors.white54,
+                color: contentColor,
               ),
             ),
+            if (!enabled) ...[
+              const SizedBox(width: 6),
+              Icon(Icons.block, size: 14, color: Colors.white24),
+            ],
           ],
         ),
       ),
