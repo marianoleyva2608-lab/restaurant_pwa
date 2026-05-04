@@ -23,6 +23,19 @@ class Dish {
     this.requiresGuisado = false,
   });
 
+  Dish copyWith({double? price}) => Dish(
+        id: id,
+        name: name,
+        description: description,
+        price: price ?? this.price,
+        imageUrl: imageUrl,
+        category: category,
+        isPurchase: isPurchase,
+        isSale: isSale,
+        cost: cost,
+        requiresGuisado: requiresGuisado,
+      );
+
   factory Dish.fromJson(Map<String, dynamic> json) {
     return Dish(
       id: json['id'].toString(),

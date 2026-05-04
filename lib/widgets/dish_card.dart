@@ -236,7 +236,10 @@ Future<void> addDishToCart(BuildContext context, Dish dish) async {
                     if (frita) 'Frita',
                     ...selected,
                   ];
-                  cart.addItemWithGuisados(dish, extras);
+                  final finalDish = (isTapa && conQueso)
+                      ? dish.copyWith(price: dish.price + 25)
+                      : dish;
+                  cart.addItemWithGuisados(finalDish, extras);
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).hideCurrentSnackBar();
                     ScaffoldMessenger.of(context).showSnackBar(
