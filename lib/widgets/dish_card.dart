@@ -122,11 +122,11 @@ Future<void> addDishToCart(BuildContext context, Dish dish) async {
                               letterSpacing: 1),
                         ),
                         Text(
-                          '${selected.length}/3',
+                          '${selected.length}/5',
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
-                            color: selected.length >= 3
+                            color: selected.length >= 5
                                 ? const Color(0xFFFF6D00)
                                 : Colors.white38,
                           ),
@@ -156,7 +156,7 @@ Future<void> addDishToCart(BuildContext context, Dish dish) async {
                               setDialogState(() {
                                 if (isChecked) {
                                   selected = selected.where((s) => s != name).toList();
-                                } else if (selected.length < 3) {
+                                } else if (selected.length < 5) {
                                   selected = [...selected, name];
                                 }
                               });
