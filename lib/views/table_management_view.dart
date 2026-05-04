@@ -14,6 +14,7 @@ class _TableManagementViewState extends State<TableManagementView> {
   bool _isLoading = true;
   List<Map<String, dynamic>> _tables = [];
   final TransformationController _transformationController = TransformationController();
+  final Map<String, Offset> _dragPositions = {};
 
   Future<void> _updateTablePosition(String id, double x, double y) async {
     try {
@@ -170,7 +171,16 @@ class _TableManagementViewState extends State<TableManagementView> {
         if (snapshot.hasError) return Center(child: Text('Error: ${snapshot.error}'));
         if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
         
-        _tables = snapshot.data!;
+        final fresh = snapshot.data!;
+        _tables = fresh.map((t) {
+          final id = t['id'] as String;
+          if (_dragPositions.containsKey(id)) {
+            return Map<String, dynamic>.from(t)
+              ..['pos_x'] = _dragPositions[id]!.dx
+              ..['pos_y'] = _dragPositions[id]!.dy;
+          }
+          return t;
+        }).toList();
         _isLoading = false;
 
         return Padding(
@@ -260,17 +270,20 @@ class _TableManagementViewState extends State<TableManagementView> {
                                 child: GestureDetector(
                                   onPanUpdate: (details) {
                                     setState(() {
+                                      final current = _dragPositions[id] ?? Offset(x, y);
+                                      _dragPositions[id] = current + details.delta;
                                       final index = _tables.indexWhere((t) => t['id'] == id);
                                       if (index != -1) {
-                                        _tables[index]['pos_x'] = x + details.delta.dx;
-                                        _tables[index]['pos_y'] = y + details.delta.dy;
+                                        _tables[index] = Map<String, dynamic>.from(_tables[index])
+                                          ..['pos_x'] = _dragPositions[id]!.dx
+                                          ..['pos_y'] = _dragPositions[id]!.dy;
                                       }
                                     });
                                   },
                                   onPanEnd: (details) {
-                                    final currentIndex = _tables.indexWhere((t) => t['id'] == id);
-                                    if (currentIndex != -1) {
-                                        _updateTablePosition(id, _tables[currentIndex]['pos_x'], _tables[currentIndex]['pos_y']);
+                                    final pos = _dragPositions.remove(id);
+                                    if (pos != null) {
+                                      _updateTablePosition(id, pos.dx, pos.dy);
                                     }
                                   },
                                   child: Container(
