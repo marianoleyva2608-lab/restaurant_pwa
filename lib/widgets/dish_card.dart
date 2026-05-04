@@ -110,13 +110,28 @@ Future<void> addDishToCart(BuildContext context, Dish dish) async {
                       style: TextStyle(color: Colors.white70),
                     )
                   else ...[
-                    const Text(
-                      'GUISADO',
-                      style: TextStyle(
-                          color: Colors.white70,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 1),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'GUISADO',
+                          style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 1),
+                        ),
+                        Text(
+                          '${selected.length}/3',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: selected.length >= 3
+                                ? const Color(0xFFFF6D00)
+                                : Colors.white38,
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 8),
                     ConstrainedBox(
@@ -140,9 +155,8 @@ Future<void> addDishToCart(BuildContext context, Dish dish) async {
                             onTap: () {
                               setDialogState(() {
                                 if (isChecked) {
-                                  selected =
-                                      selected.where((s) => s != name).toList();
-                                } else {
+                                  selected = selected.where((s) => s != name).toList();
+                                } else if (selected.length < 3) {
                                   selected = [...selected, name];
                                 }
                               });
