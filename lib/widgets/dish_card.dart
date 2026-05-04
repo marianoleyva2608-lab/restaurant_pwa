@@ -47,7 +47,10 @@ Future<void> addDishToCart(BuildContext context, Dish dish) async {
   List<String> selected = [];
   final bool isGordita = dish.category == 'gorditas' ||
       dish.name.toLowerCase().contains('gordita');
-  final bool canBeFrita = !dish.name.toLowerCase().contains('harina');
+  final bool isTapa = dish.category == 'tapas' ||
+      dish.name.toLowerCase().contains('tapa');
+  final bool showOptions = isGordita || isTapa;
+  final bool canBeFrita = isGordita && !dish.name.toLowerCase().contains('harina');
   bool conQueso = false;
   bool frita = false;
 
@@ -68,8 +71,8 @@ Future<void> addDishToCart(BuildContext context, Dish dish) async {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Toggles de queso y frita (solo gorditas)
-                  if (isGordita) ...[
+                  // Toggles de queso y frita
+                  if (showOptions) ...[
                     const Text(
                       'Opciones',
                       style: TextStyle(
@@ -87,16 +90,18 @@ Future<void> addDishToCart(BuildContext context, Dish dish) async {
                           value: conQueso,
                           onChanged: (v) => setDialogState(() => conQueso = v),
                         ),
-                        const SizedBox(width: 10),
-                        _ToggleOption(
-                          icon: Icons.local_fire_department,
-                          label: 'Frita',
-                          value: frita,
-                          enabled: canBeFrita,
-                          onChanged: canBeFrita
-                              ? (v) => setDialogState(() => frita = v)
-                              : (_) {},
-                        ),
+                        if (isGordita) ...[
+                          const SizedBox(width: 10),
+                          _ToggleOption(
+                            icon: Icons.local_fire_department,
+                            label: 'Frita',
+                            value: frita,
+                            enabled: canBeFrita,
+                            onChanged: canBeFrita
+                                ? (v) => setDialogState(() => frita = v)
+                                : (_) {},
+                          ),
+                        ],
                       ],
                     ),
                     const SizedBox(height: 16),
