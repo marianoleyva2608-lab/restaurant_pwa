@@ -3,6 +3,7 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import '../globals.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/dish.dart';
 import '../widgets/dish_card.dart';
 import '../widgets/order_summary.dart';
@@ -36,6 +37,7 @@ class _ComandasViewState extends State<ComandasView> {
   void initState() {
     super.initState();
     _selectedWaiterId = widget.waiterId;
+    _loadCategoryClickCounts();
     _fetchDishes();
     _fetchWaiters();
     _setupNotifications();
@@ -44,9 +46,35 @@ class _ComandasViewState extends State<ComandasView> {
     });
   }
 
+  Future<void> _loadCategoryClickCounts() async {
+    final prefs = await SharedPreferences.getInstance();
+    final keys = prefs.getKeys().where((k) => k.startsWith('cat_clicks_'));
+    final counts = <String, int>{};
+    for (final key in keys) {
+      final category = key.replaceFirst('cat_clicks_', '');
+      counts[category] = prefs.getInt(key) ?? 0;
+    }
+    if (mounted) setState(() => _categoryClickCounts = counts);
+  }
+
+  Future<void> _onCategoryTap(String label) async {
+    if (label != 'Todos') {
+      final newCount = (_categoryClickCounts[label] ?? 0) + 1;
+      setState(() {
+        _categoryClickCounts[label] = newCount;
+        _selectedCategory = label;
+      });
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt('cat_clicks_$label', newCount);
+    } else {
+      setState(() => _selectedCategory = label);
+    }
+  }
+
   bool _isInitialLoad = true;
   String _selectedCategory = 'Todos';
   String _searchQuery = '';
+  Map<String, int> _categoryClickCounts = {};
 
   String _translateCategory(String category) {
     return Globals.translateCategory(category);
@@ -78,7 +106,12 @@ class _ComandasViewState extends State<ComandasView> {
 
   List<String> get _availableCategories {
     final categories = _dishes.map((d) => d.category).toSet().toList();
-    categories.sort();
+    categories.sort((a, b) {
+      final countA = _categoryClickCounts[a] ?? 0;
+      final countB = _categoryClickCounts[b] ?? 0;
+      if (countB != countA) return countB.compareTo(countA);
+      return a.compareTo(b);
+    });
     return ['Todos', ...categories];
   }
 
@@ -88,7 +121,7 @@ class _ComandasViewState extends State<ComandasView> {
     return Padding(
       padding: const EdgeInsets.only(right: 8.0),
       child: GestureDetector(
-        onTap: () => setState(() => _selectedCategory = label),
+        onTap: () => _onCategoryTap(label),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
           padding: isMobile
@@ -152,7 +185,7 @@ class _ComandasViewState extends State<ComandasView> {
     final bool selected = _selectedCategory == label;
     const activeColor = Color(0xFFE07A30);
     return GestureDetector(
-      onTap: () => setState(() => _selectedCategory = label),
+      onTap: () => _onCategoryTap(label),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         width: 72,
