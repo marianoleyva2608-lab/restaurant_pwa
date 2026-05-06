@@ -106,7 +106,7 @@ class _DishManagementViewState extends State<DishManagementView> {
                     value: [
                       'tacos','tostadas','tortas','especialidades',
                       'mainCourse','breakfast','soup','salad','appetizer',
-                      'side','drink','alcohol','dessert',
+                      'side','drink','jugos','cafes','refrescos','aguas','alcohol','dessert',
                     ].contains(category) ? category : 'mainCourse',
                     decoration: const InputDecoration(labelText: 'Categoría'),
                     items: const [
@@ -120,8 +120,12 @@ class _DishManagementViewState extends State<DishManagementView> {
                       DropdownMenuItem(value: 'salad',          child: Text('Ensaladas')),
                       DropdownMenuItem(value: 'appetizer',      child: Text('Entradas')),
                       DropdownMenuItem(value: 'side',           child: Text('Complementos')),
-                      DropdownMenuItem(value: 'drink',          child: Text('Bebidas')),
+                      DropdownMenuItem(value: 'jugos',          child: Text('Jugos')),
+                      DropdownMenuItem(value: 'cafes',          child: Text('Cafés')),
+                      DropdownMenuItem(value: 'refrescos',      child: Text('Refrescos')),
+                      DropdownMenuItem(value: 'aguas',          child: Text('Aguas')),
                       DropdownMenuItem(value: 'alcohol',        child: Text('Alcohol')),
+                      DropdownMenuItem(value: 'drink',          child: Text('Bebidas (genérico)')),
                       DropdownMenuItem(value: 'dessert',        child: Text('Postres')),
                     ],
                     onChanged: (v) { if (v != null) category = v; },

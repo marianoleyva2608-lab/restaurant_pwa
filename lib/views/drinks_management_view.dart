@@ -102,11 +102,14 @@ class _DrinksManagementViewState extends State<DrinksManagementView> {
                       ),
                       const SizedBox(height: 16),
                       DropdownButtonFormField<String>(
-                        value: ['drink', 'alcohol'].contains(category) ? category : 'drink',
-                        decoration: const InputDecoration(labelText: 'Categoría'),
+                        value: ['jugos', 'cafes', 'refrescos', 'aguas', 'alcohol', 'drink'].contains(category) ? category : 'jugos',
+                        decoration: const InputDecoration(labelText: 'Subcategoría'),
                         items: const [
-                          DropdownMenuItem(value: 'drink', child: Text('Bebidas')),
-                          DropdownMenuItem(value: 'alcohol', child: Text('Alcohol')),
+                          DropdownMenuItem(value: 'jugos',     child: Text('Jugos')),
+                          DropdownMenuItem(value: 'cafes',     child: Text('Cafés')),
+                          DropdownMenuItem(value: 'refrescos', child: Text('Refrescos')),
+                          DropdownMenuItem(value: 'aguas',     child: Text('Aguas')),
+                          DropdownMenuItem(value: 'alcohol',   child: Text('Alcohol')),
                         ],
                         onChanged: (v) { if (v != null) category = v; },
                         validator: (v) => v == null || v.isEmpty ? 'Requerido' : null,
@@ -216,7 +219,15 @@ class _DrinksManagementViewState extends State<DrinksManagementView> {
   }
 
   String _categoryLabel(String category) {
-    return category == 'alcohol' ? 'Alcohol' : 'Bebidas';
+    const labels = {
+      'jugos': 'Jugos',
+      'cafes': 'Cafés',
+      'refrescos': 'Refrescos',
+      'aguas': 'Aguas',
+      'alcohol': 'Alcohol',
+      'drink': 'Bebidas',
+    };
+    return labels[category] ?? category;
   }
 
   @override
@@ -256,7 +267,7 @@ class _DrinksManagementViewState extends State<DrinksManagementView> {
             stream: _supabase
                 .from('dishes')
                 .stream(primaryKey: ['id'])
-                .inFilter('category', ['drink', 'alcohol'])
+                .inFilter('category', ['drink', 'jugos', 'cafes', 'refrescos', 'aguas', 'alcohol'])
                 .order('category')
                 .order('name'),
             builder: (context, snapshot) {
