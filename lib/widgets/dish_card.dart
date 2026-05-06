@@ -5,8 +5,128 @@ import '../models/dish.dart';
 import '../providers/cart_provider.dart';
 import '../globals.dart';
 
+const _refrescoSabores = [
+  'Coca-Cola', 'Pepsi', 'Sprite', 'Fanta Naranja', 'Fanta Uva',
+  '7-Up', 'Manzanita Sol', 'Squirt', 'Mirinda', 'Del Valle',
+  'Sidral Mundet', 'Sangría Señorial', 'Agua Mineral', 'Otro',
+];
+
+const _aguaSabores = [
+  'Jamaica', 'Horchata', 'Tamarindo', 'Limón', 'Naranja',
+  'Pepino', 'Melón', 'Sandía', 'Guayaba', 'Fresa', 'Maracuyá', 'Otro',
+];
+
 Future<void> addDishToCart(BuildContext context, Dish dish) async {
   final cart = context.read<CartProvider>();
+  final nameLower = dish.name.toLowerCase();
+  final bool isRefresco = nameLower.contains('refresco');
+  final bool isAguaFresca = nameLower.contains('agua fresca') || nameLower.contains('agua ') || nameLower.startsWith('agua');
+
+  if (isRefresco || isAguaFresca) {
+    final sabores = isRefresco ? _refrescoSabores : _aguaSabores;
+    String? selectedSabor;
+    await showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            return AlertDialog(
+              backgroundColor: const Color(0xFF1E293B),
+              title: Text(
+                isRefresco ? '¿De qué sabor/marca?' : '¿De qué sabor?',
+                style: const TextStyle(color: Colors.white, fontSize: 16),
+              ),
+              content: SizedBox(
+                width: 400,
+                child: GridView.builder(
+                  shrinkWrap: true,
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 3,
+                    crossAxisSpacing: 8,
+                    mainAxisSpacing: 6,
+                    childAspectRatio: 2.4,
+                  ),
+                  itemCount: sabores.length,
+                  itemBuilder: (ctx2, i) {
+                    final sabor = sabores[i];
+                    final isSelected = selectedSabor == sabor;
+                    return InkWell(
+                      borderRadius: BorderRadius.circular(8),
+                      onTap: () => setDialogState(() => selectedSabor = sabor),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 150),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? const Color(0xFFFF6D00).withValues(alpha: 0.15)
+                              : const Color(0xFF1E293B),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: isSelected ? const Color(0xFFFF6D00) : const Color(0xFF334155),
+                            width: 1.5,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              isSelected ? Icons.check_circle : Icons.radio_button_unchecked,
+                              size: 14,
+                              color: isSelected ? const Color(0xFFFF6D00) : const Color(0xFF64748B),
+                            ),
+                            const SizedBox(width: 5),
+                            Expanded(
+                              child: Text(
+                                sabor,
+                                style: TextStyle(
+                                  color: isSelected ? Colors.white : Colors.white70,
+                                  fontSize: 11,
+                                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Cancelar', style: TextStyle(color: Colors.white54)),
+                ),
+                TextButton(
+                  onPressed: selectedSabor == null ? null : () {
+                    Navigator.pop(ctx);
+                    cart.addItemWithGuisados(dish, [selectedSabor!]);
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('${dish.name} ($selectedSabor) agregado'),
+                          duration: const Duration(milliseconds: 500),
+                          behavior: SnackBarBehavior.floating,
+                          width: 260,
+                        ),
+                      );
+                    }
+                  },
+                  style: TextButton.styleFrom(
+                    backgroundColor: const Color(0xFFFF6D00).withValues(alpha: 0.15),
+                  ),
+                  child: const Text('Agregar a la orden', style: TextStyle(color: Color(0xFFFF6D00))),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+    return;
+  }
 
   if (!dish.requiresGuisado) {
     cart.addItem(dish);
