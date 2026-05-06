@@ -380,11 +380,26 @@ class _ComandasViewState extends State<ComandasView> {
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setStateDialog) {
-            return AlertDialog(
+            return LayoutBuilder(
+              builder: (context, constraints) {
+                final screenWidth = MediaQuery.of(context).size.width;
+                final screenHeight = MediaQuery.of(context).size.height;
+                final isPhone = screenWidth < 600;
+                final isTablet = screenWidth >= 600 && screenWidth < 1024;
+                final dialogWidth = isPhone
+                    ? screenWidth * 0.95
+                    : isTablet
+                        ? screenWidth * 0.85
+                        : 800.0;
+                final dialogHeight = screenHeight * 0.75;
+                final tableCols = isPhone ? 4 : isTablet ? 5 : 6;
+                final tileSize = isPhone ? 72.0 : isTablet ? 88.0 : 100.0;
+
+                return AlertDialog(
               title: const Text('Tipo de Orden'),
               content: SizedBox(
-                width: 800,
-                height: 600,
+                width: dialogWidth,
+                height: dialogHeight,
                 child: Column(
                   children: [
                     // Order Type Selector
@@ -409,11 +424,11 @@ class _ComandasViewState extends State<ComandasView> {
                         }),
                       ),
                     ),
-                    const SizedBox(height: 24),
-                    
+                    const SizedBox(height: 16),
+
                     // Conditional Content
                     Expanded(
-                      child: tempOrderType == 'dine_in' 
+                      child: tempOrderType == 'dine_in'
                         ? StreamBuilder<List<Map<String, dynamic>>>(
                             stream: _supabase
                                 .from('restaurant_tables')
@@ -432,103 +447,77 @@ class _ComandasViewState extends State<ComandasView> {
                                 builder: (context, ordersSnapshot) {
                                   final occupiedTableIds = (ordersSnapshot.data ?? []).map((o) => o['table_id']).toSet();
 
-                                  return ClipRRect(
-                                    borderRadius: BorderRadius.circular(16),
-                                    child: InteractiveViewer(
-                                      transformationController: _mapTransformationController,
-                                      constrained: false,
-                                      panEnabled: false,
-                                      scaleEnabled: false,
-                                      boundaryMargin: const EdgeInsets.all(2000),
-                                      minScale: 0.1,
-                                      maxScale: 2.0,
-                                      child: Container(
-                                        width: 2000,
-                                        height: 2000,
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFF0F172A),
-                                          border: Border.all(color: const Color(0xFF334155)),
-                                        ),
-                                        child: Stack(
-                                          children: tables.map((table) {
-                                            final isOccupied = occupiedTableIds.contains(table['id']);
-                                            double x = (table['pos_x'] as num?)?.toDouble() ?? 50.0;
-                                            double y = (table['pos_y'] as num?)?.toDouble() ?? 50.0;
-                                            
-                                            return Positioned(
-                                              left: x,
-                                              top: y,
-                                              child: InkWell(
-                                                onTap: () {
-                                                  setState(() {
-                                                    _selectedOrderType = 'dine_in';
-                                                    _selectedTableId = table['id'];
-                                                    _selectedTableNumber = table['table_number'].toString();
-                                                    _customerName = null;
-                                                  });
-                                                  Navigator.pop(context);
-                                                },
-                                                borderRadius: BorderRadius.circular(16),
-                                                child: Container(
-                                                  width: 120,
-                                                  height: 120,
-                                                  decoration: BoxDecoration(
-                                                    color: isOccupied ? const Color(0xFF331515) : const Color(0xFF1E293B),
-                                                    borderRadius: BorderRadius.circular(16),
-                                                    border: Border.all(
-                                                      color: isOccupied ? Colors.red[900]! : const Color(0xFF334155),
-                                                      width: isOccupied ? 2 : 1,
-                                                    ),
-                                                    boxShadow: [
-                                                      BoxShadow(
-                                                        color: Colors.black.withValues(alpha: 0.3),
-                                                        blurRadius: 10,
-                                                        offset: const Offset(0, 5),
-                                                      )
-                                                    ],
-                                                  ),
-                                                  child: Column(
-                                                    mainAxisAlignment: MainAxisAlignment.center,
-                                                    children: [
-                                                      Icon(
-                                                        Icons.table_restaurant,
-                                                        size: 40,
-                                                        color: isOccupied ? Colors.red[400] : const Color(0xFF94A3B8),
-                                                      ),
-                                                      const SizedBox(height: 8),
-                                                      Text(
-                                                        'Mesa ${table['table_number']}',
-                                                        style: TextStyle(
-                                                          fontSize: 16,
-                                                          fontWeight: FontWeight.bold,
-                                                          color: isOccupied ? Colors.red[200] : Colors.white,
-                                                        ),
-                                                      ),
-                                                      const SizedBox(height: 4),
-                                                      Container(
-                                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                                        decoration: BoxDecoration(
-                                                          color: isOccupied ? Colors.red.withValues(alpha: 0.2) : Colors.green.withValues(alpha: 0.2),
-                                                          borderRadius: BorderRadius.circular(12),
-                                                        ),
-                                                        child: Text(
-                                                          isOccupied ? 'Ocupada' : 'Libre',
-                                                          style: TextStyle(
-                                                            fontSize: 10,
-                                                            fontWeight: FontWeight.w500,
-                                                            color: isOccupied ? Colors.red[300] : Colors.green[400],
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ],
+                                  return GridView.builder(
+                                    padding: const EdgeInsets.all(4),
+                                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                                      crossAxisCount: tableCols,
+                                      crossAxisSpacing: 8,
+                                      mainAxisSpacing: 8,
+                                      childAspectRatio: 1,
+                                    ),
+                                    itemCount: tables.length,
+                                    itemBuilder: (context, index) {
+                                      final table = tables[index];
+                                      final isOccupied = occupiedTableIds.contains(table['id']);
+                                      return InkWell(
+                                        onTap: () {
+                                          setState(() {
+                                            _selectedOrderType = 'dine_in';
+                                            _selectedTableId = table['id'];
+                                            _selectedTableNumber = table['table_number'].toString();
+                                            _customerName = null;
+                                          });
+                                          Navigator.pop(context);
+                                        },
+                                        borderRadius: BorderRadius.circular(12),
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            color: isOccupied ? const Color(0xFF331515) : const Color(0xFF1E293B),
+                                            borderRadius: BorderRadius.circular(12),
+                                            border: Border.all(
+                                              color: isOccupied ? Colors.red[900]! : const Color(0xFF334155),
+                                              width: isOccupied ? 2 : 1,
+                                            ),
+                                          ),
+                                          child: Column(
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            children: [
+                                              Icon(
+                                                Icons.table_restaurant,
+                                                size: tileSize * 0.38,
+                                                color: isOccupied ? Colors.red[400] : const Color(0xFF94A3B8),
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                'Mesa ${table['table_number']}',
+                                                style: TextStyle(
+                                                  fontSize: isPhone ? 11 : 13,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: isOccupied ? Colors.red[200] : Colors.white,
+                                                ),
+                                                textAlign: TextAlign.center,
+                                              ),
+                                              const SizedBox(height: 2),
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                decoration: BoxDecoration(
+                                                  color: isOccupied ? Colors.red.withValues(alpha: 0.2) : Colors.green.withValues(alpha: 0.2),
+                                                  borderRadius: BorderRadius.circular(8),
+                                                ),
+                                                child: Text(
+                                                  isOccupied ? 'Ocupada' : 'Libre',
+                                                  style: TextStyle(
+                                                    fontSize: isPhone ? 9 : 10,
+                                                    fontWeight: FontWeight.w500,
+                                                    color: isOccupied ? Colors.red[300] : Colors.green[400],
                                                   ),
                                                 ),
                                               ),
-                                            );
-                                          }).toList(),
+                                            ],
+                                          ),
                                         ),
-                                      ),
-                                    ),
+                                      );
+                                    },
                                   );
                                 },
                               );
@@ -593,6 +582,8 @@ class _ComandasViewState extends State<ComandasView> {
                   child: const Text('Cancelar / Volver'),
                 )
               ],
+            );
+              }
             );
           }
         );
