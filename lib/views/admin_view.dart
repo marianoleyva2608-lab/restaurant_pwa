@@ -5,6 +5,7 @@ import '../globals.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dish_management_view.dart';
 import 'guisados_management_view.dart';
+import 'drink_flavors_management_view.dart';
 import 'waiter_management_view.dart';
 import 'table_management_view.dart';
 import 'security_management_view.dart';
@@ -124,6 +125,16 @@ class _AdminViewState extends State<AdminView> {
                     selectedTileColor: const Color(0xFFFF6D00).withValues(alpha: 0.1),
                     onTap: () {
                       setState(() => _selectedIndex = 10);
+                      if (isDrawer) Navigator.pop(context);
+                    },
+                  ),
+                  ListTile(
+                    leading: Icon(Icons.local_drink, color: _selectedIndex == 11 ? const Color(0xFFFF6D00) : const Color(0xFF94A3B8)),
+                    title: Text('Sabores de Bebidas', style: TextStyle(color: _selectedIndex == 11 ? Colors.white : const Color(0xFF94A3B8), fontWeight: _selectedIndex == 11 ? FontWeight.bold : FontWeight.normal)),
+                    selected: _selectedIndex == 11,
+                    selectedTileColor: const Color(0xFFFF6D00).withValues(alpha: 0.1),
+                    onTap: () {
+                      setState(() => _selectedIndex = 11);
                       if (isDrawer) Navigator.pop(context);
                     },
                   ),
@@ -282,6 +293,7 @@ class _AdminViewState extends State<AdminView> {
       8: 'Gestión de Clientes',
       9: 'Nómina',
       10: 'Guisados',
+      11: 'Sabores de Bebidas',
     };
     return titles[_selectedIndex] ?? 'Administrador';
   }
@@ -387,6 +399,7 @@ class _AdminViewState extends State<AdminView> {
       case 8: return const ClientsView();
       case 9: return const PayrollView();
       case 10: return const GuisadosManagementView();
+      case 11: return const DrinkFlavorsManagementView();
       default: return _buildTablesDashboard();
     }
   }

@@ -5,16 +5,32 @@ import '../models/dish.dart';
 import '../providers/cart_provider.dart';
 import '../globals.dart';
 
-const _refrescoSabores = [
+const _refrescoFallback = [
   'Coca-Cola', 'Pepsi', 'Sprite', 'Fanta Naranja', 'Fanta Uva',
   '7-Up', 'Manzanita Sol', 'Squirt', 'Mirinda', 'Del Valle',
   'Sidral Mundet', 'Sangría Señorial', 'Agua Mineral', 'Otro',
 ];
 
-const _aguaSabores = [
+const _aguaFallback = [
   'Jamaica', 'Horchata', 'Tamarindo', 'Limón', 'Naranja',
   'Pepino', 'Melón', 'Sandía', 'Guayaba', 'Fresa', 'Maracuyá', 'Otro',
 ];
+
+Future<List<String>> _loadDrinkFlavors(String type) async {
+  try {
+    final supabase = Supabase.instance.client;
+    final rows = await supabase
+        .from('drink_flavors')
+        .select('name')
+        .eq('type', type)
+        .eq('available', true)
+        .order('name');
+    final list = (rows as List).map((r) => r['name'] as String).toList();
+    return list.isNotEmpty ? list : (type == 'refresco' ? _refrescoFallback : _aguaFallback);
+  } catch (_) {
+    return type == 'refresco' ? _refrescoFallback : _aguaFallback;
+  }
+}
 
 Future<void> addDishToCart(BuildContext context, Dish dish) async {
   final cart = context.read<CartProvider>();
@@ -23,7 +39,7 @@ Future<void> addDishToCart(BuildContext context, Dish dish) async {
   final bool isAguaFresca = nameLower.contains('agua fresca') || nameLower.contains('agua ') || nameLower.startsWith('agua');
 
   if (isRefresco || isAguaFresca) {
-    final sabores = isRefresco ? _refrescoSabores : _aguaSabores;
+    final sabores = await _loadDrinkFlavors(isRefresco ? 'refresco' : 'agua_fresca');
     String? selectedSabor;
     await showDialog(
       context: context,
