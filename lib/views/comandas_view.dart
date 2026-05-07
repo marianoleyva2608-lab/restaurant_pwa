@@ -3,7 +3,9 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import '../globals.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:provider/provider.dart';
 import '../models/dish.dart';
+import '../providers/cart_provider.dart';
 import '../widgets/dish_card.dart';
 import '../widgets/order_summary.dart';
 
@@ -47,6 +49,7 @@ class _ComandasViewState extends State<ComandasView> {
   bool _isInitialLoad = true;
   String _selectedCategory = 'Todos';
   String _searchQuery = '';
+  bool _carritoVisible = false;
 
   String _translateCategory(String category) {
     return Globals.translateCategory(category);
@@ -336,6 +339,44 @@ class _ComandasViewState extends State<ComandasView> {
     );
   }
 
+  void _showAddClientDialog(BuildContext context, CartProvider cart) {
+    final controller = TextEditingController(text: 'Cliente ${cart.clients.length + 1}');
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E293B),
+        title: const Text('Nuevo cliente', style: TextStyle(color: Colors.white)),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          style: const TextStyle(color: Colors.white),
+          decoration: const InputDecoration(
+            hintText: 'Nombre del cliente',
+            hintStyle: TextStyle(color: Colors.white38),
+            enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFFF6D00))),
+            focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFFF6D00), width: 2)),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar', style: TextStyle(color: Colors.white54))),
+          TextButton(
+            onPressed: () {
+              final name = controller.text.trim();
+              if (name.isNotEmpty) {
+                cart.addClient(name);
+                cart.setCurrentClient(name);
+                if (!_carritoVisible) setState(() => _carritoVisible = true);
+              }
+              Navigator.pop(ctx);
+            },
+            style: TextButton.styleFrom(backgroundColor: const Color(0xFFFF6D00).withOpacity(0.15)),
+            child: const Text('Agregar', style: TextStyle(color: Color(0xFFFF6D00))),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _fetchDishes() {
     _dishesSubscription = _supabase
         .from('dishes')
@@ -619,9 +660,23 @@ class _ComandasViewState extends State<ComandasView> {
           ],
         ),
         actions: [
+          // Botón Agregar Cliente
+          Consumer<CartProvider>(
+            builder: (context, cart, _) => TextButton.icon(
+              icon: const Icon(Icons.person_add, size: 18, color: Color(0xFFFF6D00)),
+              label: const Text('Cliente', style: TextStyle(color: Color(0xFFFF6D00), fontSize: 12)),
+              style: TextButton.styleFrom(
+                backgroundColor: const Color(0xFFFF6D00).withOpacity(0.1),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              ),
+              onPressed: () => _showAddClientDialog(context, cart),
+            ),
+          ),
+          const SizedBox(width: 4),
           if (_selectedWaiterId != null && _waiters.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
               child: Chip(
                 avatar: const Icon(Icons.person, size: 18, color: Colors.white),
                 label: Text(
@@ -635,11 +690,38 @@ class _ComandasViewState extends State<ComandasView> {
                 side: BorderSide.none,
               ),
             ),
+          // Botón toggle carrito con badge de items
+          Consumer<CartProvider>(
+            builder: (context, cart, _) {
+              final itemCount = cart.items.length;
+              return Stack(
+                alignment: Alignment.center,
+                children: [
+                  IconButton(
+                    icon: Icon(
+                      _carritoVisible ? Icons.receipt_long : Icons.receipt_long_outlined,
+                      color: _carritoVisible ? const Color(0xFFFF6D00) : Colors.white70,
+                    ),
+                    onPressed: () => setState(() => _carritoVisible = !_carritoVisible),
+                  ),
+                  if (itemCount > 0)
+                    Positioned(
+                      top: 6, right: 6,
+                      child: Container(
+                        padding: const EdgeInsets.all(3),
+                        decoration: const BoxDecoration(color: Color(0xFFFF6D00), shape: BoxShape.circle),
+                        child: Text('$itemCount', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.table_restaurant),
             onPressed: _showTableSelectionDialog,
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 8),
         ],
       ),
       body: _buildAdaptiveBody(context),
@@ -662,15 +744,23 @@ class _ComandasViewState extends State<ComandasView> {
       );
     }
 
-    // Tablet y escritorio: lado a lado
+    // Tablet y escritorio: lado a lado, carrito deslizable
     final sidebarWidth = isDesktop ? 380.0 : 320.0;
     return Row(
       children: [
         Expanded(child: _buildMenuContent(context)),
-        const VerticalDivider(width: 1, thickness: 1, color: Color(0xFF334155)),
-        SizedBox(
-          width: sidebarWidth,
-          child: _buildOrderSummaryContent(),
+        AnimatedSize(
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeInOut,
+          child: _carritoVisible
+              ? Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const VerticalDivider(width: 1, thickness: 1, color: Color(0xFF334155)),
+                    SizedBox(width: sidebarWidth, child: _buildOrderSummaryContent()),
+                  ],
+                )
+              : const SizedBox.shrink(),
         ),
       ],
     );
