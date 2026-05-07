@@ -5,10 +5,216 @@ import '../models/dish.dart';
 import '../providers/cart_provider.dart';
 import '../globals.dart';
 
+const _refrescoFallback = [
+  'Coca-Cola', 'Pepsi', 'Sprite', 'Fanta Naranja', 'Fanta Uva',
+  '7-Up', 'Manzanita Sol', 'Squirt', 'Mirinda', 'Del Valle',
+  'Sidral Mundet', 'Sangría Señorial', 'Agua Mineral', 'Otro',
+];
+
+const _aguaFallback = [
+  'Jamaica', 'Horchata', 'Tamarindo', 'Limón', 'Naranja',
+  'Pepino', 'Melón', 'Sandía', 'Guayaba', 'Fresa', 'Maracuyá', 'Otro',
+];
+
+// Detecta el tamaño del refresco por el nombre del platillo
+String _refrescoType(String nameLower) {
+  if (nameLower.contains('600')) return 'refresco_600';
+  if (nameLower.contains('255') || nameLower.contains('355')) return 'refresco_255';
+  return 'refresco'; // genérico si no especifica tamaño
+}
+
+Future<List<String>> _loadDrinkFlavors(String type) async {
+  try {
+    final supabase = Supabase.instance.client;
+    final rows = await supabase
+        .from('drink_flavors')
+        .select('name')
+        .eq('type', type)
+        .eq('available', true)
+        .order('name');
+    final list = (rows as List).map((r) => r['name'] as String).toList();
+    if (list.isNotEmpty) return list;
+    // Fallback: si no hay sabores específicos para ese tamaño, usar los genéricos
+    if (type == 'refresco_255' || type == 'refresco_600') {
+      return await _loadDrinkFlavors('refresco');
+    }
+    return type.startsWith('refresco') ? _refrescoFallback : _aguaFallback;
+  } catch (_) {
+    return type.startsWith('refresco') ? _refrescoFallback : _aguaFallback;
+  }
+}
+
 Future<void> addDishToCart(BuildContext context, Dish dish) async {
   final cart = context.read<CartProvider>();
+  final nameLower = dish.name.toLowerCase();
+  final bool isRefresco = nameLower.contains('refresco');
+  final bool isAguaFresca = nameLower.contains('agua fresca') || nameLower.contains('agua ') || nameLower.startsWith('agua');
 
-  if (!dish.requiresGuisado) {
+  if (isRefresco || isAguaFresca) {
+    final drinkType = isRefresco ? _refrescoType(nameLower) : 'agua_fresca';
+    final sabores = await _loadDrinkFlavors(drinkType);
+    String? selectedSabor;
+    String? aguaSize;
+    await showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            return AlertDialog(
+              backgroundColor: const Color(0xFF1E293B),
+              title: Text(
+                isRefresco ? '¿De qué sabor/marca?' : '¿De qué sabor?',
+                style: const TextStyle(color: Colors.white, fontSize: 16),
+              ),
+              content: SizedBox(
+                width: 400,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Selector de tamaño solo para aguas frescas
+                    if (isAguaFresca) ...[
+                      const Text(
+                        'TAMAÑO',
+                        style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 1),
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          _ToggleOption(
+                            icon: Icons.local_drink,
+                            label: '600 ml',
+                            value: aguaSize == '600 ml',
+                            onChanged: (v) => setDialogState(
+                                () => aguaSize = v ? '600 ml' : null),
+                          ),
+                          const SizedBox(width: 10),
+                          _ToggleOption(
+                            icon: Icons.local_drink,
+                            label: '1 litro',
+                            value: aguaSize == '1 litro',
+                            onChanged: (v) => setDialogState(
+                                () => aguaSize = v ? '1 litro' : null),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      const Divider(color: Color(0xFF334155)),
+                      const SizedBox(height: 8),
+                    ],
+                    const Text(
+                      'SABOR',
+                      style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 1),
+                    ),
+                    const SizedBox(height: 8),
+                    GridView.builder(
+                      shrinkWrap: true,
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 3,
+                        crossAxisSpacing: 8,
+                        mainAxisSpacing: 6,
+                        childAspectRatio: 2.4,
+                      ),
+                      itemCount: sabores.length,
+                      itemBuilder: (ctx2, i) {
+                        final sabor = sabores[i];
+                        final isSelected = selectedSabor == sabor;
+                        return InkWell(
+                          borderRadius: BorderRadius.circular(8),
+                          onTap: () => setDialogState(() => selectedSabor = sabor),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 150),
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? const Color(0xFFFF6D00).withValues(alpha: 0.15)
+                                  : const Color(0xFF1E293B),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: isSelected ? const Color(0xFFFF6D00) : const Color(0xFF334155),
+                                width: 1.5,
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  isSelected ? Icons.check_circle : Icons.radio_button_unchecked,
+                                  size: 14,
+                                  color: isSelected ? const Color(0xFFFF6D00) : const Color(0xFF64748B),
+                                ),
+                                const SizedBox(width: 5),
+                                Expanded(
+                                  child: Text(
+                                    sabor,
+                                    style: TextStyle(
+                                      color: isSelected ? Colors.white : Colors.white70,
+                                      fontSize: 11,
+                                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                                    ),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Cancelar', style: TextStyle(color: Colors.white54)),
+                ),
+                TextButton(
+                  onPressed: selectedSabor == null ? null : () {
+                    Navigator.pop(ctx);
+                    final extras = [
+                      if (aguaSize != null) aguaSize!,
+                      selectedSabor!,
+                    ];
+                    cart.addItemWithGuisados(dish, extras);
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('${dish.name} ($selectedSabor) agregado'),
+                          duration: const Duration(milliseconds: 500),
+                          behavior: SnackBarBehavior.floating,
+                          width: 260,
+                        ),
+                      );
+                    }
+                  },
+                  style: TextButton.styleFrom(
+                    backgroundColor: const Color(0xFFFF6D00).withValues(alpha: 0.15),
+                  ),
+                  child: const Text('Agregar a la orden', style: TextStyle(color: Color(0xFFFF6D00))),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+    return;
+  }
+
+  final bool isChilaquil = dish.category == 'chilaquiles' ||
+      dish.name.toLowerCase().contains('chilaquil');
+
+  if (!dish.requiresGuisado && !isChilaquil) {
     cart.addItem(dish);
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
@@ -49,13 +255,14 @@ Future<void> addDishToCart(BuildContext context, Dish dish) async {
       dish.name.toLowerCase().contains('gordita');
   final bool isTapa = dish.category == 'tapas' ||
       dish.name.toLowerCase().contains('tapa');
-  final bool isAgua = dish.category == 'aguas' ||
-      dish.name.toLowerCase().contains('agua fresca');
-  final bool showOptions = isGordita || isTapa || isAgua;
+  final bool showOptions = isGordita || isTapa || isChilaquil;
   final bool canBeFrita = isGordita && !dish.name.toLowerCase().contains('harina');
   bool conQueso = false;
+  bool conHuevo = false; // solo para chilaquiles
   bool frita = false;
-  String? aguaSize;
+  String? selectedSalsa; // solo para chilaquiles
+
+  const salsasChilaquil = ['Roja', 'Verde', 'Ranchera'];
 
   await showDialog(
     context: context,
@@ -65,8 +272,8 @@ Future<void> addDishToCart(BuildContext context, Dish dish) async {
           return AlertDialog(
             backgroundColor: const Color(0xFF1E293B),
             title: Text(
-              isAgua
-                  ? '${dish.name}'
+              isChilaquil
+                  ? '¿Cómo quieres los ${dish.name}?'
                   : '¿Qué guisado lleva el ${dish.name}?',
               style: const TextStyle(color: Colors.white, fontSize: 16),
             ),
@@ -76,7 +283,7 @@ Future<void> addDishToCart(BuildContext context, Dish dish) async {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Opciones por tipo de platillo
+                  // Toggles de queso y frita
                   if (showOptions) ...[
                     const Text(
                       'Opciones',
@@ -87,56 +294,101 @@ Future<void> addDishToCart(BuildContext context, Dish dish) async {
                           letterSpacing: 1),
                     ),
                     const SizedBox(height: 8),
-                    if (isAgua) ...[
-                      Row(
-                        children: [
+                    Row(
+                      children: [
+                        if (isChilaquil)
                           _ToggleOption(
-                            icon: Icons.local_drink,
-                            label: '600 ml',
-                            value: aguaSize == '600 ml',
-                            onChanged: (v) => setDialogState(
-                                () => aguaSize = v ? '600 ml' : null),
-                          ),
-                          const SizedBox(width: 10),
-                          _ToggleOption(
-                            icon: Icons.local_drink,
-                            label: '1 litro',
-                            value: aguaSize == '1 litro',
-                            onChanged: (v) => setDialogState(
-                                () => aguaSize = v ? '1 litro' : null),
-                          ),
-                        ],
-                      ),
-                    ] else ...[
-                      Row(
-                        children: [
+                            icon: Icons.egg,
+                            label: 'Con Huevo',
+                            value: conHuevo,
+                            onChanged: (v) => setDialogState(() => conHuevo = v),
+                          )
+                        else
                           _ToggleOption(
                             icon: Icons.egg_alt,
                             label: 'Con Queso',
                             value: conQueso,
                             onChanged: (v) => setDialogState(() => conQueso = v),
                           ),
-                          if (isGordita) ...[
-                            const SizedBox(width: 10),
-                            _ToggleOption(
-                              icon: Icons.local_fire_department,
-                              label: 'Frita',
-                              value: frita,
-                              enabled: canBeFrita,
-                              onChanged: canBeFrita
-                                  ? (v) => setDialogState(() => frita = v)
-                                  : (_) {},
-                            ),
-                          ],
+                        if (isGordita) ...[
+                          const SizedBox(width: 10),
+                          _ToggleOption(
+                            icon: Icons.local_fire_department,
+                            label: 'Frita',
+                            value: frita,
+                            enabled: canBeFrita,
+                            onChanged: canBeFrita
+                                ? (v) => setDialogState(() => frita = v)
+                                : (_) {},
+                          ),
                         ],
-                      ),
-                    ],
+                      ],
+                    ),
                     const SizedBox(height: 16),
                     const Divider(color: Color(0xFF334155)),
                     const SizedBox(height: 8),
                   ],
-                  // Lista de guisados
-                  if (guisados.isEmpty)
+
+                  // Selector de salsa para chilaquiles
+                  if (isChilaquil) ...[
+                    const Text(
+                      'SALSA',
+                      style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 1),
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: salsasChilaquil.map((salsa) {
+                        final isSelected = selectedSalsa == salsa;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 10),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(12),
+                            onTap: () => setDialogState(() => selectedSalsa = salsa),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 150),
+                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? const Color(0xFFFF6D00).withValues(alpha: 0.15)
+                                    : const Color(0xFF0F172A),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: isSelected ? const Color(0xFFFF6D00) : const Color(0xFF334155),
+                                  width: 2,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    isSelected ? Icons.check_circle : Icons.radio_button_unchecked,
+                                    size: 16,
+                                    color: isSelected ? const Color(0xFFFF6D00) : const Color(0xFF64748B),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    salsa,
+                                    style: TextStyle(
+                                      color: isSelected ? Colors.white : Colors.white60,
+                                      fontSize: 14,
+                                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w400,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ]
+
+                  // Lista de guisados (no para chilaquiles)
+                  else if (guisados.isEmpty)
                     const Text(
                       'No hay guisados disponibles.',
                       style: TextStyle(color: Colors.white70),
@@ -257,12 +509,23 @@ Future<void> addDishToCart(BuildContext context, Dish dish) async {
               ),
               TextButton(
                 onPressed: () {
+                  // Chilaquiles requieren salsa seleccionada
+                  if (isChilaquil && selectedSalsa == null) {
+                    ScaffoldMessenger.of(ctx).showSnackBar(
+                      const SnackBar(
+                        content: Text('Selecciona la salsa (Roja, Verde o Ranchera)'),
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                    return;
+                  }
                   Navigator.pop(ctx);
                   final extras = [
-                    if (aguaSize != null) aguaSize!,
-                    if (conQueso) 'Con queso',
+                    if (isChilaquil && selectedSalsa != null) 'Salsa $selectedSalsa',
+                    if (isChilaquil && conHuevo) 'Con huevo',
+                    if (!isChilaquil && conQueso) 'Con queso',
                     if (frita) 'Frita',
-                    ...selected,
+                    if (!isChilaquil) ...selected,
                   ];
                   final finalDish = (isTapa && conQueso)
                       ? dish.copyWith(price: dish.price + 25)
@@ -332,10 +595,10 @@ class DishCard extends StatelessWidget {
                   children: [
                     Text(
                       dish.name,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
                             fontWeight: FontWeight.bold,
                           ),
-                      maxLines: 1,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 4),
