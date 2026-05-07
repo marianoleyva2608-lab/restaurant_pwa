@@ -3,6 +3,7 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import '../globals.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
 import '../models/dish.dart';
 import '../providers/cart_provider.dart';
@@ -38,6 +39,7 @@ class _ComandasViewState extends State<ComandasView> {
   void initState() {
     super.initState();
     _selectedWaiterId = widget.waiterId;
+    _loadCategoryClickCounts();
     _fetchDishes();
     _fetchWaiters();
     _setupNotifications();
@@ -46,10 +48,38 @@ class _ComandasViewState extends State<ComandasView> {
     });
   }
 
+  Future<void> _loadCategoryClickCounts() async {
+    final prefs = await SharedPreferences.getInstance();
+    final keys = prefs.getKeys().where((k) => k.startsWith('cat_clicks_'));
+    final counts = <String, int>{};
+    for (final key in keys) {
+      final category = key.replaceFirst('cat_clicks_', '');
+      counts[category] = prefs.getInt(key) ?? 0;
+    }
+    if (mounted) setState(() => _categoryClickCounts = counts);
+  }
+
+  Future<void> _onCategoryTap(String label) async {
+    if (label != 'Todos') {
+      final newCount = (_categoryClickCounts[label] ?? 0) + 1;
+      setState(() {
+        _categoryClickCounts[label] = newCount;
+        _selectedCategory = label;
+        if (label != 'drink') _selectedDrinkSubcat = null;
+      });
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt('cat_clicks_$label', newCount);
+    } else {
+      setState(() { _selectedCategory = label; _selectedDrinkSubcat = null; });
+    }
+  }
+
   bool _isInitialLoad = true;
   String _selectedCategory = 'Todos';
+  String? _selectedDrinkSubcat; // submenu de bebidas
   String _searchQuery = '';
   bool _carritoVisible = false;
+  Map<String, int> _categoryClickCounts = {};
 
   String _translateCategory(String category) {
     return Globals.translateCategory(category);
@@ -61,7 +91,17 @@ class _ComandasViewState extends State<ComandasView> {
 
     final result = <Dish>[];
     for (final dish in _dishes) {
-      if (_selectedCategory != 'Todos' && dish.category != _selectedCategory) continue;
+      if (_selectedCategory != 'Todos') {
+        if (_selectedCategory == 'drink') {
+          // Filtrar solo bebidas (cualquier categoría de bebida)
+          const allDrinkCats = {'drink', 'bebidas', 'jugos', 'cafes', 'refrescos', 'aguas', 'alcohol'};
+          if (!allDrinkCats.contains(dish.category)) continue;
+          // Si hay subcategoría seleccionada en el submenu, filtrar por ella
+          if (_selectedDrinkSubcat != null && _effectiveCat(dish) != _selectedDrinkSubcat) continue;
+        } else {
+          if (_effectiveCat(dish) != _selectedCategory) continue;
+        }
+      }
 
       // Gorditas: solo Maíz y Harina (nombre exacto), sin duplicados por nombre
       if (dish.category == 'gorditas') {
@@ -79,10 +119,65 @@ class _ComandasViewState extends State<ComandasView> {
   }
 
 
+  static const _drinkSubcats = ['jugos', 'cafes', 'refrescos', 'aguas', 'alcohol'];
+
+  // Detecta subcategoría de bebida por nombre cuando la categoría es 'drink'
+  static String _drinkSubcat(String name) {
+    final n = name.toLowerCase();
+    if (n.contains('jugo') || n.contains('naranja') || n.contains('zanahoria') ||
+        n.contains('betabel') || n.contains('verde') || n.contains('piña') ||
+        n.contains('mango') || n.contains('fresa') || n.contains('apio'))
+      return 'jugos';
+    if (n.contains('café') || n.contains('cafe') || n.contains('capuchino') ||
+        n.contains('americano') || n.contains('latte') || n.contains('espresso') ||
+        n.contains('olla') || n.contains('instantáneo') || n.contains('instantaneo') ||
+        n.contains('nescafé') || n.contains('nescafe'))
+      return 'cafes';
+    if (n.contains('agua') || n.contains('horchata') || n.contains('jamaica') ||
+        n.contains('tamarindo') || n.contains('limonada') || n.contains('fresca'))
+      return 'aguas';
+    if (n.contains('refresco') || n.contains('coca') || n.contains('pepsi') ||
+        n.contains('sprite') || n.contains('fanta') || n.contains('sidral') ||
+        n.contains('squirt') || n.contains('7up') || n.contains('manzanita') ||
+        n.contains('sangría') || n.contains('sangria')) {
+      if (n.contains('600')) return 'refresco_600';
+      if (n.contains('255') || n.contains('355')) return 'refresco_255';
+      return 'refrescos';
+    }
+    if (n.contains('cerveza') || n.contains('caguama') || n.contains('tequila') ||
+        n.contains('mezcal') || n.contains('michelada') || n.contains('clamato') ||
+        n.contains('corona') || n.contains('modelo') || n.contains('pacifico') ||
+        n.contains('victoria') || n.contains('alcohol'))
+      return 'alcohol';
+    return 'drink';
+  }
+
+  // Categoría efectiva: si es bebida genérica, detecta subcategoría por nombre
+  static String _effectiveCat(Dish d) {
+    const genericDrink = {'drink', 'bebidas'};
+    return genericDrink.contains(d.category) ? _drinkSubcat(d.name) : d.category;
+  }
+
   List<String> get _availableCategories {
-    final categories = _dishes.map((d) => d.category).toSet().toList();
-    categories.sort();
-    return ['Todos', ...categories];
+    final rawCats = _dishes.map((d) => d.category).toSet();
+
+    // Consolidar todas las categorías de bebidas en un solo chip 'drink'
+    const allDrinkCats = {'drink', 'bebidas', 'jugos', 'cafes', 'refrescos', 'aguas', 'alcohol'};
+    if (rawCats.any(allDrinkCats.contains)) {
+      rawCats.removeAll(allDrinkCats);
+      rawCats.add('drink');
+    }
+
+    const pinned = ['gorditas', 'drink'];
+    final rest = rawCats.where((c) => !pinned.contains(c)).toList();
+    rest.sort((a, b) {
+      final countA = _categoryClickCounts[a] ?? 0;
+      final countB = _categoryClickCounts[b] ?? 0;
+      if (countB != countA) return countB.compareTo(countA);
+      return a.compareTo(b);
+    });
+    final ordered = [...pinned.where(rawCats.contains), ...rest];
+    return ['Todos', ...ordered];
   }
 
   Widget _buildCategoryChip(String label, {bool isMobile = false}) {
@@ -91,7 +186,7 @@ class _ComandasViewState extends State<ComandasView> {
     return Padding(
       padding: const EdgeInsets.only(right: 8.0),
       child: GestureDetector(
-        onTap: () => setState(() => _selectedCategory = label),
+        onTap: () => _onCategoryTap(label),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
           padding: isMobile
@@ -155,7 +250,7 @@ class _ComandasViewState extends State<ComandasView> {
     final bool selected = _selectedCategory == label;
     const activeColor = Color(0xFFE07A30);
     return GestureDetector(
-      onTap: () => setState(() => _selectedCategory = label),
+      onTap: () => _onCategoryTap(label),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         width: 72,
@@ -194,6 +289,44 @@ class _ComandasViewState extends State<ComandasView> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showAddClientDialog(BuildContext context, CartProvider cart) {
+    final controller = TextEditingController(text: 'Cliente ${cart.clients.length + 1}');
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E293B),
+        title: const Text('Nuevo cliente', style: TextStyle(color: Colors.white)),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          style: const TextStyle(color: Colors.white),
+          decoration: const InputDecoration(
+            hintText: 'Nombre del cliente',
+            hintStyle: TextStyle(color: Colors.white38),
+            enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFFF6D00))),
+            focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFFF6D00), width: 2)),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar', style: TextStyle(color: Colors.white54))),
+          TextButton(
+            onPressed: () {
+              final name = controller.text.trim();
+              if (name.isNotEmpty) {
+                cart.addClient(name);
+                cart.setCurrentClient(name);
+                if (!_carritoVisible) setState(() => _carritoVisible = true);
+              }
+              Navigator.pop(ctx);
+            },
+            style: TextButton.styleFrom(backgroundColor: const Color(0xFFFF6D00).withOpacity(0.15)),
+            child: const Text('Agregar', style: TextStyle(color: Color(0xFFFF6D00))),
+          ),
+        ],
       ),
     );
   }
@@ -339,44 +472,6 @@ class _ComandasViewState extends State<ComandasView> {
     );
   }
 
-  void _showAddClientDialog(BuildContext context, CartProvider cart) {
-    final controller = TextEditingController(text: 'Cliente ${cart.clients.length + 1}');
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E293B),
-        title: const Text('Nuevo cliente', style: TextStyle(color: Colors.white)),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          style: const TextStyle(color: Colors.white),
-          decoration: const InputDecoration(
-            hintText: 'Nombre del cliente',
-            hintStyle: TextStyle(color: Colors.white38),
-            enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFFF6D00))),
-            focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFFF6D00), width: 2)),
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar', style: TextStyle(color: Colors.white54))),
-          TextButton(
-            onPressed: () {
-              final name = controller.text.trim();
-              if (name.isNotEmpty) {
-                cart.addClient(name);
-                cart.setCurrentClient(name);
-                if (!_carritoVisible) setState(() => _carritoVisible = true);
-              }
-              Navigator.pop(ctx);
-            },
-            style: TextButton.styleFrom(backgroundColor: const Color(0xFFFF6D00).withOpacity(0.15)),
-            child: const Text('Agregar', style: TextStyle(color: Color(0xFFFF6D00))),
-          ),
-        ],
-      ),
-    );
-  }
-
   void _fetchDishes() {
     _dishesSubscription = _supabase
         .from('dishes')
@@ -414,7 +509,6 @@ class _ComandasViewState extends State<ComandasView> {
     String tempOrderType = _selectedOrderType;
     String? tempCustomerName = _customerName;
     final nameController = TextEditingController(text: _customerName);
-
     await showDialog(
       context: context,
       barrierDismissible: false,
@@ -424,15 +518,15 @@ class _ComandasViewState extends State<ComandasView> {
             return AlertDialog(
               title: const Text('Tipo de Orden'),
               content: SizedBox(
-                width: 800,
-                height: 600,
+                width: double.maxFinite,
+                height: MediaQuery.of(context).size.height * 0.80,
                 child: Column(
                   children: [
                     // Order Type Selector
                     SegmentedButton<String>(
                       segments: const [
-                        ButtonSegment(value: 'dine_in', label: Text('En Mesa'), icon: Icon(Icons.table_restaurant)),
-                        ButtonSegment(value: 'takeout', label: Text('Para Llevar'), icon: Icon(Icons.takeout_dining)),
+                        ButtonSegment(value: 'dine_in', label: Text('Mesa'), icon: Icon(Icons.table_restaurant)),
+                        ButtonSegment(value: 'takeout', label: Text('Llevar'), icon: Icon(Icons.takeout_dining)),
                         ButtonSegment(value: 'delivery', label: Text('Delivery'), icon: Icon(Icons.delivery_dining)),
                       ],
                       selected: {tempOrderType},
@@ -473,32 +567,30 @@ class _ComandasViewState extends State<ComandasView> {
                                 builder: (context, ordersSnapshot) {
                                   final occupiedTableIds = (ordersSnapshot.data ?? []).map((o) => o['table_id']).toSet();
 
-                                  return ClipRRect(
-                                    borderRadius: BorderRadius.circular(16),
-                                    child: InteractiveViewer(
-                                      transformationController: _mapTransformationController,
-                                      constrained: false,
-                                      panEnabled: false,
-                                      scaleEnabled: false,
-                                      boundaryMargin: const EdgeInsets.all(2000),
-                                      minScale: 0.1,
-                                      maxScale: 2.0,
-                                      child: Container(
-                                        width: 2000,
-                                        height: 2000,
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFF0F172A),
-                                          border: Border.all(color: const Color(0xFF334155)),
-                                        ),
-                                        child: Stack(
-                                          children: tables.map((table) {
+                                  return LayoutBuilder(
+                                      builder: (context, constraints) {
+                                        final availW = constraints.maxWidth;
+                                        final availH = constraints.maxHeight;
+                                        final cols = availW < 380 ? 4 : availW < 600 ? 5 : 7;
+                                        final rows = (tables.length / cols).ceil();
+                                        const spacing = 8.0;
+                                        final ext = ((availH - (rows - 1) * spacing - 8) / rows).clamp(52.0, 120.0);
+                                        return GridView.builder(
+                                          physics: const NeverScrollableScrollPhysics(),
+                                          padding: const EdgeInsets.all(4),
+                                          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                                            crossAxisCount: cols,
+                                            crossAxisSpacing: spacing,
+                                            mainAxisSpacing: spacing,
+                                            mainAxisExtent: ext,
+                                          ),
+                                          itemCount: tables.length,
+                                          itemBuilder: (context, index) {
+                                            final table = tables[index];
                                             final isOccupied = occupiedTableIds.contains(table['id']);
-                                            double x = (table['pos_x'] as num?)?.toDouble() ?? 50.0;
-                                            double y = (table['pos_y'] as num?)?.toDouble() ?? 50.0;
-                                            
-                                            return Positioned(
-                                              left: x,
-                                              top: y,
+                                            return Material(
+                                              color: isOccupied ? const Color(0xFF331515) : const Color(0xFF1E293B),
+                                              borderRadius: BorderRadius.circular(12),
                                               child: InkWell(
                                                 onTap: () {
                                                   setState(() {
@@ -509,68 +601,46 @@ class _ComandasViewState extends State<ComandasView> {
                                                   });
                                                   Navigator.pop(context);
                                                 },
-                                                borderRadius: BorderRadius.circular(16),
+                                                borderRadius: BorderRadius.circular(12),
                                                 child: Container(
-                                                  width: 120,
-                                                  height: 120,
                                                   decoration: BoxDecoration(
-                                                    color: isOccupied ? const Color(0xFF331515) : const Color(0xFF1E293B),
-                                                    borderRadius: BorderRadius.circular(16),
+                                                    borderRadius: BorderRadius.circular(12),
                                                     border: Border.all(
-                                                      color: isOccupied ? Colors.red[900]! : const Color(0xFF334155),
-                                                      width: isOccupied ? 2 : 1,
+                                                      color: isOccupied ? Colors.red[800]! : const Color(0xFF334155),
+                                                      width: 1.5,
                                                     ),
-                                                    boxShadow: [
-                                                      BoxShadow(
-                                                        color: Colors.black.withValues(alpha: 0.3),
-                                                        blurRadius: 10,
-                                                        offset: const Offset(0, 5),
-                                                      )
-                                                    ],
                                                   ),
                                                   child: Column(
                                                     mainAxisAlignment: MainAxisAlignment.center,
                                                     children: [
-                                                      Icon(
-                                                        Icons.table_restaurant,
-                                                        size: 40,
-                                                        color: isOccupied ? Colors.red[400] : const Color(0xFF94A3B8),
-                                                      ),
-                                                      const SizedBox(height: 8),
-                                                      Text(
-                                                        'Mesa ${table['table_number']}',
-                                                        style: TextStyle(
-                                                          fontSize: 16,
-                                                          fontWeight: FontWeight.bold,
-                                                          color: isOccupied ? Colors.red[200] : Colors.white,
-                                                        ),
-                                                      ),
-                                                      const SizedBox(height: 4),
+                                                      Icon(Icons.table_restaurant, size: 20,
+                                                          color: isOccupied ? Colors.red[300] : const Color(0xFF94A3B8)),
+                                                      const SizedBox(height: 2),
+                                                      Text('Mesa ${table['table_number']}',
+                                                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold,
+                                                              color: isOccupied ? Colors.red[100] : Colors.white)),
+                                                      const SizedBox(height: 2),
                                                       Container(
-                                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                                                         decoration: BoxDecoration(
-                                                          color: isOccupied ? Colors.red.withValues(alpha: 0.2) : Colors.green.withValues(alpha: 0.2),
-                                                          borderRadius: BorderRadius.circular(12),
+                                                          color: isOccupied
+                                                              ? Colors.red.withValues(alpha: 0.25)
+                                                              : Colors.green.withValues(alpha: 0.2),
+                                                          borderRadius: BorderRadius.circular(6),
                                                         ),
-                                                        child: Text(
-                                                          isOccupied ? 'Ocupada' : 'Libre',
-                                                          style: TextStyle(
-                                                            fontSize: 10,
-                                                            fontWeight: FontWeight.w500,
-                                                            color: isOccupied ? Colors.red[300] : Colors.green[400],
-                                                          ),
-                                                        ),
+                                                        child: Text(isOccupied ? 'Ocupada' : 'Libre',
+                                                            style: TextStyle(fontSize: 9,
+                                                                color: isOccupied ? Colors.red[300] : Colors.green[400])),
                                                       ),
                                                     ],
                                                   ),
                                                 ),
                                               ),
                                             );
-                                          }).toList(),
-                                        ),
-                                      ),
-                                    ),
-                                  );
+                                          },
+                                        );
+                                      },
+                                    );
                                 },
                               );
                             },
@@ -660,7 +730,6 @@ class _ComandasViewState extends State<ComandasView> {
           ],
         ),
         actions: [
-          // Botón Agregar Cliente
           Consumer<CartProvider>(
             builder: (context, cart, _) => TextButton.icon(
               icon: const Icon(Icons.person_add, size: 18, color: Color(0xFFFF6D00)),
@@ -690,38 +759,16 @@ class _ComandasViewState extends State<ComandasView> {
                 side: BorderSide.none,
               ),
             ),
-          // Botón toggle carrito con badge de items
-          Consumer<CartProvider>(
-            builder: (context, cart, _) {
-              final itemCount = cart.items.length;
-              return Stack(
-                alignment: Alignment.center,
-                children: [
-                  IconButton(
-                    icon: Icon(
-                      _carritoVisible ? Icons.receipt_long : Icons.receipt_long_outlined,
-                      color: _carritoVisible ? const Color(0xFFFF6D00) : Colors.white70,
-                    ),
-                    onPressed: () => setState(() => _carritoVisible = !_carritoVisible),
-                  ),
-                  if (itemCount > 0)
-                    Positioned(
-                      top: 6, right: 6,
-                      child: Container(
-                        padding: const EdgeInsets.all(3),
-                        decoration: const BoxDecoration(color: Color(0xFFFF6D00), shape: BoxShape.circle),
-                        child: Text('$itemCount', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
-                      ),
-                    ),
-                ],
-              );
-            },
+          IconButton(
+            icon: Icon(_carritoVisible ? Icons.menu_open : Icons.menu),
+            tooltip: _carritoVisible ? 'Ocultar carrito' : 'Mostrar carrito',
+            onPressed: () => setState(() => _carritoVisible = !_carritoVisible),
           ),
           IconButton(
             icon: const Icon(Icons.table_restaurant),
             onPressed: _showTableSelectionDialog,
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 16),
         ],
       ),
       body: _buildAdaptiveBody(context),
@@ -734,7 +781,10 @@ class _ComandasViewState extends State<ComandasView> {
     final isDesktop = w >= 1024;
 
     if (isPhone) {
-      // Celular: menú arriba (3/5), resumen abajo (2/5)
+      // Celular: menú arriba, resumen abajo (toggle con botón ≡)
+      if (!_carritoVisible) {
+        return _buildMenuContent(context);
+      }
       return Column(
         children: [
           Expanded(flex: 3, child: _buildMenuContent(context)),
@@ -744,24 +794,18 @@ class _ComandasViewState extends State<ComandasView> {
       );
     }
 
-    // Tablet y escritorio: lado a lado, carrito deslizable
+    // Tablet y escritorio: lado a lado
     final sidebarWidth = isDesktop ? 380.0 : 320.0;
     return Row(
       children: [
         Expanded(child: _buildMenuContent(context)),
-        AnimatedSize(
-          duration: const Duration(milliseconds: 250),
-          curve: Curves.easeInOut,
-          child: _carritoVisible
-              ? Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const VerticalDivider(width: 1, thickness: 1, color: Color(0xFF334155)),
-                    SizedBox(width: sidebarWidth, child: _buildOrderSummaryContent()),
-                  ],
-                )
-              : const SizedBox.shrink(),
-        ),
+        if (_carritoVisible) ...[
+          const VerticalDivider(width: 1, thickness: 1, color: Color(0xFF334155)),
+          SizedBox(
+            width: sidebarWidth,
+            child: _buildOrderSummaryContent(),
+          ),
+        ],
       ],
     );
   }
@@ -830,11 +874,11 @@ class _ComandasViewState extends State<ComandasView> {
     final availableWidth = screenWidth - sidebarWidth;
     int crossAxisCount;
     if (isPhone) {
-      crossAxisCount = (availableWidth / 160).floor().clamp(2, 3);
+      crossAxisCount = (availableWidth / 110).floor().clamp(3, 4);
     } else if (isTablet) {
-      crossAxisCount = (availableWidth / 200).floor().clamp(2, 4);
+      crossAxisCount = (availableWidth / 130).floor().clamp(4, 6);
     } else {
-      crossAxisCount = (availableWidth / 250).floor().clamp(2, 6);
+      crossAxisCount = (availableWidth / 180).floor().clamp(4, 8);
     }
 
     return Column(
@@ -849,17 +893,8 @@ class _ComandasViewState extends State<ComandasView> {
             onChanged: (val) => setState(() => _searchQuery = val),
           ),
         ),
-        // ── Categorías: scroll horizontal en celular/tablet, Wrap en escritorio ──
-        if (isDesktop)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: _availableCategories.map(_buildCategoryBlock).toList(),
-            ),
-          )
-        else
+        // ── Categorías: scroll horizontal en celular, Wrap en tablet y escritorio ──
+        if (isPhone)
           SizedBox(
             height: 80,
             child: ListView(
@@ -872,13 +907,24 @@ class _ComandasViewState extends State<ComandasView> {
                       ))
                   .toList(),
             ),
+          )
+        else
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: _availableCategories.map(_buildCategoryBlock).toList(),
+            ),
           ),
         const Divider(height: 1, thickness: 1, color: Color(0xFF1E293B)),
+        // ── Submenu de bebidas ──
+        if (_selectedCategory == 'drink') _buildDrinkSubmenu(),
         // ── Grid de platillos (scrollable) ──
         Expanded(
           child: CustomScrollView(
             slivers: [
-              ..._buildGroupedMenu(filteredDishes, crossAxisCount, isPhone),
+              ..._buildGroupedMenu(filteredDishes, crossAxisCount, isPhone, isTablet: isTablet),
               const SliverToBoxAdapter(child: SizedBox(height: 40)),
             ],
           ),
@@ -887,7 +933,67 @@ class _ComandasViewState extends State<ComandasView> {
     );
   }
 
-  List<Widget> _buildGroupedMenu(List<Dish> items, int crossAxisCount, bool isPhone) {
+  Widget _buildDrinkSubmenu() {
+    const subcats = [
+      ('refresco_255', '255 ml',    Icons.sports_bar),
+      ('refresco_600', '600 ml',    Icons.sports_bar),
+      ('aguas',        'Aguas',     Icons.water_drop),
+      ('cafes',        'Cafés',     Icons.coffee),
+      ('jugos',        'Jugos',     Icons.local_drink),
+      (null,           'Todas',     Icons.grid_view),
+    ];
+    const active = Color(0xFFE07A30);
+    return Container(
+      color: const Color(0xFF0F172A),
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: subcats.map((s) {
+            final key = s.$1;
+            final label = s.$2;
+            final icon = s.$3;
+            final selected = _selectedDrinkSubcat == key;
+            return Padding(
+              padding: const EdgeInsets.only(right: 10),
+              child: GestureDetector(
+                onTap: () => setState(() => _selectedDrinkSubcat = key),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 160),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: selected ? active : const Color(0xFF1E293B),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: selected ? active : const Color(0xFF334155),
+                      width: 1.5,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(icon, size: 16, color: selected ? Colors.white : Colors.white60),
+                      const SizedBox(width: 6),
+                      Text(
+                        label,
+                        style: TextStyle(
+                          color: selected ? Colors.white : Colors.white70,
+                          fontSize: 13,
+                          fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _buildGroupedMenu(List<Dish> items, int crossAxisCount, bool isPhone, {bool isTablet = false}) {
     final isMobile = isPhone;
     if (items.isEmpty) {
       return [
@@ -900,10 +1006,10 @@ class _ComandasViewState extends State<ComandasView> {
       ];
     }
 
-    // Group items by category
+    // Group items by effective category (auto-detects drink subcategory from name)
     final Map<String, List<Dish>> groups = {};
     for (var item in items) {
-      groups.putIfAbsent(item.category, () => []).add(item);
+      groups.putIfAbsent(_effectiveCat(item), () => []).add(item);
     }
 
     final sortedCategories = groups.keys.toList()..sort();
@@ -955,9 +1061,9 @@ class _ComandasViewState extends State<ComandasView> {
           sliver: SliverGrid(
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: crossAxisCount,
-              childAspectRatio: isMobile ? 0.85 : 0.75,
-              crossAxisSpacing: isMobile ? 8 : 16,
-              mainAxisSpacing: isMobile ? 8 : 16,
+              childAspectRatio: isMobile ? 0.72 : (isTablet ? 0.80 : 0.70),
+              crossAxisSpacing: isMobile ? 6 : (isTablet ? 8 : 12),
+              mainAxisSpacing: isMobile ? 6 : (isTablet ? 8 : 12),
             ),
             delegate: SliverChildBuilderDelegate(
               (context, index) => DishCard(dish: categoryItems[index]),
