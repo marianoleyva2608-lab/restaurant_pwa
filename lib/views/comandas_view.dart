@@ -432,9 +432,9 @@ class _ComandasViewState extends State<ComandasView> {
 
                                   return GridView.builder(
                                     gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                                      maxCrossAxisExtent: 160,
-                                      mainAxisSpacing: 12,
-                                      crossAxisSpacing: 12,
+                                      maxCrossAxisExtent: 105,
+                                      mainAxisSpacing: 8,
+                                      crossAxisSpacing: 8,
                                       childAspectRatio: 1,
                                     ),
                                     itemCount: tables.length,
@@ -451,11 +451,11 @@ class _ComandasViewState extends State<ComandasView> {
                                           });
                                           Navigator.pop(context);
                                         },
-                                        borderRadius: BorderRadius.circular(16),
+                                        borderRadius: BorderRadius.circular(12),
                                         child: Container(
                                           decoration: BoxDecoration(
                                             color: isOccupied ? const Color(0xFF331515) : const Color(0xFF1E293B),
-                                            borderRadius: BorderRadius.circular(16),
+                                            borderRadius: BorderRadius.circular(12),
                                             border: Border.all(
                                               color: isOccupied ? Colors.red[900]! : const Color(0xFF334155),
                                               width: isOccupied ? 2 : 1,
@@ -466,29 +466,29 @@ class _ComandasViewState extends State<ComandasView> {
                                             children: [
                                               Icon(
                                                 Icons.table_restaurant,
-                                                size: 40,
+                                                size: 26,
                                                 color: isOccupied ? Colors.red[400] : const Color(0xFF94A3B8),
                                               ),
-                                              const SizedBox(height: 8),
+                                              const SizedBox(height: 4),
                                               Text(
                                                 'Mesa ${table['table_number']}',
                                                 style: TextStyle(
-                                                  fontSize: 16,
+                                                  fontSize: 12,
                                                   fontWeight: FontWeight.bold,
                                                   color: isOccupied ? Colors.red[200] : Colors.white,
                                                 ),
                                               ),
-                                              const SizedBox(height: 4),
+                                              const SizedBox(height: 3),
                                               Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                                 decoration: BoxDecoration(
                                                   color: isOccupied ? Colors.red.withValues(alpha: 0.2) : Colors.green.withValues(alpha: 0.2),
-                                                  borderRadius: BorderRadius.circular(12),
+                                                  borderRadius: BorderRadius.circular(8),
                                                 ),
                                                 child: Text(
                                                   isOccupied ? 'Ocupada' : 'Libre',
                                                   style: TextStyle(
-                                                    fontSize: 10,
+                                                    fontSize: 9,
                                                     fontWeight: FontWeight.w500,
                                                     color: isOccupied ? Colors.red[300] : Colors.green[400],
                                                   ),
