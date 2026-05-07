@@ -14,15 +14,13 @@ class _DrinkFlavorsManagementViewState extends State<DrinkFlavorsManagementView>
   late TabController _tabController;
 
   List<Map<String, dynamic>> _refrescos = [];
-  List<Map<String, dynamic>> _refrescos255 = [];
-  List<Map<String, dynamic>> _refrescos600 = [];
   List<Map<String, dynamic>> _aguas = [];
   bool _loading = true;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 2, vsync: this);
     _fetchFlavors();
   }
 
@@ -42,10 +40,13 @@ class _DrinkFlavorsManagementViewState extends State<DrinkFlavorsManagementView>
       final list = (data as List<dynamic>).cast<Map<String, dynamic>>();
       if (mounted) {
         setState(() {
-          _refrescos    = list.where((f) => f['type'] == 'refresco').toList();
-          _refrescos255 = list.where((f) => f['type'] == 'refresco_255').toList();
-          _refrescos600 = list.where((f) => f['type'] == 'refresco_600').toList();
-          _aguas        = list.where((f) => f['type'] == 'agua_fresca').toList();
+          _refrescos = list
+              .where((f) =>
+                  f['type'] == 'refresco' ||
+                  f['type'] == 'refresco_255' ||
+                  f['type'] == 'refresco_600')
+              .toList();
+          _aguas = list.where((f) => f['type'] == 'agua_fresca').toList();
           _loading = false;
         });
       }
@@ -61,15 +62,14 @@ class _DrinkFlavorsManagementViewState extends State<DrinkFlavorsManagementView>
 
   Future<void> _toggleAvailable(Map<String, dynamic> flavor) async {
     final newValue = !(flavor['available'] as bool? ?? true);
-    final type = flavor['type'] as String;
-    _updateLocal(type, flavor['id'], {'available': newValue});
+    _updateLocal(flavor['type'] as String, flavor['id'], {'available': newValue});
     try {
       await _supabase
           .from('drink_flavors')
           .update({'available': newValue})
           .eq('id', flavor['id']);
     } catch (e) {
-      _updateLocal(type, flavor['id'], {'available': !newValue});
+      _updateLocal(flavor['type'] as String, flavor['id'], {'available': !newValue});
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error: $e')),
@@ -87,11 +87,23 @@ class _DrinkFlavorsManagementViewState extends State<DrinkFlavorsManagementView>
   }
 
   List<Map<String, dynamic>> _listForType(String type) {
+    if (type == 'agua_fresca') return _aguas;
+    return _refrescos;
+  }
+
+  String _subtypeLabel(String type) {
     switch (type) {
-      case 'refresco_255': return _refrescos255;
-      case 'refresco_600': return _refrescos600;
-      case 'agua_fresca':  return _aguas;
-      default:             return _refrescos;
+      case 'refresco_255': return '255 ml';
+      case 'refresco_600': return '600 ml';
+      default:             return 'Genérico';
+    }
+  }
+
+  Color _subtypeColor(String type) {
+    switch (type) {
+      case 'refresco_255': return const Color(0xFF38BDF8);
+      case 'refresco_600': return const Color(0xFFA78BFA);
+      default:             return const Color(0xFF94A3B8);
     }
   }
 
@@ -221,14 +233,9 @@ class _DrinkFlavorsManagementViewState extends State<DrinkFlavorsManagementView>
                 try {
                   if (isEditing) {
                     final oldType = flavor['type'] as String;
-                    if (oldType != selectedType) {
-                      // Mover a otro subgrupo: quitar de lista vieja, agregar a nueva
-                      setState(() => _listForType(oldType).removeWhere((f) => f['id'] == flavor['id']));
-                    }
                     _updateLocal(selectedType, flavor['id'], {'name': name, 'type': selectedType});
                     await _supabase.from('drink_flavors')
                         .update({'name': name, 'type': selectedType}).eq('id', flavor['id']);
-                    // Si cambió de tipo, asegurarse de que esté en la lista correcta
                     if (oldType != selectedType) _fetchFlavors();
                   } else {
                     final result = await _supabase.from('drink_flavors').insert({
@@ -261,7 +268,7 @@ class _DrinkFlavorsManagementViewState extends State<DrinkFlavorsManagementView>
     );
   }
 
-  Widget _buildList(List<Map<String, dynamic>> items, String type) {
+  Widget _buildList(List<Map<String, dynamic>> items, String tabType) {
     if (_loading) {
       return const Center(child: CircularProgressIndicator(color: Color(0xFFFF6D00)));
     }
@@ -281,7 +288,8 @@ class _DrinkFlavorsManagementViewState extends State<DrinkFlavorsManagementView>
       itemBuilder: (context, index) {
         final f = items[index];
         final available = f['available'] as bool? ?? true;
-        final icon = type == 'refresco' ? Icons.local_drink : Icons.water_drop;
+        final ftype = f['type'] as String;
+        final icon = tabType == 'agua_fresca' ? Icons.water_drop : Icons.local_drink;
         return Container(
           decoration: BoxDecoration(
             color: const Color(0xFF1E293B),
@@ -299,13 +307,38 @@ class _DrinkFlavorsManagementViewState extends State<DrinkFlavorsManagementView>
                 size: 20,
               ),
             ),
-            title: Text(
-              f['name'] as String,
-              style: TextStyle(
-                color: available ? Colors.white : Colors.white38,
-                fontWeight: FontWeight.w600,
-                fontSize: 15,
-              ),
+            title: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    f['name'] as String,
+                    style: TextStyle(
+                      color: available ? Colors.white : Colors.white38,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 15,
+                    ),
+                  ),
+                ),
+                if (tabType != 'agua_fresca') ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: _subtypeColor(ftype).withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: _subtypeColor(ftype).withOpacity(0.4)),
+                    ),
+                    child: Text(
+                      _subtypeLabel(ftype),
+                      style: TextStyle(
+                        color: _subtypeColor(ftype),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
             ),
             subtitle: Text(
               available ? 'Disponible' : 'No disponible',
@@ -326,7 +359,7 @@ class _DrinkFlavorsManagementViewState extends State<DrinkFlavorsManagementView>
                 ),
                 IconButton(
                   icon: const Icon(Icons.edit_outlined, color: Colors.blueAccent, size: 20),
-                  onPressed: () => _showFlavorDialog(flavor: f, type: type),
+                  onPressed: () => _showFlavorDialog(flavor: f, type: ftype),
                   tooltip: 'Editar',
                 ),
                 IconButton(
@@ -344,8 +377,7 @@ class _DrinkFlavorsManagementViewState extends State<DrinkFlavorsManagementView>
 
   @override
   Widget build(BuildContext context) {
-    const tabTypes = ['refresco', 'refresco_255', 'refresco_600', 'agua_fresca'];
-    final currentType = tabTypes[_tabController.index];
+    final currentType = _tabController.index == 0 ? 'refresco' : 'agua_fresca';
     return Scaffold(
       backgroundColor: const Color(0xFF0F172A),
       floatingActionButton: FloatingActionButton(
@@ -386,12 +418,9 @@ class _DrinkFlavorsManagementViewState extends State<DrinkFlavorsManagementView>
             indicatorColor: const Color(0xFFFF6D00),
             labelColor: Colors.white,
             unselectedLabelColor: const Color(0xFF94A3B8),
-            isScrollable: true,
             onTap: (_) => setState(() {}),
             tabs: const [
               Tab(icon: Icon(Icons.local_drink, size: 18), child: Text('Refrescos')),
-              Tab(icon: Icon(Icons.local_drink, size: 18), child: Text('255 ml')),
-              Tab(icon: Icon(Icons.local_drink, size: 18), child: Text('600 ml')),
               Tab(icon: Icon(Icons.water_drop, size: 18), child: Text('Aguas Frescas')),
             ],
           ),
@@ -399,10 +428,8 @@ class _DrinkFlavorsManagementViewState extends State<DrinkFlavorsManagementView>
             child: TabBarView(
               controller: _tabController,
               children: [
-                _buildList(_refrescos,    'refresco'),
-                _buildList(_refrescos255, 'refresco_255'),
-                _buildList(_refrescos600, 'refresco_600'),
-                _buildList(_aguas,        'agua_fresca'),
+                _buildList(_refrescos, 'refresco'),
+                _buildList(_aguas,     'agua_fresca'),
               ],
             ),
           ),
