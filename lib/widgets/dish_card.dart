@@ -46,11 +46,8 @@ Future<void> addDishToCart(BuildContext context, Dish dish) async {
   final bool isJugo = dish.category == 'jugos' || nameLower.contains('jugo');
 
   if (isRefresco || isAguaFresca || isJugo) {
-    // Para refrescos cargamos las listas de 255ml y 600ml por separado
-    final List<String> sabores255 = isRefresco ? await _loadDrinkFlavors('refresco_255') : [];
-    final List<String> sabores600 = isRefresco ? await _loadDrinkFlavors('refresco_600') : [];
     final drinkType = isJugo ? 'jugo' : isRefresco ? 'refresco' : 'agua_fresca';
-    final List<String> saboresDefault = await _loadDrinkFlavors(drinkType);
+    final List<String> sabores = await _loadDrinkFlavors(drinkType);
     String? selectedSabor;
     String? aguaSize;
     await showDialog(
@@ -92,20 +89,16 @@ Future<void> addDishToCart(BuildContext context, Dish dish) async {
                               icon: Icons.sports_bar,
                               label: '255 ml',
                               value: aguaSize == '255 ml',
-                              onChanged: (v) => setDialogState(() {
-                                aguaSize = v ? '255 ml' : null;
-                                selectedSabor = null;
-                              }),
+                              onChanged: (v) => setDialogState(
+                                  () => aguaSize = v ? '255 ml' : null),
                             ),
                             const SizedBox(width: 10),
                             _ToggleOption(
                               icon: Icons.sports_bar,
                               label: '600 ml',
                               value: aguaSize == '600 ml',
-                              onChanged: (v) => setDialogState(() {
-                                aguaSize = v ? '600 ml' : null;
-                                selectedSabor = null;
-                              }),
+                              onChanged: (v) => setDialogState(
+                                  () => aguaSize = v ? '600 ml' : null),
                             ),
                           ] else if (isJugo) ...[
                             _ToggleOption(
@@ -155,15 +148,7 @@ Future<void> addDishToCart(BuildContext context, Dish dish) async {
                           letterSpacing: 1),
                     ),
                     const SizedBox(height: 8),
-                    Builder(builder: (context) {
-                      final saboresActuales = isRefresco
-                          ? (aguaSize == '255 ml'
-                              ? sabores255
-                              : aguaSize == '600 ml'
-                                  ? sabores600
-                                  : saboresDefault)
-                          : saboresDefault;
-                      return GridView.builder(
+                    GridView.builder(
                       shrinkWrap: true,
                       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: 3,
@@ -171,9 +156,9 @@ Future<void> addDishToCart(BuildContext context, Dish dish) async {
                         mainAxisSpacing: 6,
                         childAspectRatio: 2.4,
                       ),
-                      itemCount: saboresActuales.length,
+                      itemCount: sabores.length,
                       itemBuilder: (ctx2, i) {
-                        final sabor = saboresActuales[i];
+                        final sabor = sabores[i];
                         final isSelected = selectedSabor == sabor;
                         return InkWell(
                           borderRadius: BorderRadius.circular(8),
@@ -216,8 +201,7 @@ Future<void> addDishToCart(BuildContext context, Dish dish) async {
                           ),
                         );
                       },
-                    ); // GridView
-                    }), // Builder
+                    ),
                   ],
                 ),
               ),
