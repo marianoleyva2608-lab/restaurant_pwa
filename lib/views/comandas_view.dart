@@ -813,11 +813,11 @@ class _ComandasViewState extends State<ComandasView> {
     final availableWidth = screenWidth - sidebarWidth;
     int crossAxisCount;
     if (isPhone) {
-      crossAxisCount = (availableWidth / 160).floor().clamp(2, 3);
+      crossAxisCount = (availableWidth / 110).floor().clamp(3, 4);
     } else if (isTablet) {
-      crossAxisCount = (availableWidth / 130).floor().clamp(3, 6);
+      crossAxisCount = (availableWidth / 130).floor().clamp(4, 6);
     } else {
-      crossAxisCount = (availableWidth / 200).floor().clamp(3, 7);
+      crossAxisCount = (availableWidth / 180).floor().clamp(4, 8);
     }
 
     return Column(
@@ -999,7 +999,7 @@ class _ComandasViewState extends State<ComandasView> {
           sliver: SliverGrid(
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: crossAxisCount,
-              childAspectRatio: isMobile ? 0.85 : (isTablet ? 0.95 : 0.75),
+              childAspectRatio: isMobile ? 0.78 : (isTablet ? 0.85 : 0.72),
               crossAxisSpacing: isMobile ? 6 : (isTablet ? 8 : 12),
               mainAxisSpacing: isMobile ? 6 : (isTablet ? 8 : 12),
             ),
