@@ -139,11 +139,8 @@ class _ComandasViewState extends State<ComandasView> {
     if (n.contains('refresco') || n.contains('coca') || n.contains('pepsi') ||
         n.contains('sprite') || n.contains('fanta') || n.contains('sidral') ||
         n.contains('squirt') || n.contains('7up') || n.contains('manzanita') ||
-        n.contains('sangría') || n.contains('sangria')) {
-      if (n.contains('600')) return 'refresco_600';
-      if (n.contains('255') || n.contains('355')) return 'refresco_255';
+        n.contains('sangría') || n.contains('sangria'))
       return 'refrescos';
-    }
     if (n.contains('cerveza') || n.contains('caguama') || n.contains('tequila') ||
         n.contains('mezcal') || n.contains('michelada') || n.contains('clamato') ||
         n.contains('corona') || n.contains('modelo') || n.contains('pacifico') ||
@@ -935,12 +932,11 @@ class _ComandasViewState extends State<ComandasView> {
 
   Widget _buildDrinkSubmenu() {
     const subcats = [
-      ('refresco_255', '255 ml',    Icons.sports_bar),
-      ('refresco_600', '600 ml',    Icons.sports_bar),
-      ('aguas',        'Aguas',     Icons.water_drop),
-      ('cafes',        'Cafés',     Icons.coffee),
-      ('jugos',        'Jugos',     Icons.local_drink),
-      (null,           'Todas',     Icons.grid_view),
+      ('refrescos', 'Refrescos',  Icons.sports_bar),
+      ('aguas',     'Aguas',      Icons.water_drop),
+      ('cafes',     'Cafés',      Icons.coffee),
+      ('jugos',     'Jugos',      Icons.local_drink),
+      (null,        'Todas',      Icons.grid_view),
     ];
     const active = Color(0xFFE07A30);
     return Container(
