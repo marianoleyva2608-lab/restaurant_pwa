@@ -77,9 +77,11 @@ class _ComandasViewState extends State<ComandasView> {
 
 
   List<String> get _availableCategories {
+    const pinned = ['gorditas', 'bebidas'];
     final categories = _dishes.map((d) => d.category).toSet().toList();
-    categories.sort();
-    return ['Todos', ...categories];
+    final rest = categories.where((c) => !pinned.contains(c)).toList()..sort();
+    final ordered = [...pinned.where(categories.contains), ...rest];
+    return ['Todos', ...ordered];
   }
 
   Widget _buildCategoryChip(String label, {bool isMobile = false}) {
@@ -816,7 +818,9 @@ class _ComandasViewState extends State<ComandasView> {
       groups.putIfAbsent(item.category, () => []).add(item);
     }
 
-    final sortedCategories = groups.keys.toList()..sort();
+    const pinnedCategories = ['gorditas', 'bebidas'];
+    final rest = groups.keys.where((c) => !pinnedCategories.contains(c)).toList()..sort();
+    final sortedCategories = [...pinnedCategories.where(groups.containsKey), ...rest];
     final List<Widget> slivers = [];
 
     for (var category in sortedCategories) {
