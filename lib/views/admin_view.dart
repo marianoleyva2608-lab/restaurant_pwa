@@ -32,19 +32,16 @@ class _AdminViewState extends State<AdminView> {
   String? _selectedTableNumber;
   String? _selectedOrderId;
 
-  final TransformationController _transformationController = TransformationController();
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   @override
   void initState() {
     super.initState();
-    _transformationController.value = Matrix4.identity()..scale(0.5);
     _fetchWaiters();
   }
 
   @override
   void dispose() {
-    _transformationController.dispose();
     super.dispose();
   }
 
@@ -488,70 +485,45 @@ class _AdminViewState extends State<AdminView> {
                                     ),
                                   ),
                                 Expanded(
-                                  child: ClipRRect(
-                                    child: InteractiveViewer(
-                                      transformationController: _transformationController,
-                                      constrained: false,
-                                      panEnabled: true,
-                                      scaleEnabled: true,
-                                      boundaryMargin: const EdgeInsets.all(2000),
-                                      minScale: 0.1,
-                                      maxScale: 2.0,
-                                      child: Container(
-                                        width: 2000,
-                                        height: 2000,
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFF0F172A),
-                                          border: Border.all(color: const Color(0xFF334155)),
-                                        ),
-                                        child: CustomPaint(
-                                          painter: GridPainter(),
-                                          child: Stack(
-                                            children: tables.map((table) {
-                                              final isOccupied = table['status'] == 'occupied';
-                                              final isSelected = _selectedTableId == table['id'];
-                                              double x = (table['pos_x'] as num?)?.toDouble() ?? 50.0;
-                                              double y = (table['pos_y'] as num?)?.toDouble() ?? 50.0;
-                                              String calculatedSubtitle = isOccupied ? 'Ocupada' : 'Libre';
-                                              String? waiterName;
-                                              if (isOccupied) {
-                                                final tOrders = activeOrders.where((o) => o['table_id'] == table['id']).toList();
-                                                if (tOrders.isNotEmpty && tOrders.first['waiter_id'] != null) {
-                                                  try {
-                                                    final wName = _waiters.firstWhere((w) => w['id'] == tOrders.first['waiter_id'])['name'];
-                                                    waiterName = wName.toString().split(' ').first; // Solo primer nombre para el badge
-                                                  } catch (_) {}
-                                                }
-                                              }
-
-                                              return Positioned(
-                                                left: x,
-                                                top: y,
-                                                child: SizedBox(
-                                                  width: 120,
-                                                  height: 120,
-                                                  child: _TableCard(
-                                                    title: 'Mesa ${table['table_number']}',
-                                                    subtitle: calculatedSubtitle,
-                                                    icon: Icons.table_restaurant,
-                                                    isOccupied: isOccupied,
-                                                    isSelected: isSelected,
-                                                    waiterName: waiterName,
-                                                    onTap: () {
-                                                      setState(() {
-                                                        _selectedTableId = table['id'];
-                                                        _selectedTableNumber = table['table_number'].toString();
-                                                        _selectedOrderId = null;
-                                                      });
-                                                    },
-                                                  ),
-                                                ),
-                                              );
-                                            }).toList(),
-                                          ),
-                                        ),
-                                      ),
+                                  child: GridView.builder(
+                                    padding: const EdgeInsets.all(16),
+                                    gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                                      maxCrossAxisExtent: 160,
+                                      mainAxisSpacing: 12,
+                                      crossAxisSpacing: 12,
+                                      childAspectRatio: 1,
                                     ),
+                                    itemCount: tables.length,
+                                    itemBuilder: (context, index) {
+                                      final table = tables[index];
+                                      final isOccupied = table['status'] == 'occupied';
+                                      final isSelected = _selectedTableId == table['id'];
+                                      String? waiterName;
+                                      if (isOccupied) {
+                                        final tOrders = activeOrders.where((o) => o['table_id'] == table['id']).toList();
+                                        if (tOrders.isNotEmpty && tOrders.first['waiter_id'] != null) {
+                                          try {
+                                            final wName = _waiters.firstWhere((w) => w['id'] == tOrders.first['waiter_id'])['name'];
+                                            waiterName = wName.toString().split(' ').first;
+                                          } catch (_) {}
+                                        }
+                                      }
+                                      return _TableCard(
+                                        title: 'Mesa ${table['table_number']}',
+                                        subtitle: isOccupied ? 'Ocupada' : 'Libre',
+                                        icon: Icons.table_restaurant,
+                                        isOccupied: isOccupied,
+                                        isSelected: isSelected,
+                                        waiterName: waiterName,
+                                        onTap: () {
+                                          setState(() {
+                                            _selectedTableId = table['id'];
+                                            _selectedTableNumber = table['table_number'].toString();
+                                            _selectedOrderId = null;
+                                          });
+                                        },
+                                      );
+                                    },
                                   ),
                                 ),
                               ],
@@ -1957,23 +1929,4 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
       },
     );
   }
-}
-
-class GridPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    var paint = Paint()
-      ..color = const Color(0xFF1E293B)
-      ..strokeWidth = 1;
-
-    for (double i = 0; i < size.width; i += 50) {
-      canvas.drawLine(Offset(i, 0), Offset(i, size.height), paint);
-    }
-    for (double i = 0; i < size.height; i += 50) {
-      canvas.drawLine(Offset(0, i), Offset(size.width, i), paint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(CustomPainter oldDelegate) => false;
 }

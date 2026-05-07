@@ -11,27 +11,11 @@ class TableManagementView extends StatefulWidget {
 
 class _TableManagementViewState extends State<TableManagementView> {
   final _supabase = Supabase.instance.client;
-  bool _isLoading = true;
+  bool _isLoading = false;
   List<Map<String, dynamic>> _tables = [];
-  final TransformationController _transformationController = TransformationController();
-  final Map<String, Offset> _dragPositions = {};
-
-  Future<void> _updateTablePosition(String id, double x, double y) async {
-    try {
-      await _supabase.from('restaurant_tables').update({
-        'pos_x': x,
-        'pos_y': y,
-      }).eq('id', id);
-    } catch (e) {
-      debugPrint('Error saving position: $e');
-    }
-  }
-
-  // Removed manual _fetchTables as it will be handled by StreamBuilder
 
   Future<void> _addTable() async {
     final controller = TextEditingController();
-    // Suggest the next table number
     int nextNumber = 1;
     if (_tables.isNotEmpty) {
       final numbers = _tables.map((t) => t['table_number'] as int).toList();
@@ -117,106 +101,44 @@ class _TableManagementViewState extends State<TableManagementView> {
     }
   }
 
-  Future<void> _saveAllPositions() async {
-    setState(() => _isLoading = true);
-    try {
-      for (final table in _tables) {
-        final id = table['id'] as String;
-        final x = (table['pos_x'] as num?)?.toDouble() ?? 50.0;
-        final y = (table['pos_y'] as num?)?.toDouble() ?? 50.0;
-        await _supabase.from('restaurant_tables').update({
-          'pos_x': x,
-          'pos_y': y,
-        }).eq('id', id);
-      }
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Mapa guardado exitosamente', style: TextStyle(color: Colors.white)), backgroundColor: Colors.green),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al guardar mapa: $e', style: const TextStyle(color: Colors.white)), backgroundColor: Colors.red),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-    }
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _transformationController.value = Matrix4.identity()..scale(0.5);
-  }
-
-  @override
-  void dispose() {
-    _transformationController.dispose();
-    super.dispose();
-  }
-
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     return StreamBuilder<List<Map<String, dynamic>>>(
-      stream: _supabase.from('restaurant_tables')
+      stream: _supabase
+          .from('restaurant_tables')
           .stream(primaryKey: ['id'])
           .eq('branch_name', Globals.currentBranch)
           .order('table_number', ascending: true),
       builder: (context, snapshot) {
         if (snapshot.hasError) return Center(child: Text('Error: ${snapshot.error}'));
         if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-        
-        final fresh = snapshot.data!;
-        _tables = fresh.map((t) {
-          final id = t['id'] as String;
-          if (_dragPositions.containsKey(id)) {
-            return Map<String, dynamic>.from(t)
-              ..['pos_x'] = _dragPositions[id]!.dx
-              ..['pos_y'] = _dragPositions[id]!.dy;
-          }
-          return t;
-        }).toList();
-        _isLoading = false;
+
+        _tables = snapshot.data!;
 
         return Padding(
-      padding: EdgeInsets.all(screenWidth < 800 ? 16.0 : 32.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Flex(
-            direction: screenWidth < 800 ? Axis.vertical : Axis.horizontal,
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: screenWidth < 800 ? CrossAxisAlignment.start : CrossAxisAlignment.center,
+          padding: EdgeInsets.all(screenWidth < 800 ? 16.0 : 32.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              Flex(
+                direction: screenWidth < 800 ? Axis.vertical : Axis.horizontal,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: screenWidth < 800 ? CrossAxisAlignment.start : CrossAxisAlignment.center,
                 children: [
-                  Text('Gestión de Mesas', style: TextStyle(fontSize: screenWidth < 800 ? 24 : 32, fontWeight: FontWeight.bold, color: Colors.white)),
-                  const Text('Configura el mapa de tu restaurante', style: TextStyle(fontSize: 16, color: Color(0xFF94A3B8))),
-                ],
-              ),
-              if (screenWidth < 800) const SizedBox(height: 16),
-              Wrap(
-                spacing: 16,
-                runSpacing: 16,
-                alignment: WrapAlignment.end,
-                children: [
-                  OutlinedButton.icon(
-                    onPressed: _saveAllPositions,
-                    icon: const Icon(Icons.save),
-                    label: const Text('Guardar Mapa'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                      side: const BorderSide(color: Color(0xFF334155)),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Gestión de Mesas',
+                          style: TextStyle(
+                              fontSize: screenWidth < 800 ? 24 : 32,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white)),
+                      const Text('Administra las mesas de tu restaurante',
+                          style: TextStyle(fontSize: 16, color: Color(0xFF94A3B8))),
+                    ],
                   ),
+                  if (screenWidth < 800) const SizedBox(height: 16),
                   ElevatedButton.icon(
                     onPressed: _addTable,
                     icon: const Icon(Icons.add),
@@ -230,145 +152,94 @@ class _TableManagementViewState extends State<TableManagementView> {
                   ),
                 ],
               ),
-            ],
-          ),
-          const SizedBox(height: 32),
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
-                    child: InteractiveViewer(
-                      transformationController: _transformationController,
-                      constrained: false,
-                      panEnabled: true,
-                      scaleEnabled: true,
-                      boundaryMargin: const EdgeInsets.all(2000),
-                      minScale: 0.1,
-                      maxScale: 2.0,
-                      child: Container(
-                        width: 2000,
-                        height: 2000,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF0F172A),
-                          border: Border.all(color: const Color(0xFF334155)),
+              const SizedBox(height: 32),
+              Expanded(
+                child: _isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : GridView.builder(
+                        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                          maxCrossAxisExtent: 160,
+                          mainAxisSpacing: 16,
+                          crossAxisSpacing: 16,
+                          childAspectRatio: 1,
                         ),
-                        // Draw a grid pattern for guidance
-                        child: CustomPaint(
-                          painter: GridPainter(),
-                          child: Stack(
-                            children: _tables.map((table) {
-                              final id = table['id'] as String;
-                              final number = table['table_number'] as int;
-                              final status = table['status'] as String;
-                              double x = (table['pos_x'] as num?)?.toDouble() ?? 50.0;
-                              double y = (table['pos_y'] as num?)?.toDouble() ?? 50.0;
-                              
-                              return Positioned(
-                                left: x,
-                                top: y,
-                                child: GestureDetector(
-                                  onPanUpdate: (details) {
-                                    setState(() {
-                                      final current = _dragPositions[id] ?? Offset(x, y);
-                                      _dragPositions[id] = current + details.delta;
-                                      final index = _tables.indexWhere((t) => t['id'] == id);
-                                      if (index != -1) {
-                                        _tables[index] = Map<String, dynamic>.from(_tables[index])
-                                          ..['pos_x'] = _dragPositions[id]!.dx
-                                          ..['pos_y'] = _dragPositions[id]!.dy;
-                                      }
-                                    });
-                                  },
-                                  onPanEnd: (details) {
-                                    final pos = _dragPositions.remove(id);
-                                    if (pos != null) {
-                                      _updateTablePosition(id, pos.dx, pos.dy);
-                                    }
-                                  },
-                                  child: Container(
-                                    width: 120,
-                                    height: 120,
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFF1E293B),
-                                      borderRadius: BorderRadius.circular(16),
-                                      border: Border.all(color: const Color(0xFF334155), width: 2),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.black.withValues(alpha: 0.3),
-                                          blurRadius: 10,
-                                          offset: const Offset(0, 5),
-                                        )
-                                      ],
-                                    ),
-                                    child: Stack(
-                                      children: [
-                                        Center(
-                                          child: Column(
-                                            mainAxisAlignment: MainAxisAlignment.center,
-                                            children: [
-                                              const Icon(Icons.drag_indicator, size: 20, color: Colors.grey),
-                                              const SizedBox(height: 4),
-                                              const Icon(Icons.table_restaurant, size: 36, color: Color(0xFFFF6D00)),
-                                              const SizedBox(height: 4),
-                                              Text(
-                                                'Mesa $number',
-                                                style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
-                                              ),
-                                              Text(
-                                                status.toUpperCase(),
-                                                style: TextStyle(
-                                                  fontSize: 10,
-                                                  color: status == 'free' ? Colors.green : Colors.red,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        Positioned(
-                                          top: -4,
-                                          right: -4,
-                                          child: IconButton(
-                                            icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
-                                            onPressed: () => _deleteTable(id, number),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
+                        itemCount: _tables.length,
+                        itemBuilder: (context, index) {
+                          final table = _tables[index];
+                          final id = table['id'] as String;
+                          final number = table['table_number'] as int;
+                          final status = table['status'] as String;
+                          final isOccupied = status != 'free';
+
+                          return Stack(
+                            children: [
+                              Container(
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF1E293B),
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(
+                                    color: isOccupied ? Colors.red[700]! : const Color(0xFF334155),
+                                    width: isOccupied ? 2 : 1,
                                   ),
                                 ),
-                              );
-                            }).toList(),
-                          ),
-                        ),
+                                child: Center(
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        Icons.table_restaurant,
+                                        size: 36,
+                                        color: isOccupied ? Colors.red[400] : const Color(0xFF94A3B8),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        'Mesa $number',
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.bold, color: Colors.white),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                        decoration: BoxDecoration(
+                                          color: isOccupied
+                                              ? Colors.red.withValues(alpha: 0.2)
+                                              : Colors.green.withValues(alpha: 0.2),
+                                          borderRadius: BorderRadius.circular(10),
+                                        ),
+                                        child: Text(
+                                          isOccupied ? 'Ocupada' : 'Libre',
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w600,
+                                            color: isOccupied ? Colors.red[300] : Colors.green[400],
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              Positioned(
+                                top: 4,
+                                right: 4,
+                                child: InkWell(
+                                  onTap: () => _deleteTable(id, number),
+                                  borderRadius: BorderRadius.circular(20),
+                                  child: const Padding(
+                                    padding: EdgeInsets.all(4),
+                                    child: Icon(Icons.delete_outline, color: Colors.redAccent, size: 18),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          );
+                        },
                       ),
-                    ),
-                  ),
+              ),
+            ],
           ),
-        ],
-      ),
-    );
+        );
       },
     );
   }
-}
-
-class GridPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    var paint = Paint()
-      ..color = const Color(0xFF1E293B)
-      ..strokeWidth = 1;
-
-    for (double i = 0; i < size.width; i += 50) {
-      canvas.drawLine(Offset(i, 0), Offset(i, size.height), paint);
-    }
-    for (double i = 0; i < size.height; i += 50) {
-      canvas.drawLine(Offset(0, i), Offset(size.width, i), paint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(CustomPainter oldDelegate) => false;
 }

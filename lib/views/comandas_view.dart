@@ -30,7 +30,6 @@ class _ComandasViewState extends State<ComandasView> {
   StreamSubscription<List<Map<String, dynamic>>>? _orderStreamSubscription;
   final Set<String> _notifiedOrders = {};
   StreamSubscription? _dishesSubscription;
-  final TransformationController _mapTransformationController = TransformationController(Matrix4.diagonal3Values(0.5, 0.5, 1.0));
 
   @override
   void initState() {
@@ -252,7 +251,6 @@ class _ComandasViewState extends State<ComandasView> {
     _orderStreamSubscription?.cancel();
     _dishesSubscription?.cancel();
     _audioPlayer.dispose();
-    _mapTransformationController.dispose();
     super.dispose();
   }
 
@@ -432,103 +430,75 @@ class _ComandasViewState extends State<ComandasView> {
                                 builder: (context, ordersSnapshot) {
                                   final occupiedTableIds = (ordersSnapshot.data ?? []).map((o) => o['table_id']).toSet();
 
-                                  return ClipRRect(
-                                    borderRadius: BorderRadius.circular(16),
-                                    child: InteractiveViewer(
-                                      transformationController: _mapTransformationController,
-                                      constrained: false,
-                                      panEnabled: false,
-                                      scaleEnabled: false,
-                                      boundaryMargin: const EdgeInsets.all(2000),
-                                      minScale: 0.1,
-                                      maxScale: 2.0,
-                                      child: Container(
-                                        width: 2000,
-                                        height: 2000,
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFF0F172A),
-                                          border: Border.all(color: const Color(0xFF334155)),
-                                        ),
-                                        child: Stack(
-                                          children: tables.map((table) {
-                                            final isOccupied = occupiedTableIds.contains(table['id']);
-                                            double x = (table['pos_x'] as num?)?.toDouble() ?? 50.0;
-                                            double y = (table['pos_y'] as num?)?.toDouble() ?? 50.0;
-                                            
-                                            return Positioned(
-                                              left: x,
-                                              top: y,
-                                              child: InkWell(
-                                                onTap: () {
-                                                  setState(() {
-                                                    _selectedOrderType = 'dine_in';
-                                                    _selectedTableId = table['id'];
-                                                    _selectedTableNumber = table['table_number'].toString();
-                                                    _customerName = null;
-                                                  });
-                                                  Navigator.pop(context);
-                                                },
-                                                borderRadius: BorderRadius.circular(16),
-                                                child: Container(
-                                                  width: 120,
-                                                  height: 120,
-                                                  decoration: BoxDecoration(
-                                                    color: isOccupied ? const Color(0xFF331515) : const Color(0xFF1E293B),
-                                                    borderRadius: BorderRadius.circular(16),
-                                                    border: Border.all(
-                                                      color: isOccupied ? Colors.red[900]! : const Color(0xFF334155),
-                                                      width: isOccupied ? 2 : 1,
-                                                    ),
-                                                    boxShadow: [
-                                                      BoxShadow(
-                                                        color: Colors.black.withValues(alpha: 0.3),
-                                                        blurRadius: 10,
-                                                        offset: const Offset(0, 5),
-                                                      )
-                                                    ],
-                                                  ),
-                                                  child: Column(
-                                                    mainAxisAlignment: MainAxisAlignment.center,
-                                                    children: [
-                                                      Icon(
-                                                        Icons.table_restaurant,
-                                                        size: 40,
-                                                        color: isOccupied ? Colors.red[400] : const Color(0xFF94A3B8),
-                                                      ),
-                                                      const SizedBox(height: 8),
-                                                      Text(
-                                                        'Mesa ${table['table_number']}',
-                                                        style: TextStyle(
-                                                          fontSize: 16,
-                                                          fontWeight: FontWeight.bold,
-                                                          color: isOccupied ? Colors.red[200] : Colors.white,
-                                                        ),
-                                                      ),
-                                                      const SizedBox(height: 4),
-                                                      Container(
-                                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                                        decoration: BoxDecoration(
-                                                          color: isOccupied ? Colors.red.withValues(alpha: 0.2) : Colors.green.withValues(alpha: 0.2),
-                                                          borderRadius: BorderRadius.circular(12),
-                                                        ),
-                                                        child: Text(
-                                                          isOccupied ? 'Ocupada' : 'Libre',
-                                                          style: TextStyle(
-                                                            fontSize: 10,
-                                                            fontWeight: FontWeight.w500,
-                                                            color: isOccupied ? Colors.red[300] : Colors.green[400],
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ],
+                                  return GridView.builder(
+                                    gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                                      maxCrossAxisExtent: 160,
+                                      mainAxisSpacing: 12,
+                                      crossAxisSpacing: 12,
+                                      childAspectRatio: 1,
+                                    ),
+                                    itemCount: tables.length,
+                                    itemBuilder: (context, index) {
+                                      final table = tables[index];
+                                      final isOccupied = occupiedTableIds.contains(table['id']);
+                                      return InkWell(
+                                        onTap: () {
+                                          setState(() {
+                                            _selectedOrderType = 'dine_in';
+                                            _selectedTableId = table['id'];
+                                            _selectedTableNumber = table['table_number'].toString();
+                                            _customerName = null;
+                                          });
+                                          Navigator.pop(context);
+                                        },
+                                        borderRadius: BorderRadius.circular(16),
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            color: isOccupied ? const Color(0xFF331515) : const Color(0xFF1E293B),
+                                            borderRadius: BorderRadius.circular(16),
+                                            border: Border.all(
+                                              color: isOccupied ? Colors.red[900]! : const Color(0xFF334155),
+                                              width: isOccupied ? 2 : 1,
+                                            ),
+                                          ),
+                                          child: Column(
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            children: [
+                                              Icon(
+                                                Icons.table_restaurant,
+                                                size: 40,
+                                                color: isOccupied ? Colors.red[400] : const Color(0xFF94A3B8),
+                                              ),
+                                              const SizedBox(height: 8),
+                                              Text(
+                                                'Mesa ${table['table_number']}',
+                                                style: TextStyle(
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: isOccupied ? Colors.red[200] : Colors.white,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                                decoration: BoxDecoration(
+                                                  color: isOccupied ? Colors.red.withValues(alpha: 0.2) : Colors.green.withValues(alpha: 0.2),
+                                                  borderRadius: BorderRadius.circular(12),
+                                                ),
+                                                child: Text(
+                                                  isOccupied ? 'Ocupada' : 'Libre',
+                                                  style: TextStyle(
+                                                    fontSize: 10,
+                                                    fontWeight: FontWeight.w500,
+                                                    color: isOccupied ? Colors.red[300] : Colors.green[400],
                                                   ),
                                                 ),
                                               ),
-                                            );
-                                          }).toList(),
+                                            ],
+                                          ),
                                         ),
-                                      ),
-                                    ),
+                                      );
+                                    },
                                   );
                                 },
                               );
