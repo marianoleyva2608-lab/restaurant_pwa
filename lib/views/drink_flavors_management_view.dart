@@ -15,12 +15,13 @@ class _DrinkFlavorsManagementViewState extends State<DrinkFlavorsManagementView>
 
   List<Map<String, dynamic>> _refrescos = [];
   List<Map<String, dynamic>> _aguas = [];
+  List<Map<String, dynamic>> _jugos = [];
   bool _loading = true;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     _fetchFlavors();
   }
 
@@ -46,7 +47,8 @@ class _DrinkFlavorsManagementViewState extends State<DrinkFlavorsManagementView>
                   f['type'] == 'refresco_255' ||
                   f['type'] == 'refresco_600')
               .toList();
-          _aguas = list.where((f) => f['type'] == 'agua_fresca').toList();
+          _aguas  = list.where((f) => f['type'] == 'agua_fresca').toList();
+          _jugos  = list.where((f) => f['type'] == 'jugo').toList();
           _loading = false;
         });
       }
@@ -88,6 +90,7 @@ class _DrinkFlavorsManagementViewState extends State<DrinkFlavorsManagementView>
 
   List<Map<String, dynamic>> _listForType(String type) {
     if (type == 'agua_fresca') return _aguas;
+    if (type == 'jugo') return _jugos;
     return _refrescos;
   }
 
@@ -156,6 +159,7 @@ class _DrinkFlavorsManagementViewState extends State<DrinkFlavorsManagementView>
       ('refresco_255', 'Refresco 255 ml'),
       ('refresco_600', 'Refresco 600 ml'),
       ('agua_fresca',  'Agua Fresca'),
+      ('jugo',         'Jugo'),
     ];
 
     await showDialog(
@@ -289,7 +293,11 @@ class _DrinkFlavorsManagementViewState extends State<DrinkFlavorsManagementView>
         final f = items[index];
         final available = f['available'] as bool? ?? true;
         final ftype = f['type'] as String;
-        final icon = tabType == 'agua_fresca' ? Icons.water_drop : Icons.local_drink;
+        final icon = tabType == 'agua_fresca'
+            ? Icons.water_drop
+            : tabType == 'jugo'
+                ? Icons.blender
+                : Icons.local_drink;
         return Container(
           decoration: BoxDecoration(
             color: const Color(0xFF1E293B),
@@ -319,7 +327,7 @@ class _DrinkFlavorsManagementViewState extends State<DrinkFlavorsManagementView>
                     ),
                   ),
                 ),
-                if (tabType != 'agua_fresca') ...[
+                if (tabType != 'agua_fresca' && tabType != 'jugo') ...[
                   const SizedBox(width: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -377,7 +385,8 @@ class _DrinkFlavorsManagementViewState extends State<DrinkFlavorsManagementView>
 
   @override
   Widget build(BuildContext context) {
-    final currentType = _tabController.index == 0 ? 'refresco' : 'agua_fresca';
+    const tabTypes = ['refresco', 'agua_fresca', 'jugo'];
+    final currentType = tabTypes[_tabController.index];
     return Scaffold(
       backgroundColor: const Color(0xFF0F172A),
       floatingActionButton: FloatingActionButton(
@@ -422,6 +431,7 @@ class _DrinkFlavorsManagementViewState extends State<DrinkFlavorsManagementView>
             tabs: const [
               Tab(icon: Icon(Icons.local_drink, size: 18), child: Text('Refrescos')),
               Tab(icon: Icon(Icons.water_drop, size: 18), child: Text('Aguas Frescas')),
+              Tab(icon: Icon(Icons.blender,     size: 18), child: Text('Jugos')),
             ],
           ),
           Expanded(
@@ -430,6 +440,7 @@ class _DrinkFlavorsManagementViewState extends State<DrinkFlavorsManagementView>
               children: [
                 _buildList(_refrescos, 'refresco'),
                 _buildList(_aguas,     'agua_fresca'),
+                _buildList(_jugos,     'jugo'),
               ],
             ),
           ),

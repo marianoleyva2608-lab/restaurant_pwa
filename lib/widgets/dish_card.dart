@@ -49,9 +49,14 @@ Future<void> addDishToCart(BuildContext context, Dish dish) async {
   final nameLower = dish.name.toLowerCase();
   final bool isRefresco = nameLower.contains('refresco');
   final bool isAguaFresca = nameLower.contains('agua fresca') || nameLower.contains('agua ') || nameLower.startsWith('agua');
+  final bool isJugo = dish.category == 'jugos' || nameLower.contains('jugo');
 
-  if (isRefresco || isAguaFresca) {
-    final drinkType = isRefresco ? _refrescoType(nameLower) : 'agua_fresca';
+  if (isRefresco || isAguaFresca || isJugo) {
+    final drinkType = isRefresco
+        ? _refrescoType(nameLower)
+        : isJugo
+            ? 'jugo'
+            : 'agua_fresca';
     final sabores = await _loadDrinkFlavors(drinkType);
     String? selectedSabor;
     String? aguaSize;
@@ -63,7 +68,11 @@ Future<void> addDishToCart(BuildContext context, Dish dish) async {
             return AlertDialog(
               backgroundColor: const Color(0xFF1E293B),
               title: Text(
-                isRefresco ? '¿De qué sabor/marca?' : '¿De qué sabor?',
+                isRefresco
+                    ? '¿De qué sabor/marca?'
+                    : isJugo
+                        ? '¿Qué jugo?'
+                        : '¿De qué sabor?',
                 style: const TextStyle(color: Colors.white, fontSize: 16),
               ),
               content: SizedBox(
@@ -72,8 +81,8 @@ Future<void> addDishToCart(BuildContext context, Dish dish) async {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Selector de tamaño para refrescos y aguas
-                    if (isRefresco || isAguaFresca) ...[
+                    // Selector de tamaño para refrescos, aguas y jugos
+                    if (isRefresco || isAguaFresca || isJugo) ...[
                       const Text(
                         'TAMAÑO',
                         style: TextStyle(
@@ -100,6 +109,22 @@ Future<void> addDishToCart(BuildContext context, Dish dish) async {
                               value: aguaSize == '600 ml',
                               onChanged: (v) => setDialogState(
                                   () => aguaSize = v ? '600 ml' : null),
+                            ),
+                          ] else if (isJugo) ...[
+                            _ToggleOption(
+                              icon: Icons.blender,
+                              label: '330 ml',
+                              value: aguaSize == '330 ml',
+                              onChanged: (v) => setDialogState(
+                                  () => aguaSize = v ? '330 ml' : null),
+                            ),
+                            const SizedBox(width: 10),
+                            _ToggleOption(
+                              icon: Icons.blender,
+                              label: '1 litro',
+                              value: aguaSize == '1 litro',
+                              onChanged: (v) => setDialogState(
+                                  () => aguaSize = v ? '1 litro' : null),
                             ),
                           ] else ...[
                             _ToggleOption(
