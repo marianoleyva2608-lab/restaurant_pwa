@@ -72,8 +72,8 @@ Future<void> addDishToCart(BuildContext context, Dish dish) async {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Selector de tamaño solo para aguas frescas
-                    if (isAguaFresca) ...[
+                    // Selector de tamaño para refrescos y aguas
+                    if (isRefresco || isAguaFresca) ...[
                       const Text(
                         'TAMAÑO',
                         style: TextStyle(
@@ -85,21 +85,39 @@ Future<void> addDishToCart(BuildContext context, Dish dish) async {
                       const SizedBox(height: 10),
                       Row(
                         children: [
-                          _ToggleOption(
-                            icon: Icons.local_drink,
-                            label: '600 ml',
-                            value: aguaSize == '600 ml',
-                            onChanged: (v) => setDialogState(
-                                () => aguaSize = v ? '600 ml' : null),
-                          ),
-                          const SizedBox(width: 10),
-                          _ToggleOption(
-                            icon: Icons.local_drink,
-                            label: '1 litro',
-                            value: aguaSize == '1 litro',
-                            onChanged: (v) => setDialogState(
-                                () => aguaSize = v ? '1 litro' : null),
-                          ),
+                          if (isRefresco) ...[
+                            _ToggleOption(
+                              icon: Icons.sports_bar,
+                              label: '255 ml',
+                              value: aguaSize == '255 ml',
+                              onChanged: (v) => setDialogState(
+                                  () => aguaSize = v ? '255 ml' : null),
+                            ),
+                            const SizedBox(width: 10),
+                            _ToggleOption(
+                              icon: Icons.sports_bar,
+                              label: '600 ml',
+                              value: aguaSize == '600 ml',
+                              onChanged: (v) => setDialogState(
+                                  () => aguaSize = v ? '600 ml' : null),
+                            ),
+                          ] else ...[
+                            _ToggleOption(
+                              icon: Icons.local_drink,
+                              label: '600 ml',
+                              value: aguaSize == '600 ml',
+                              onChanged: (v) => setDialogState(
+                                  () => aguaSize = v ? '600 ml' : null),
+                            ),
+                            const SizedBox(width: 10),
+                            _ToggleOption(
+                              icon: Icons.local_drink,
+                              label: '1 litro',
+                              value: aguaSize == '1 litro',
+                              onChanged: (v) => setDialogState(
+                                  () => aguaSize = v ? '1 litro' : null),
+                            ),
+                          ],
                         ],
                       ),
                       const SizedBox(height: 12),
