@@ -267,10 +267,18 @@ class _DishManagementViewState extends State<DishManagementView> {
 
     if (confirm == true) {
       try {
+        await _supabase.from('dish_flavors').delete().eq('dish_id', id);
         await _supabase.from('dishes').delete().eq('id', id);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Platillo eliminado'), backgroundColor: Colors.green),
+          );
+        }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('No se puede eliminar (quizás esté en una orden): \$e')));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error al eliminar: $e'), backgroundColor: Colors.red),
+          );
         }
       }
     }
