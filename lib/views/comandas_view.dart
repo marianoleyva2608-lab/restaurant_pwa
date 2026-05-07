@@ -723,7 +723,10 @@ class _ComandasViewState extends State<ComandasView> {
     final isDesktop = w >= 1024;
 
     if (isPhone) {
-      // Celular: menú arriba (3/5), resumen abajo (2/5)
+      // Celular: menú arriba, resumen abajo (toggle con botón ≡)
+      if (!_carritoVisible) {
+        return _buildMenuContent(context);
+      }
       return Column(
         children: [
           Expanded(flex: 3, child: _buildMenuContent(context)),
@@ -999,7 +1002,7 @@ class _ComandasViewState extends State<ComandasView> {
           sliver: SliverGrid(
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: crossAxisCount,
-              childAspectRatio: isMobile ? 0.78 : (isTablet ? 0.85 : 0.72),
+              childAspectRatio: isMobile ? 0.72 : (isTablet ? 0.80 : 0.70),
               crossAxisSpacing: isMobile ? 6 : (isTablet ? 8 : 12),
               mainAxisSpacing: isMobile ? 6 : (isTablet ? 8 : 12),
             ),
