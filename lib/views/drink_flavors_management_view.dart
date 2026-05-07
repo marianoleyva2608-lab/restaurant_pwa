@@ -137,76 +137,126 @@ class _DrinkFlavorsManagementViewState extends State<DrinkFlavorsManagementView>
   Future<void> _showFlavorDialog({Map<String, dynamic>? flavor, required String type}) async {
     final isEditing = flavor != null;
     final nameController = TextEditingController(text: isEditing ? flavor['name'] as String : '');
-    final hint = type == 'agua_fresca' ? 'Ej. Jamaica, Horchata...' : 'Ej. Coca-Cola, Sprite...';
+    String selectedType = isEditing ? (flavor['type'] as String? ?? type) : type;
+
+    const typeOptions = [
+      ('refresco',     'Refresco genérico'),
+      ('refresco_255', 'Refresco 255 ml'),
+      ('refresco_600', 'Refresco 600 ml'),
+      ('agua_fresca',  'Agua Fresca'),
+    ];
 
     await showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E293B),
-        title: Text(
-          isEditing ? 'Editar sabor' : (type == 'agua_fresca' ? 'Nuevo sabor de agua' : type == 'refresco_255' ? 'Nuevo sabor 255ml' : type == 'refresco_600' ? 'Nuevo sabor 600ml' : 'Nuevo refresco'),
-          style: const TextStyle(color: Colors.white),
-        ),
-        content: TextField(
-          controller: nameController,
-          autofocus: true,
-          style: const TextStyle(color: Colors.white),
-          textCapitalization: TextCapitalization.sentences,
-          decoration: InputDecoration(
-            hintText: hint,
-            hintStyle: const TextStyle(color: Colors.white38),
-            enabledBorder: const UnderlineInputBorder(
-              borderSide: BorderSide(color: Color(0xFFFF6D00)),
-            ),
-            focusedBorder: const UnderlineInputBorder(
-              borderSide: BorderSide(color: Color(0xFFFF6D00), width: 2),
-            ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlgState) => AlertDialog(
+          backgroundColor: const Color(0xFF1E293B),
+          title: Text(
+            isEditing ? 'Editar sabor' : 'Nuevo sabor',
+            style: const TextStyle(color: Colors.white),
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancelar', style: TextStyle(color: Colors.white54)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextField(
+                controller: nameController,
+                autofocus: true,
+                style: const TextStyle(color: Colors.white),
+                textCapitalization: TextCapitalization.sentences,
+                decoration: InputDecoration(
+                  hintText: selectedType == 'agua_fresca' ? 'Ej. Jamaica, Horchata...' : 'Ej. Coca-Cola, Sprite...',
+                  hintStyle: const TextStyle(color: Colors.white38),
+                  enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFFF6D00))),
+                  focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFFF6D00), width: 2)),
+                ),
+              ),
+              const SizedBox(height: 20),
+              const Text('Subgrupo', style: TextStyle(color: Colors.white54, fontSize: 12, letterSpacing: 1)),
+              const SizedBox(height: 8),
+              ...typeOptions.map((opt) {
+                final key = opt.$1;
+                final label = opt.$2;
+                final isSelected = selectedType == key;
+                return GestureDetector(
+                  onTap: () => setDlgState(() => selectedType = key),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    margin: const EdgeInsets.only(bottom: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: isSelected ? const Color(0xFFFF6D00).withOpacity(0.15) : const Color(0xFF0F172A),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: isSelected ? const Color(0xFFFF6D00) : const Color(0xFF334155),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(isSelected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                            size: 18, color: isSelected ? const Color(0xFFFF6D00) : Colors.white38),
+                        const SizedBox(width: 10),
+                        Text(label, style: TextStyle(
+                          color: isSelected ? Colors.white : Colors.white60,
+                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                        )),
+                      ],
+                    ),
+                  ),
+                );
+              }),
+            ],
           ),
-          TextButton(
-            onPressed: () async {
-              final name = nameController.text.trim();
-              if (name.isEmpty) return;
-              Navigator.pop(ctx);
-              try {
-                if (isEditing) {
-                  _updateLocal(type, flavor['id'], {'name': name});
-                  await _supabase.from('drink_flavors').update({'name': name}).eq('id', flavor['id']);
-                } else {
-                  final result = await _supabase.from('drink_flavors').insert({
-                    'name': name,
-                    'type': type,
-                    'available': true,
-                  }).select().single();
-                  setState(() {
-                    final list = _listForType(type);
-                    list.add(result);
-                    list.sort((a, b) => (a['name'] as String).compareTo(b['name'] as String));
-                  });
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancelar', style: TextStyle(color: Colors.white54)),
+            ),
+            TextButton(
+              onPressed: () async {
+                final name = nameController.text.trim();
+                if (name.isEmpty) return;
+                Navigator.pop(ctx);
+                try {
+                  if (isEditing) {
+                    final oldType = flavor['type'] as String;
+                    if (oldType != selectedType) {
+                      // Mover a otro subgrupo: quitar de lista vieja, agregar a nueva
+                      setState(() => _listForType(oldType).removeWhere((f) => f['id'] == flavor['id']));
+                    }
+                    _updateLocal(selectedType, flavor['id'], {'name': name, 'type': selectedType});
+                    await _supabase.from('drink_flavors')
+                        .update({'name': name, 'type': selectedType}).eq('id', flavor['id']);
+                    // Si cambió de tipo, asegurarse de que esté en la lista correcta
+                    if (oldType != selectedType) _fetchFlavors();
+                  } else {
+                    final result = await _supabase.from('drink_flavors').insert({
+                      'name': name,
+                      'type': selectedType,
+                      'available': true,
+                    }).select().single();
+                    setState(() {
+                      final list = _listForType(selectedType);
+                      list.add(result);
+                      list.sort((a, b) => (a['name'] as String).compareTo(b['name'] as String));
+                    });
+                  }
+                } catch (e) {
+                  _fetchFlavors();
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Error: $e')),
+                    );
+                  }
                 }
-              } catch (e) {
-                _fetchFlavors();
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Error: $e')),
-                  );
-                }
-              }
-            },
-            style: TextButton.styleFrom(
-              backgroundColor: const Color(0xFFFF6D00).withOpacity(0.15),
+              },
+              style: TextButton.styleFrom(backgroundColor: const Color(0xFFFF6D00).withOpacity(0.15)),
+              child: Text(isEditing ? 'Guardar' : 'Agregar',
+                  style: const TextStyle(color: Color(0xFFFF6D00))),
             ),
-            child: Text(
-              isEditing ? 'Guardar' : 'Agregar',
-              style: const TextStyle(color: Color(0xFFFF6D00)),
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
