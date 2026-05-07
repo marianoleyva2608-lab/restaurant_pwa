@@ -268,6 +268,7 @@ class _DishManagementViewState extends State<DishManagementView> {
     if (confirm == true) {
       try {
         await _supabase.from('drink_flavors').delete().eq('dish_id', id);
+        await _supabase.from('order_items').delete().eq('dish_id', id);
         await _supabase.from('dishes').delete().eq('id', id);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
