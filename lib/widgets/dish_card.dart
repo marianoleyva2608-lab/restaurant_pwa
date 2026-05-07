@@ -16,12 +16,6 @@ const _aguaFallback = [
   'Pepino', 'Melón', 'Sandía', 'Guayaba', 'Fresa', 'Maracuyá', 'Otro',
 ];
 
-// Detecta el tamaño del refresco por el nombre del platillo
-String _refrescoType(String nameLower) {
-  if (nameLower.contains('600')) return 'refresco_600';
-  if (nameLower.contains('255') || nameLower.contains('355')) return 'refresco_255';
-  return 'refresco'; // genérico si no especifica tamaño
-}
 
 Future<List<String>> _loadDrinkFlavors(String type) async {
   try {
@@ -52,12 +46,11 @@ Future<void> addDishToCart(BuildContext context, Dish dish) async {
   final bool isJugo = dish.category == 'jugos' || nameLower.contains('jugo');
 
   if (isRefresco || isAguaFresca || isJugo) {
-    final drinkType = isRefresco
-        ? _refrescoType(nameLower)
-        : isJugo
-            ? 'jugo'
-            : 'agua_fresca';
-    final sabores = await _loadDrinkFlavors(drinkType);
+    // Para refrescos cargamos las listas de 255ml y 600ml por separado
+    final List<String> sabores255 = isRefresco ? await _loadDrinkFlavors('refresco_255') : [];
+    final List<String> sabores600 = isRefresco ? await _loadDrinkFlavors('refresco_600') : [];
+    final drinkType = isJugo ? 'jugo' : isRefresco ? 'refresco' : 'agua_fresca';
+    final List<String> saboresDefault = await _loadDrinkFlavors(drinkType);
     String? selectedSabor;
     String? aguaSize;
     await showDialog(
@@ -99,16 +92,20 @@ Future<void> addDishToCart(BuildContext context, Dish dish) async {
                               icon: Icons.sports_bar,
                               label: '255 ml',
                               value: aguaSize == '255 ml',
-                              onChanged: (v) => setDialogState(
-                                  () => aguaSize = v ? '255 ml' : null),
+                              onChanged: (v) => setDialogState(() {
+                                aguaSize = v ? '255 ml' : null;
+                                selectedSabor = null;
+                              }),
                             ),
                             const SizedBox(width: 10),
                             _ToggleOption(
                               icon: Icons.sports_bar,
                               label: '600 ml',
                               value: aguaSize == '600 ml',
-                              onChanged: (v) => setDialogState(
-                                  () => aguaSize = v ? '600 ml' : null),
+                              onChanged: (v) => setDialogState(() {
+                                aguaSize = v ? '600 ml' : null;
+                                selectedSabor = null;
+                              }),
                             ),
                           ] else if (isJugo) ...[
                             _ToggleOption(
@@ -158,7 +155,15 @@ Future<void> addDishToCart(BuildContext context, Dish dish) async {
                           letterSpacing: 1),
                     ),
                     const SizedBox(height: 8),
-                    GridView.builder(
+                    Builder(builder: (context) {
+                      final saboresActuales = isRefresco
+                          ? (aguaSize == '255 ml'
+                              ? sabores255
+                              : aguaSize == '600 ml'
+                                  ? sabores600
+                                  : saboresDefault)
+                          : saboresDefault;
+                      return GridView.builder(
                       shrinkWrap: true,
                       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: 3,
@@ -166,9 +171,9 @@ Future<void> addDishToCart(BuildContext context, Dish dish) async {
                         mainAxisSpacing: 6,
                         childAspectRatio: 2.4,
                       ),
-                      itemCount: sabores.length,
+                      itemCount: saboresActuales.length,
                       itemBuilder: (ctx2, i) {
-                        final sabor = sabores[i];
+                        final sabor = saboresActuales[i];
                         final isSelected = selectedSabor == sabor;
                         return InkWell(
                           borderRadius: BorderRadius.circular(8),
@@ -211,7 +216,8 @@ Future<void> addDishToCart(BuildContext context, Dish dish) async {
                           ),
                         );
                       },
-                    ),
+                    ); // GridView
+                    }), // Builder
                   ],
                 ),
               ),
