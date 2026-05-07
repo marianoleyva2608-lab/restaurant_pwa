@@ -256,6 +256,69 @@ Future<void> addDishToCart(BuildContext context, Dish dish) async {
 
   final bool isChilaquil = dish.category == 'chilaquiles' ||
       dish.name.toLowerCase().contains('chilaquil');
+  final bool isArrachera = dish.category == 'arrachera' ||
+      nameLower.contains('arrachera');
+
+  if (isArrachera) {
+    bool conQueso = false;
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          backgroundColor: const Color(0xFF1E293B),
+          title: Text(dish.name, style: const TextStyle(color: Colors.white, fontSize: 16)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Opciones',
+                style: TextStyle(color: Colors.white70, fontSize: 12,
+                    fontWeight: FontWeight.w600, letterSpacing: 1),
+              ),
+              const SizedBox(height: 8),
+              _ToggleOption(
+                icon: Icons.egg_alt,
+                label: 'Con Queso  (+\$5)',
+                value: conQueso,
+                onChanged: (v) => setDialogState(() => conQueso = v),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancelar', style: TextStyle(color: Colors.white54)),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                final finalDish = conQueso
+                    ? dish.copyWith(price: dish.price + 5)
+                    : dish;
+                final extras = [if (conQueso) 'Con queso'];
+                cart.addItemWithGuisados(finalDish, extras);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                    content: Text('${dish.name} agregado'),
+                    duration: const Duration(milliseconds: 500),
+                    behavior: SnackBarBehavior.floating,
+                    width: 200,
+                  ));
+                }
+              },
+              style: TextButton.styleFrom(
+                  backgroundColor: const Color(0xFFFF6D00).withValues(alpha: 0.15)),
+              child: const Text('Agregar a la orden',
+                  style: TextStyle(color: Color(0xFFFF6D00))),
+            ),
+          ],
+        ),
+      ),
+    );
+    return;
+  }
 
   if (!dish.requiresGuisado && !isChilaquil) {
     cart.addItem(dish);
