@@ -20,18 +20,21 @@ const _aguaFallback = [
 Future<List<String>> _loadDrinkFlavors(String type) async {
   try {
     final supabase = Supabase.instance.client;
+    // Para refrescos cargamos todos los subtipos combinados y sin duplicados
+    final types = type == 'refresco'
+        ? ['refresco', 'refresco_255', 'refresco_600']
+        : [type];
     final rows = await supabase
         .from('drink_flavors')
         .select('name')
-        .eq('type', type)
+        .inFilter('type', types)
         .eq('available', true)
         .order('name');
-    final list = (rows as List).map((r) => r['name'] as String).toList();
+    final list = (rows as List)
+        .map((r) => r['name'] as String)
+        .toSet()
+        .toList()..sort();
     if (list.isNotEmpty) return list;
-    // Fallback: si no hay sabores específicos para ese tamaño, usar los genéricos
-    if (type == 'refresco_255' || type == 'refresco_600') {
-      return await _loadDrinkFlavors('refresco');
-    }
     return type.startsWith('refresco') ? _refrescoFallback : _aguaFallback;
   } catch (_) {
     return type.startsWith('refresco') ? _refrescoFallback : _aguaFallback;

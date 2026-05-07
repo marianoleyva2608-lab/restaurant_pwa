@@ -155,7 +155,6 @@ class _DrinkFlavorsManagementViewState extends State<DrinkFlavorsManagementView>
     String selectedType = isEditing ? (flavor['type'] as String? ?? type) : type;
 
     const typeOptions = [
-      ('refresco',     'Refresco genérico'),
       ('refresco_255', 'Refresco 255 ml'),
       ('refresco_600', 'Refresco 600 ml'),
       ('agua_fresca',  'Agua Fresca'),
