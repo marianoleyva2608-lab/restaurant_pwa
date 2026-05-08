@@ -335,6 +335,96 @@ Future<void> addDishToCart(BuildContext context, Dish dish) async {
       dish.name.toLowerCase().contains('chilaquil');
   final bool isArrachera = dish.category == 'arrachera' ||
       nameLower.contains('arrachera');
+  final bool isHuevo = dish.category == 'huevos' && !isChilaquil;
+
+  if (isHuevo) {
+    String? selectedTermino;
+    const List<String> terminos = ['Tierno', 'Cocido', 'Sellados'];
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          backgroundColor: const Color(0xFF1E293B),
+          title: Text(
+            '${dish.name} — ¿Término?',
+            style: const TextStyle(color: Colors.white, fontSize: 16),
+          ),
+          content: SizedBox(
+            width: 300,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: terminos.map((t) {
+                final selected = selectedTermino == t;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: InkWell(
+                    onTap: () => setDialogState(() => selectedTermino = t),
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      decoration: BoxDecoration(
+                        color: selected
+                            ? const Color(0xFFFF6D00).withValues(alpha: 0.2)
+                            : const Color(0xFF0F172A),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: selected ? const Color(0xFFFF6D00) : Colors.transparent,
+                          width: 1.5,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            selected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                            color: selected ? const Color(0xFFFF6D00) : Colors.white54,
+                            size: 22,
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            t,
+                            style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w500),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancelar', style: TextStyle(color: Colors.white54)),
+            ),
+            TextButton(
+              onPressed: selectedTermino == null
+                  ? null
+                  : () {
+                      Navigator.pop(ctx);
+                      cart.addItemWithGuisados(dish, [selectedTermino!]);
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                          content: Text('${dish.name} ($selectedTermino) agregado'),
+                          duration: const Duration(milliseconds: 600),
+                          behavior: SnackBarBehavior.floating,
+                          width: 260,
+                        ));
+                      }
+                    },
+              style: TextButton.styleFrom(
+                backgroundColor: const Color(0xFFFF6D00).withValues(alpha: 0.15),
+              ),
+              child: const Text('Agregar a la orden', style: TextStyle(color: Color(0xFFFF6D00))),
+            ),
+          ],
+        ),
+      ),
+    );
+    return;
+  }
 
   if (isArrachera) {
     bool conQueso = false;
