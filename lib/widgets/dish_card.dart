@@ -5,11 +5,28 @@ import '../models/dish.dart';
 import '../providers/cart_provider.dart';
 import '../globals.dart';
 
+bool _isRefresco(String name) {
+  final n = name.toLowerCase();
+  return n.contains('refresco') || n.contains('coca') || n.contains('pepsi') ||
+      n.contains('sprite') || n.contains('fanta') || n.contains('sidral') ||
+      n.contains('squirt') || n.contains('7up') || n.contains('manzanita') ||
+      n.contains('sangría') || n.contains('sangria');
+}
+
 Future<void> addDishToCart(BuildContext context, Dish dish) async {
   final cart = context.read<CartProvider>();
 
   if (!dish.requiresGuisado) {
-    cart.addItem(dish);
+    final n = dish.name.toLowerCase();
+    Dish finalDish = dish;
+    if (_isRefresco(n)) {
+      if (n.contains('600')) {
+        finalDish = dish.copyWith(price: 30);
+      } else if (n.contains('255') || n.contains('355')) {
+        finalDish = dish.copyWith(price: 25);
+      }
+    }
+    cart.addItem(finalDish);
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -236,9 +253,21 @@ Future<void> addDishToCart(BuildContext context, Dish dish) async {
                     if (frita) 'Frita',
                     ...selected,
                   ];
-                  final finalDish = (isTapa && conQueso)
-                      ? dish.copyWith(price: dish.price + 25)
-                      : dish;
+                  Dish finalDish = dish;
+                  if (isTapa && conQueso) {
+                    finalDish = dish.copyWith(price: dish.price + 25);
+                  } else if (_isRefresco(dish.name.toLowerCase())) {
+                    for (final g in selected) {
+                      final gn = g.toLowerCase();
+                      if (gn.contains('600')) {
+                        finalDish = dish.copyWith(price: 30);
+                        break;
+                      } else if (gn.contains('255') || gn.contains('355')) {
+                        finalDish = dish.copyWith(price: 25);
+                        break;
+                      }
+                    }
+                  }
                   cart.addItemWithGuisados(finalDish, extras);
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).hideCurrentSnackBar();
