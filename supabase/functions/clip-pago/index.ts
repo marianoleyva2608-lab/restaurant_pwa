@@ -90,10 +90,9 @@ async function procesarPagoClip(body: any) {
 
   let data: any = {};
   try {
-    data = await resp.json();
-  } catch (_) {
-    data = { raw: await resp.text() };
-  }
+    const text = await resp.text();
+    try { data = JSON.parse(text); } catch (_) { data = { raw: text }; }
+  } catch (_) { /* sin body */ }
 
   if (!resp.ok) {
     return json({
@@ -114,53 +113,92 @@ async function procesarPagoClip(body: any) {
   });
 }
 
+// Obtiene un OAuth token de Clip usando client_id + client_secret
+async function getClipToken(clipApiUrl: string, clientId: string, clientSecret: string): Promise<string> {
+  const resp = await fetch(`${clipApiUrl}/oauth/token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: `grant_type=client_credentials&client_id=${encodeURIComponent(clientId)}&client_secret=${encodeURIComponent(clientSecret)}`,
+  });
+  const text = await resp.text();
+  let data: any = {};
+  try { data = JSON.parse(text); } catch (_) { data = { raw: text }; }
+  if (!resp.ok) throw new Error(`Clip auth falló HTTP ${resp.status}: ${text}`);
+  if (!data.access_token) throw new Error(`Clip no devolvió access_token: ${text}`);
+  return String(data.access_token);
+}
+
 // Crea un Payment Link de Clip y devuelve la URL para redirigir al cliente.
 async function crearLinkPago(body: any) {
-  const cfg = await loadConfig();
+  // PASO 1: cargar config
+  let cfg: Record<string, string>;
+  try {
+    cfg = await loadConfig();
+  } catch (e: any) {
+    return json({ ok: false, step: 'loadConfig', detail: String(e?.message ?? e) }, 500);
+  }
+
   const amount = Number(body.amount ?? 0);
   const description = String(body.description ?? 'Pedido').slice(0, 250);
   const redirectUrl = String(body.redirect_url ?? '');
   if (!amount || amount <= 0) {
     return json({ ok: false, message: 'Monto inválido' }, 400);
   }
-  const clipSecret = cfg.clip_secret_key;
-  if (!clipSecret) {
-    return json(
-      { ok: false, message: 'clip_secret_key no configurada' },
-      500,
-    );
-  }
+
+  const clipApiKey = cfg.clip_api_key ?? cfg.clip_secret_key ?? '';
+  const clipSecretKey = cfg.clip_secret_key ?? '';
   const clipApiUrl = cfg.clip_api_url || 'https://api.payclip.com';
 
-  // Endpoint de Clip para Payment Links / Checkout online
-  const resp = await fetch(`${clipApiUrl}/checkout`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${clipSecret}`,
-    },
-    body: JSON.stringify({
-      amount,
-      currency: 'MXN',
-      purchase_description: description,
-      redirection_url: {
-        success: redirectUrl || undefined,
-        error: redirectUrl || undefined,
-        default: redirectUrl || undefined,
+  if (!clipApiKey) return json({ ok: false, message: 'clip_api_key no configurada' }, 500);
+
+  // PASO 2: obtener OAuth token
+  let accessToken: string;
+  try {
+    accessToken = await getClipToken(clipApiUrl, clipApiKey, clipSecretKey);
+  } catch (e: any) {
+    return json({ ok: false, step: 'get_token', detail: String(e?.message ?? e) }, 500);
+  }
+
+  // PASO 3: crear payment link
+  let resp: Response;
+  try {
+    resp = await fetch(`${clipApiUrl}/checkout`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
       },
-    }),
-  });
+      body: JSON.stringify({
+        amount,
+        currency: 'MXN',
+        purchase_description: description,
+        redirection_url: {
+          success: redirectUrl || undefined,
+          error: redirectUrl || undefined,
+          default: redirectUrl || undefined,
+        },
+      }),
+    });
+  } catch (e: any) {
+    return json({ ok: false, step: 'fetch_clip', detail: String(e?.message ?? e) }, 500);
+  }
+
+  // PASO 4: leer respuesta
+  let text = '';
+  try {
+    text = await resp.text();
+  } catch (e: any) {
+    return json({ ok: false, step: 'read_body', http_status: resp.status, detail: String(e?.message ?? e) }, 500);
+  }
 
   let data: any = {};
-  try {
-    data = await resp.json();
-  } catch (_) {
-    data = { raw: await resp.text() };
-  }
+  try { data = JSON.parse(text); } catch (_) { data = { raw: text }; }
 
   if (!resp.ok) {
     return json({
       ok: false,
+      step: 'clip_error',
+      http_status: resp.status,
       message: data.message ?? data.error_message ?? `HTTP ${resp.status}`,
       detail: data,
     }, resp.status);
