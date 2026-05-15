@@ -31,6 +31,12 @@
 
   <title>Gorditas Mis Hermanas</title>
   <link rel="manifest" href="manifest.json">
+
+  <!-- Clip SDK -->
+  <script src="https://sdk.clip.mx/js/clip-sdk.js"></script>
+  <style>
+    #__clip_portal__ iframe { border: none !important; width: 100% !important; min-height: 300px !important; display: block !important; }
+  </style>
 </head>
 <body>
   <!--
@@ -58,6 +64,157 @@
         });
       });
     }
+  </script>
+  <script>
+    // ── Puente Flutter ↔ Clip ────────────────────────────────────
+    let _clipCard = null;
+    const _CLIP_PORTAL_ID = '__clip_portal__';
+
+    window.addEventListener('message', function(evt) {
+      if (!evt.data) return;
+      const d = typeof evt.data === 'object' ? evt.data : {};
+      if (d.type === 'card-token-exception' || (Object.prototype.hasOwnProperty.call(d, 'error') && (d.type === null || d.type === undefined))) {
+        const code = d.code || '';
+        const msg = code ? 'Tarjeta rechazada (' + code + ')' : 'Datos de tarjeta inválidos';
+        window._clipErrorHandled = true;
+        if (window._clipOnError) window._clipOnError(msg);
+        return;
+      }
+      if (d.type === 'clip:token' || d.tokenId || d.token_id || (d.token && d.token.id)) {
+        const tokenId = d.tokenId ?? d.token_id ?? d.token?.id;
+        if (tokenId && window._clipOnSubmit) {
+          window._clipOnSubmit(JSON.stringify({ token_id: tokenId }));
+        }
+      }
+    });
+
+    window.clipInitBrick = function(containerId, apiKey, amount) {
+      if (_clipCard) { try { _clipCard.unmount(); } catch(e) {} _clipCard = null; }
+      const old = document.getElementById(_CLIP_PORTAL_ID);
+      if (old) old.remove();
+      const portal = document.createElement('div');
+      portal.id = _CLIP_PORTAL_ID;
+      document.body.appendChild(portal);
+
+      function tryMount(retries) {
+        const placeholder = document.getElementById(containerId);
+        if (!placeholder) {
+          if (retries > 0) { setTimeout(() => tryMount(retries - 1), 150); return; }
+          if (window._clipOnError) window._clipOnError('No se encontró el placeholder de Clip');
+          return;
+        }
+        const rect = placeholder.getBoundingClientRect();
+        portal.style.cssText = [
+          'position:fixed',
+          'top:' + rect.top + 'px',
+          'left:' + rect.left + 'px',
+          'width:' + rect.width + 'px',
+          'min-height:' + rect.height + 'px',
+          'background:white',
+          'z-index:9999',
+        ].join(';');
+
+        try {
+          const sdk = new ClipSDK(apiKey, { env: 'sandbox' });
+          const card = sdk.element.create('Card', {
+            locale: 'es',
+            paymentAmount: parseFloat(amount),
+            terms: { enabled: false },
+          });
+          _clipCard = card;
+          card.mount(_CLIP_PORTAL_ID);
+
+          function _disableFlutterInput() {
+            document.querySelectorAll('flt-glass-pane').forEach(function(el) {
+              el._prevPointerEvents = el.style.pointerEvents;
+              el.style.pointerEvents = 'none';
+            });
+            document.querySelectorAll('flt-text-editing-host, flt-text-editing').forEach(function(el) {
+              el._prevDisplay = el.style.display;
+              el.style.display = 'none';
+            });
+          }
+          function _enableFlutterInput() {
+            document.querySelectorAll('flt-glass-pane').forEach(function(el) {
+              el.style.pointerEvents = el._prevPointerEvents ?? '';
+            });
+            document.querySelectorAll('flt-text-editing-host, flt-text-editing').forEach(function(el) {
+              el.style.display = el._prevDisplay ?? '';
+            });
+          }
+          _disableFlutterInput();
+          window._clipUnblockKeyboard = _enableFlutterInput;
+
+          const obs = new MutationObserver(function() {
+            const iframe = portal.querySelector('iframe');
+            if (iframe) {
+              iframe.style.pointerEvents = 'auto';
+              iframe.focus();
+              obs.disconnect();
+            }
+          });
+          obs.observe(portal, { childList: true, subtree: true });
+
+          const nativeBtn = document.createElement('button');
+          nativeBtn.id = '__clip_native_btn__';
+          nativeBtn.textContent = 'Pagar con Clip';
+          nativeBtn.style.cssText = [
+            'position:fixed', 'bottom:28px', 'left:50%', 'transform:translateX(-50%)',
+            'background:#FC4C02', 'color:white', 'border:none', 'border-radius:28px',
+            'padding:16px 0', 'font-size:16px', 'font-weight:bold', 'cursor:pointer',
+            'z-index:10001', 'width:72%', 'max-width:420px', 'box-shadow:0 4px 16px rgba(0,0,0,0.3)'
+          ].join(';');
+          nativeBtn.addEventListener('click', async function() {
+            if (!_clipCard) return;
+            nativeBtn.disabled = true;
+            nativeBtn.textContent = 'Procesando...';
+            try {
+              const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('Tiempo agotado')), 15000));
+              const tokenResult = await Promise.race([_clipCard.cardToken(), timeout]);
+              const tokenId = tokenResult?.id ?? tokenResult;
+              if (!tokenId) throw new Error('No se recibió token');
+              if (window._clipOnSubmit) window._clipOnSubmit(JSON.stringify({ token_id: tokenId }));
+            } catch(e) {
+              nativeBtn.disabled = false;
+              nativeBtn.textContent = 'Pagar con Clip';
+              if (window._clipOnError) window._clipOnError(e.message || 'Error al procesar');
+            }
+          });
+          document.body.appendChild(nativeBtn);
+          window._clipNativeBtn = nativeBtn;
+
+          setTimeout(() => { if (window._clipOnReady) window._clipOnReady(); }, 2000);
+        } catch(e) {
+          if (window._clipOnError) window._clipOnError(e.message || 'Error al inicializar Clip');
+        }
+      }
+      tryMount(20);
+    };
+
+    window.clipSubmitPago = async function() {
+      if (!_clipCard) { if (window._clipOnError) window._clipOnError('SDK de Clip no inicializado'); return; }
+      window._clipErrorHandled = false;
+      try {
+        const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('__TIMEOUT__')), 15000));
+        const tokenResult = await Promise.race([_clipCard.cardToken(), timeout]);
+        const tokenId = tokenResult?.id ?? tokenResult;
+        if (!tokenId) throw new Error('No se recibió token de la tarjeta');
+        if (window._clipOnSubmit) window._clipOnSubmit(JSON.stringify({ token_id: tokenId }));
+      } catch(e) {
+        if (!window._clipErrorHandled) {
+          const msg = e.message === '__TIMEOUT__' ? 'Sin respuesta de Clip' : (e.message || 'Error al procesar tarjeta');
+          if (window._clipOnError) window._clipOnError(msg);
+        }
+      }
+    };
+
+    window.clipUnmount = function() {
+      if (_clipCard) { try { _clipCard.unmount(); } catch(e) {} _clipCard = null; }
+      const portal = document.getElementById(_CLIP_PORTAL_ID);
+      if (portal) portal.remove();
+      if (window._clipNativeBtn) { window._clipNativeBtn.remove(); window._clipNativeBtn = null; }
+      if (window._clipUnblockKeyboard) { window._clipUnblockKeyboard(); window._clipUnblockKeyboard = null; }
+    };
   </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>

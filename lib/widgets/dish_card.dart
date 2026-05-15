@@ -717,89 +717,103 @@ Future<void> addDishToCart(BuildContext context, Dish dish) async {
                       ],
                     ),
                     const SizedBox(height: 8),
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxHeight: 420),
-                      child: LayoutBuilder(
-                        builder: (ctx2, constraints2) {
-                          final cols = constraints2.maxWidth < 300 ? 2 : 3;
-                          return GridView.builder(
-                        shrinkWrap: true,
-                        gridDelegate:
-                            SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: cols,
-                          crossAxisSpacing: 8,
-                          mainAxisSpacing: 6,
-                          childAspectRatio: cols == 2 ? 2.4 : 2.8,
-                        ),
-                        itemCount: guisados.length,
-                        itemBuilder: (ctx2, gi) {
-                          final g = guisados[gi];
+                    LayoutBuilder(
+                      builder: (ctx2, constraints2) {
+                        final w = constraints2.maxWidth;
+                        final itemW = (w - 12) / 3;
+                        Widget buildItem(Map<String, dynamic> g) {
                           final name = g['name'] as String;
                           final isChecked = selected.contains(name);
-                          return InkWell(
-                            borderRadius: BorderRadius.circular(8),
-                            onTap: () {
-                              setDialogState(() {
+                          return SizedBox(
+                            width: itemW,
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(8),
+                              onTap: () => setDialogState(() {
                                 if (isChecked) {
                                   selected = selected.where((s) => s != name).toList();
                                 } else if (selected.length < 5) {
                                   selected = [...selected, name];
                                 }
-                              });
-                            },
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 150),
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: isChecked
-                                    ? const Color(0xFFFF6D00)
-                                        .withValues(alpha: 0.15)
-                                    : const Color(0xFF1E293B),
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(
+                              }),
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 150),
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                                decoration: BoxDecoration(
                                   color: isChecked
-                                      ? const Color(0xFFFF6D00)
-                                      : const Color(0xFF334155),
-                                  width: 1.5,
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    isChecked
-                                        ? Icons.check_circle
-                                        : Icons.radio_button_unchecked,
-                                    size: 14,
-                                    color: isChecked
-                                        ? const Color(0xFFFF6D00)
-                                        : const Color(0xFF64748B),
+                                      ? const Color(0xFFFF6D00).withValues(alpha: 0.15)
+                                      : const Color(0xFF1E293B),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: isChecked ? const Color(0xFFFF6D00) : const Color(0xFF334155),
+                                    width: 1.5,
                                   ),
-                                  const SizedBox(width: 5),
-                                  Expanded(
-                                    child: Text(
+                                ),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      isChecked ? Icons.check_circle : Icons.radio_button_unchecked,
+                                      size: 14,
+                                      color: isChecked ? const Color(0xFFFF6D00) : const Color(0xFF64748B),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
                                       name,
-                                      style: TextStyle(
-                                        color: isChecked
-                                            ? Colors.white
-                                            : Colors.white70,
-                                        fontSize: 11,
-                                        fontWeight: isChecked
-                                            ? FontWeight.w600
-                                            : FontWeight.w400,
-                                      ),
+                                      textAlign: TextAlign.center,
                                       maxLines: 2,
                                       overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        color: isChecked ? Colors.white : Colors.white70,
+                                        fontSize: 11,
+                                        fontWeight: isChecked ? FontWeight.w600 : FontWeight.w400,
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
                             ),
                           );
-                        },
-                      );
-                        },
-                      ),
+                        }
+                        return Stack(
+                          children: [
+                            SizedBox(
+                              height: 340,
+                              child: SingleChildScrollView(
+                                child: Wrap(
+                                  spacing: 6,
+                                  runSpacing: 6,
+                                  children: guisados.map(buildItem).toList(),
+                                ),
+                              ),
+                            ),
+                            // Degradado inferior indicando que hay más contenido
+                            Positioned(
+                              bottom: 0,
+                              left: 0,
+                              right: 0,
+                              child: IgnorePointer(
+                                child: Container(
+                                  height: 40,
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      begin: Alignment.topCenter,
+                                      end: Alignment.bottomCenter,
+                                      colors: [
+                                        const Color(0xFF1E293B).withValues(alpha: 0),
+                                        const Color(0xFF1E293B).withValues(alpha: 0.9),
+                                      ],
+                                    ),
+                                  ),
+                                  child: const Center(
+                                    child: Icon(Icons.keyboard_arrow_down,
+                                        color: Colors.white54, size: 20),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
                     ),
                   ],
                 ],

@@ -4,6 +4,7 @@ import 'comandas_view.dart';
 import 'kitchen_view.dart';
 import 'admin_view.dart';
 import '../globals.dart';
+import '../utils/app_updater.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class RoleSelectionView extends StatefulWidget {
@@ -439,6 +440,8 @@ class _RoleSelectionViewState extends State<RoleSelectionView> {
                     icon: const Icon(Icons.qr_code, color: Color(0xFF94A3B8)),
                     label: const Text('Mostrar QR de la App', style: TextStyle(color: Color(0xFF94A3B8))),
                   ),
+                  const SizedBox(height: 8),
+                  const UpdateAppButton(compact: true),
                 ],
               ],
             ),

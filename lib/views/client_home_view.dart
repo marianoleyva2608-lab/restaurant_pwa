@@ -69,7 +69,8 @@ class _ClientHomeViewState extends State<ClientHomeView> {
       builder: (ctx) => AlertDialog(
         title: const Text('Selecciona tu mesa'),
         content: SizedBox(
-          width: double.maxFinite,
+          width: 520,
+          height: 360,
           child: tables.isEmpty
               ? const Padding(
                   padding: EdgeInsets.all(16),
@@ -79,10 +80,10 @@ class _ClientHomeViewState extends State<ClientHomeView> {
                   shrinkWrap: true,
                   gridDelegate:
                       const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 4,
-                    childAspectRatio: 1,
-                    crossAxisSpacing: 8,
-                    mainAxisSpacing: 8,
+                    crossAxisCount: 6,
+                    childAspectRatio: 1.1,
+                    crossAxisSpacing: 6,
+                    mainAxisSpacing: 6,
                   ),
                   itemCount: tables.length,
                   itemBuilder: (_, i) {
@@ -102,7 +103,7 @@ class _ClientHomeViewState extends State<ClientHomeView> {
                           color: occupied
                               ? Colors.orange.withValues(alpha: 0.15)
                               : Colors.green.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(10),
                           border: Border.all(
                             color: occupied
                                 ? Colors.orange
@@ -113,15 +114,21 @@ class _ClientHomeViewState extends State<ClientHomeView> {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
+                            Icon(
+                              Icons.table_restaurant,
+                              size: 16,
+                              color: occupied ? Colors.orange : Colors.green,
+                            ),
+                            const SizedBox(height: 2),
                             Text(
                               '${t['table_number']}',
                               style: const TextStyle(
-                                  fontSize: 22, fontWeight: FontWeight.bold),
+                                  fontSize: 16, fontWeight: FontWeight.bold),
                             ),
                             Text(
                               occupied ? 'Ocupada' : 'Libre',
                               style: TextStyle(
-                                  fontSize: 10,
+                                  fontSize: 9,
                                   color: occupied
                                       ? Colors.orange[800]
                                       : Colors.green[800]),

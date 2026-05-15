@@ -9,6 +9,7 @@ import 'views/admin_view.dart';
 import 'views/comandas_view.dart';
 import 'views/kitchen_view.dart';
 import 'views/reports_view.dart';
+import 'views/mesero_login_view.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -80,6 +81,7 @@ class RestaurantApp extends StatelessWidget {
         '/cocina-llevar': (context) => const KitchenView(isTakeoutOnly: true),
         '/barra': (context) => const KitchenView(isDrinksOnly: true),
         '/ventas': (context) => const ReportsView(),
+        '/mesero': (context) => const MeseroLoginView(),
       },
     );
   }

@@ -15,7 +15,8 @@ import 'access_management_view.dart';
 import 'billing_view.dart';
 import 'clients_view.dart';
 import 'payroll_view.dart';
-import 'dart:html' as html if (dart.library.io) 'dart:io'; 
+import 'dart:html' as html if (dart.library.io) 'dart:io';
+import '../utils/app_updater.dart';
 
 class AdminView extends StatefulWidget {
   const AdminView({super.key});
@@ -229,6 +230,54 @@ class _AdminViewState extends State<AdminView> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text('CONFIGURACIÓN', style: TextStyle(color: Color(0xFFFF6D00), fontSize: 10, fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 8),
+                        const Text('Sucursal de este dispositivo', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11)),
+                        const SizedBox(height: 6),
+                        ...Globals.branches.map((branch) {
+                          final selected = Globals.currentBranch == branch;
+                          return GestureDetector(
+                            onTap: () async {
+                              await Globals.setBranch(branch);
+                              setState(() {});
+                            },
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 160),
+                              margin: const EdgeInsets.only(bottom: 4),
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                              decoration: BoxDecoration(
+                                color: selected ? const Color(0xFFFF6D00).withValues(alpha: 0.15) : const Color(0xFF0F172A),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: selected ? const Color(0xFFFF6D00) : const Color(0xFF334155),
+                                  width: 1.2,
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    selected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                                    size: 14,
+                                    color: selected ? const Color(0xFFFF6D00) : const Color(0xFF64748B),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      branch,
+                                      style: TextStyle(
+                                        color: selected ? Colors.white : const Color(0xFF94A3B8),
+                                        fontSize: 12,
+                                        fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }),
+                        const SizedBox(height: 8),
+                        const Divider(color: Color(0xFF1E293B)),
+                        const SizedBox(height: 4),
                         SwitchListTile(
                           value: Globals.splitKitchenMode,
                           title: const Text('Cocina Especializada', style: TextStyle(color: Colors.white, fontSize: 13)),
@@ -252,29 +301,7 @@ class _AdminViewState extends State<AdminView> {
                         const Text('SISTEMA', style: TextStyle(color: Color(0xFFFF6D00), fontSize: 10, fontWeight: FontWeight.bold)),
                         const Text('Versión: 1.0.12', style: TextStyle(color: Colors.white54, fontSize: 11)),
                         const SizedBox(height: 8),
-                        ElevatedButton.icon(
-                          onPressed: () {
-                            if (identical(0, 0.0)) {
-                               ScaffoldMessenger.of(context).showSnackBar(
-                                 const SnackBar(content: Text('Recargando aplicación para limpiar caché...'), backgroundColor: Colors.blue)
-                               );
-                               Future.delayed(const Duration(seconds: 1), () {
-                                 try {
-                                   (html.window as dynamic).location.reload();
-                                 } catch (e) {
-                                   debugPrint('Reload error: $e');
-                                 }
-                               });
-                            }
-                          },
-                          icon: const Icon(Icons.refresh, size: 16),
-                          label: const Text('Limpiar Caché', style: TextStyle(fontSize: 11)),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF1E293B),
-                            foregroundColor: Colors.white,
-                            minimumSize: const Size.fromHeight(32),
-                          ),
-                        ),
+                        const UpdateAppButton(),
                       ],
                     ),
                   ),
