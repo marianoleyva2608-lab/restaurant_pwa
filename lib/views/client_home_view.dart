@@ -40,7 +40,10 @@ class _ClientHomeViewState extends State<ClientHomeView> {
     );
   }
 
-  Future<void> _onDineInTap() async {
+  // _onDineInTap removido: la opción "Comer Aquí" ya no se muestra al
+  // cliente; ese flujo lo maneja el mesero desde Comandas.
+  // ignore: unused_element
+  Future<void> _onDineInTap_REMOVED() async {
     if (nameController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -313,22 +316,6 @@ class _ClientHomeViewState extends State<ClientHomeView> {
                         borderRadius: BorderRadius.circular(16)),
                   ),
                   child: const Text('Para Llevar',
-                      style: TextStyle(
-                          fontSize: 18, fontWeight: FontWeight.bold)),
-                ),
-                const SizedBox(height: 16),
-                OutlinedButton(
-                  onPressed: _onDineInTap,
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size.fromHeight(56),
-                    side: BorderSide(
-                        color: Theme.of(context).colorScheme.primary,
-                        width: 2),
-                    foregroundColor: Theme.of(context).colorScheme.primary,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16)),
-                  ),
-                  child: const Text('Comer Aquí',
                       style: TextStyle(
                           fontSize: 18, fontWeight: FontWeight.bold)),
                 ),
