@@ -169,8 +169,18 @@ class CartProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  void clearCart() {
+  /// Limpia el carrito. Por defecto preserva el artículo de envío FLASH
+  /// (la cuota se setea ANTES de entrar al menú; si la borráramos aquí,
+  /// la perdemos al inicializar la vista del menú).
+  /// Para borrar absolutamente todo (incluyendo envío), pasa
+  /// `keepDeliveryFee: false` — útil al cerrar/terminar la orden.
+  void clearCart({bool keepDeliveryFee = true}) {
+    final preservedFee =
+        keepDeliveryFee ? _items[deliveryFeeKey] : null;
     _items.clear();
+    if (preservedFee != null) {
+      _items[deliveryFeeKey] = preservedFee;
+    }
     clients = ['Cliente 1'];
     currentClient = 'Cliente 1';
     notifyListeners();

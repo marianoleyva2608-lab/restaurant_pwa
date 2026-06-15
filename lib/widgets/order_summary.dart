@@ -749,7 +749,7 @@ class _OrderSummaryWidgetState extends State<OrderSummaryWidget> {
       }
 
       if (mounted) {
-        cart.clearCart();
+        cart.clearCart(keepDeliveryFee: false);
         showDialog(
           context: context,
           builder: (context) => AlertDialog(

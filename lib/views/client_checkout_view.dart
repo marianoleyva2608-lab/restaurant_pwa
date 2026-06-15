@@ -352,7 +352,8 @@ class _ClientCheckoutViewState extends State<ClientCheckoutView> {
       if (onAfterCreate != null) await onAfterCreate();
 
       if (mounted) {
-        cart.clearCart();
+        // Orden enviada → limpiamos TODO incluyendo el envío.
+        cart.clearCart(keepDeliveryFee: false);
         
         await showDialog(
           context: context,
