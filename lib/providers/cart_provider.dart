@@ -18,6 +18,12 @@ class CartItem {
 class CartProvider with ChangeNotifier {
   final Map<String, CartItem> _items = {};
 
+  /// Id sintético del artículo "Envío FLASH". Se inserta como CartItem para
+  /// que el carrito y el ticket lo muestren como un renglón más. Al guardar
+  /// la orden, se mapea a `dish_id: null` para no violar la FK.
+  static const String deliveryFeeId = '__delivery_fee__';
+  static const String deliveryFeeKey = '__delivery_fee__';
+
   String currentClient = 'Cliente 1';
   List<String> clients = ['Cliente 1'];
 
@@ -30,6 +36,42 @@ class CartProvider with ChangeNotifier {
       0.0,
       (sum, item) => sum + (item.dish.price * item.quantity),
     );
+  }
+
+  /// Precio actual del artículo de envío en el carrito (0 si no hay).
+  double get deliveryFee {
+    final item = _items[deliveryFeeKey];
+    if (item == null) return 0.0;
+    return item.dish.price * item.quantity;
+  }
+
+  /// Inserta/actualiza un CartItem sintético "Envío FLASH" con el monto
+  /// recibido. Si `fee <= 0`, lo elimina.
+  void setDeliveryFee(double fee) {
+    if (fee <= 0) {
+      if (_items.remove(deliveryFeeKey) != null) notifyListeners();
+      return;
+    }
+    final feeDish = Dish(
+      id: deliveryFeeId,
+      name: 'Envío FLASH',
+      description: 'Cuota de servicio a domicilio',
+      price: fee,
+      imageUrl: '',
+      category: 'Envío',
+      isSale: true,
+    );
+    _items[deliveryFeeKey] = CartItem(
+      dish: feeDish,
+      quantity: 1,
+      clientLabel: currentClient,
+    );
+    notifyListeners();
+  }
+
+  /// Elimina el artículo de envío del carrito.
+  void clearDeliveryFee() {
+    if (_items.remove(deliveryFeeKey) != null) notifyListeners();
   }
 
   void addClient(String name) {
@@ -102,6 +144,8 @@ class CartProvider with ChangeNotifier {
   }
 
   void incrementQuantity(String itemKey) {
+    // El envío es un artículo fijo (cantidad 1, monto calculado).
+    if (itemKey == deliveryFeeKey) return;
     if (_items.containsKey(itemKey)) {
       _items[itemKey]!.quantity += 1;
       notifyListeners();
@@ -109,6 +153,7 @@ class CartProvider with ChangeNotifier {
   }
 
   void decrementQuantity(String itemKey) {
+    if (itemKey == deliveryFeeKey) return;
     if (!_items.containsKey(itemKey)) return;
 
     if (_items[itemKey]!.quantity > 1) {

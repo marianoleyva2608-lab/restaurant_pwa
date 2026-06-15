@@ -1184,6 +1184,15 @@ class _ComandasViewState extends State<ComandasView> {
                                         finalCustomerName +=
                                             ' - ENVÍO: \$${feeTotal.toStringAsFixed(0)}';
                                       }
+                                      // Inyectar la cuota como artículo del carrito.
+                                      context.read<CartProvider>().setDeliveryFee(
+                                            feeTotal.toDouble(),
+                                          );
+                                    } else {
+                                      // No-delivery: limpiar por si quedó de antes.
+                                      context
+                                          .read<CartProvider>()
+                                          .clearDeliveryFee();
                                     }
                                     setState(() {
                                       _selectedOrderType = tempOrderType;

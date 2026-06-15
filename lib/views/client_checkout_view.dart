@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -34,7 +35,9 @@ class _ClientCheckoutViewState extends State<ClientCheckoutView> {
   final _addressController = TextEditingController();
   final _phoneController = TextEditingController();
   final _emailController = TextEditingController();
-  final double _shippingCost = 35.0;
+  // La cuota de envío ahora vive como CartItem dentro del CartProvider
+  // (id = CartProvider.deliveryFeeId), por lo que el subtotal/total ya
+  // la incluyen automáticamente. No se suma aparte.
 
   @override
   void initState() {
@@ -76,9 +79,8 @@ class _ClientCheckoutViewState extends State<ClientCheckoutView> {
           content: Text('Ingresa un correo válido para recibir el ticket')));
       return;
     }
-    final double shippingToApply =
-        widget.orderType == 'delivery' ? _shippingCost : 0.0;
-    final double finalTotal = cart.totalAmount + shippingToApply;
+    // El envío ya viene incluido como CartItem (si aplica) — el total es el subtotal del cart.
+    final double finalTotal = cart.totalAmount;
     final items = cart.items.values
         .map((it) => {
               'nombre': it.dish.name,
@@ -228,9 +230,8 @@ class _ClientCheckoutViewState extends State<ClientCheckoutView> {
       return;
     }
 
-    final double shippingToApply =
-        widget.orderType == 'delivery' ? _shippingCost : 0.0;
-    final double finalTotal = cart.totalAmount + shippingToApply;
+    // El envío ya viene incluido como CartItem (si aplica) — el total es el subtotal del cart.
+    final double finalTotal = cart.totalAmount;
     final String? paymentMethodForDb =
         _paymentMethod == 'Tarjeta' ? 'card' : null;
     await _createOrderAndNotify(
@@ -325,13 +326,22 @@ class _ClientCheckoutViewState extends State<ClientCheckoutView> {
         orderId = orderResponse['id'] as String;
       }
 
-      final orderItems = cart.items.values.map((item) => {
-            'order_id': orderId,
-            'dish_id': item.dish.id,
-            'quantity': item.quantity,
-            'price_at_time': item.dish.price,
-            'status': 'pending', 
-          }).toList();
+      final orderItems = cart.items.values.map((item) {
+        final isDeliveryFee = item.dish.id == CartProvider.deliveryFeeId;
+        return {
+          'order_id': orderId,
+          // El envío no es un platillo real → dish_id: null (la columna lo permite).
+          'dish_id': isDeliveryFee ? null : item.dish.id,
+          'quantity': item.quantity,
+          'price_at_time': item.dish.price,
+          // El envío se marca como listo: la cocina no lo prepara.
+          'status': isDeliveryFee ? 'ready' : 'pending',
+          // Reusamos guisados_selected para guardar la etiqueta "Envío FLASH"
+          // y que se muestre en el detalle del pedido / ticket.
+          if (isDeliveryFee)
+            'guisados_selected': jsonEncode(['Envío FLASH']),
+        };
+      }).toList();
 
       await _supabase.from('order_items').insert(orderItems);
 
@@ -381,8 +391,10 @@ class _ClientCheckoutViewState extends State<ClientCheckoutView> {
   Widget build(BuildContext context) {
     final cart = context.watch<CartProvider>();
     final items = cart.items.values.toList();
-    final double shippingToApply = widget.orderType == 'delivery' ? _shippingCost : 0.0;
-    final double finalTotal = cart.totalAmount + shippingToApply;
+    // El envío ya es un CartItem dentro del cart — no se suma aparte.
+    final double deliveryFee = cart.deliveryFee;
+    final double subtotalSinEnvio = cart.totalAmount - deliveryFee;
+    final double finalTotal = cart.totalAmount;
     final screenWidth = MediaQuery.of(context).size.width;
     final isMobile = screenWidth < 600;
 
@@ -476,16 +488,16 @@ class _ClientCheckoutViewState extends State<ClientCheckoutView> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             const Text('Subtotal:', style: TextStyle(color: Colors.grey)),
-                            Text('\$${cart.totalAmount.toStringAsFixed(2)}', style: const TextStyle(color: Color(0xFF3D2E1A))),
+                            Text('\$${subtotalSinEnvio.toStringAsFixed(2)}', style: const TextStyle(color: Color(0xFF3D2E1A))),
                           ],
                         ),
-                        if (widget.orderType == 'delivery') ...[
+                        if (deliveryFee > 0) ...[
                           const SizedBox(height: 4),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text('Envío:', style: TextStyle(color: Colors.grey)),
-                              Text('\$${_shippingCost.toStringAsFixed(2)}', style: const TextStyle(color: Colors.amber)),
+                              const Text('Envío FLASH:', style: TextStyle(color: Colors.grey)),
+                              Text('\$${deliveryFee.toStringAsFixed(2)}', style: const TextStyle(color: Color(0xFFFF6D00), fontWeight: FontWeight.bold)),
                             ],
                           ),
                         ],
@@ -588,9 +600,8 @@ class _ClientCheckoutViewState extends State<ClientCheckoutView> {
       return;
     }
     final email = _emailController.text.trim();
-    final double shippingToApply =
-        widget.orderType == 'delivery' ? _shippingCost : 0.0;
-    final double finalTotal = cart.totalAmount + shippingToApply;
+    // El envío ya viene incluido como CartItem (si aplica) — el total es el subtotal del cart.
+    final double finalTotal = cart.totalAmount;
     final items = cart.items.values
         .map((it) => {
               'nombre': it.dish.name,

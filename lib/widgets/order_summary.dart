@@ -727,17 +727,20 @@ class _OrderSummaryWidgetState extends State<OrderSummaryWidget> {
         orderId = orderResponse['id'] as String;
       }
 
-      final orderItems = cart.items.values.map((item) => {
-            'order_id': orderId,
-            'dish_id': item.dish.id,
-            'quantity': item.quantity,
-            'price_at_time': item.dish.price,
-            'status': 'pending',
-            'client_label': item.clientLabel,
-            'guisados_selected': item.guisados.isNotEmpty
-                ? jsonEncode(item.guisados)
-                : null,
-          }).toList();
+      final orderItems = cart.items.values.map((item) {
+        final isDeliveryFee = item.dish.id == CartProvider.deliveryFeeId;
+        return {
+          'order_id': orderId,
+          'dish_id': isDeliveryFee ? null : item.dish.id,
+          'quantity': item.quantity,
+          'price_at_time': item.dish.price,
+          'status': isDeliveryFee ? 'ready' : 'pending',
+          'client_label': item.clientLabel,
+          'guisados_selected': isDeliveryFee
+              ? jsonEncode(['Envío FLASH'])
+              : (item.guisados.isNotEmpty ? jsonEncode(item.guisados) : null),
+        };
+      }).toList();
 
       await supabase.from('order_items').insert(orderItems);
 

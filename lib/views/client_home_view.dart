@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../globals.dart';
+import '../providers/cart_provider.dart';
 import '../services/delivery_fee.dart';
 import '../widgets/delivery_fee_calculator.dart';
 import 'client_menu_view.dart';
@@ -254,6 +256,12 @@ class _ClientHomeViewState extends State<ClientHomeView> {
                 await prefs.setDouble('delivery_fee', feeTotal);
               } else {
                 await prefs.remove('delivery_fee');
+              }
+              // Agregar la cuota como artículo del carrito (o limpiarlo).
+              if (mounted) {
+                context.read<CartProvider>().setDeliveryFee(
+                      feeTotal.toDouble(),
+                    );
               }
               if (!ctx.mounted) return;
               Navigator.pop(ctx);
