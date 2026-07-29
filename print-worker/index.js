@@ -132,6 +132,32 @@ const envDisplayMode = String(DISPLAY_MODE || '').toLowerCase();
 const hasEnvOverride = envDisplayMode === 'screen' || envDisplayMode === 'printer';
 let displayMode = hasEnvOverride ? envDisplayMode : 'printer';
 
+// Cocina Especializada (toggle en Ajustes de la PWA, admin_settings.
+// split_kitchen_mode, booleano global — no es por sucursal). Cuando está
+// activo, una Pi 'kitchen'/'line' SIN PRINT_ORDER_TYPES configurado a
+// mano deja de imprimir pedidos To Go/Delivery (solo imprime dine_in),
+// igual que kitchen_view.dart hace con la Línea de Producción en
+// pantalla. Se refresca cada 30s, ver setInterval más abajo.
+let splitKitchenMode = false;
+
+async function refreshSplitKitchenModeFromDb() {
+  try {
+    const { data, error } = await supabase
+      .from('admin_settings')
+      .select('setting_value')
+      .eq('setting_key', 'split_kitchen_mode')
+      .maybeSingle();
+    if (error || data?.setting_value === undefined) return;
+    const newValue = data.setting_value === 'true';
+    if (newValue !== splitKitchenMode) {
+      console.log(`🔁 Cocina Especializada cambió: ${splitKitchenMode} → ${newValue} (admin_settings)`);
+      splitKitchenMode = newValue;
+    }
+  } catch (e) {
+    // Silencioso — la próxima iteración reintenta.
+  }
+}
+
 // Helper para leer el modo desde admin_settings (lo invoca un setInterval
 // más abajo, después de que el cliente de supabase está creado).
 async function refreshDisplayModeFromDb() {
@@ -504,6 +530,11 @@ function orderTypeMatches(order) {
   if (printOrderTypes.length > 0) {
     const wanted = printOrderTypes.map(normalizeOrderType);
     return wanted.includes(type);
+  }
+  // Sin PRINT_ORDER_TYPES manual: si Cocina Especializada está activo,
+  // 'kitchen'/'line' se comporta como si tuviera PRINT_ORDER_TYPES=dine_in.
+  if ((printArea === 'kitchen' || printArea === 'line') && splitKitchenMode) {
+    return type === 'dine_in';
   }
   return true;
 }
@@ -1346,6 +1377,7 @@ async function main() {
   // El env var DISPLAY_MODE siempre gana — útil para forzar el modo en
   // un Pi específico independiente de lo que diga el admin.
   await refreshDisplayModeFromDb();
+  await refreshSplitKitchenModeFromDb();
 
   const modeSrc = hasEnvOverride ? 'env var' : 'admin_settings';
   const modeLabel = displayMode === 'screen'
@@ -1386,6 +1418,7 @@ async function main() {
   if (!hasEnvOverride) {
     setInterval(refreshDisplayModeFromDb, 30_000);
   }
+  setInterval(refreshSplitKitchenModeFromDb, 30_000);
 }
 
 main().catch((e) => {
