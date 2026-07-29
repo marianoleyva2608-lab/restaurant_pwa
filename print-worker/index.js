@@ -109,13 +109,6 @@ const paperWidth = Math.max(20, parseInt(PAPER_WIDTH_CHARS || '48', 10));
 const pauseBetweenTicketsMs = Math.max(0, parseInt(PAUSE_BETWEEN_TICKETS_MS || '5000', 10));
 const restaurantName = (RESTAURANT_NAME || 'GORDITAS MIS HERMANAS').trim();
 
-// Cuánto espera una Pi 'kitchen'/'line' sin PRINT_ORDER_TYPES configurado
-// antes de imprimir la comida de una orden To Go/Delivery, para darle
-// tiempo a una Pi 'takeout' dedicada (si existe) a reclamarla primero.
-// Ver el uso en processOrder() — evita duplicar el ticket sin necesitar
-// configurar PRINT_ORDER_TYPES=dine_in a mano en cada Pi.
-const takeoutGraceMs = Math.max(0, parseInt(process.env.TAKEOUT_GRACE_MS || '6000', 10));
-
 // 'printer' (default): comportamiento normal — imprime tickets.
 // 'screen': la sucursal usa pantalla de cocina (kitchen_view de la PWA)
 //   en vez de tickets físicos. El worker NO imprime nada, pero sigue
@@ -789,30 +782,15 @@ async function processOrder(orderId, source = 'unknown') {
     let items = filterItemsByArea(allUnprinted);
     if (items.length === 0) return; // nada de MI área en esta orden
 
-    // Salvavidas contra tickets duplicados sin necesitar configurar
-    // PRINT_ORDER_TYPES en cada Pi a mano: si esta Pi es 'kitchen'/'line'
-    // (por defecto imprime TODA la comida, sin filtrar por tipo de
-    // orden) y la orden es To Go/Delivery, esperamos un poco para darle
-    // tiempo a una Pi 'takeout' dedicada (si existe) de reclamarla
-    // primero. Si al revisar de nuevo ya se imprimió, no la duplicamos
-    // aquí. Si no hay ninguna Pi 'takeout' en la sucursal, se imprime
-    // igual — solo se atrasa unos segundos.
-    if (
-      (printArea === 'kitchen' || printArea === 'line') &&
-      printOrderTypes.length === 0
-    ) {
-      const type = normalizeOrderType(order.order_type);
-      if (type === 'to_go' || type === 'delivery') {
-        await sleep(takeoutGraceMs);
-        const recheck = await fetchUnprintedItems(orderId);
-        const recheckIds = new Set(recheck.map((it) => it.id));
-        items = items.filter((it) => recheckIds.has(it.id));
-        if (items.length === 0) {
-          console.log(`↷ ${orderId} — ya lo imprimió la Pi de Para Llevar, omitido (${source})`);
-          return;
-        }
-      }
-    }
+    // Nota: antes había aquí un "grace period" que esperaba unos segundos
+    // y se saltaba el ticket de To Go si la Pi de 'takeout' ya lo había
+    // impreso, para evitar duplicados sin configurar PRINT_ORDER_TYPES a
+    // mano. Eso interfería con Cocina Especializada: en Modo Unificado
+    // (splitKitchenMode=false) SÍ queremos que 'kitchen'/'line' imprima
+    // también los To Go (duplicado intencional, igual que en pantalla),
+    // y en Modo Dividido orderTypeMatches() ya los descarta arriba antes
+    // de llegar aquí. El toggle ahora es el único control — se quitó el
+    // salvavidas viejo porque causaba que cocina nunca imprimiera To Go.
 
     const tag = order.printed_at ? 'adición' : 'primera';
     const areaTag = printArea ? ` [${printArea}]` : '';
