@@ -87,14 +87,32 @@ class Globals {
   }
 
   static Future<void> setSplitKitchenMode(String branch, bool value) async {
-    splitKitchenModes[branch] = value;
     try {
       final supabase = Supabase.instance.client;
+      // Lee el valor más reciente antes de escribir: si otra tablet (otra
+      // sucursal) cambió su propio valor después de que esta cargó, no
+      // queremos sobrescribirlo con nuestra copia vieja en memoria.
+      final current = await supabase
+          .from('admin_settings')
+          .select('setting_value')
+          .eq('setting_key', 'split_kitchen_mode')
+          .maybeSingle();
+      Map<String, dynamic> latest = {};
+      try {
+        if (current?['setting_value'] != null) {
+          latest = jsonDecode(current!['setting_value'] as String) as Map<String, dynamic>;
+        }
+      } catch (e) {
+        latest = {};
+      }
+      latest[branch] = value;
+      splitKitchenModes = latest.map((k, v) => MapEntry(k, v == true || v == 'true'));
       await supabase.from('admin_settings').upsert({
         'setting_key': 'split_kitchen_mode',
         'setting_value': jsonEncode(splitKitchenModes),
       });
     } catch (e) {
+      splitKitchenModes[branch] = value;
       print('Error saving split mode: $e');
     }
   }
@@ -103,14 +121,32 @@ class Globals {
   /// admin_settings.display_modes (JSON map de branch→mode). El
   /// print-worker lo lee cada 30s y se ajusta sin reiniciar.
   static Future<void> setDisplayMode(String branch, String mode) async {
-    displayModes[branch] = mode;
     try {
       final supabase = Supabase.instance.client;
+      // Mismo problema de concurrencia que setSplitKitchenMode: lee el
+      // mapa más reciente antes de escribir en vez de confiar en la
+      // copia en memoria de esta tablet.
+      final current = await supabase
+          .from('admin_settings')
+          .select('setting_value')
+          .eq('setting_key', 'display_modes')
+          .maybeSingle();
+      Map<String, dynamic> latest = {};
+      try {
+        if (current?['setting_value'] != null) {
+          latest = jsonDecode(current!['setting_value'] as String) as Map<String, dynamic>;
+        }
+      } catch (e) {
+        latest = {};
+      }
+      latest[branch] = mode;
+      displayModes = latest.map((k, v) => MapEntry(k, v.toString()));
       await supabase.from('admin_settings').upsert({
         'setting_key': 'display_modes',
         'setting_value': jsonEncode(displayModes),
       });
     } catch (e) {
+      displayModes[branch] = mode;
       print('Error saving display modes: $e');
     }
   }
