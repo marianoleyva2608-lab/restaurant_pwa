@@ -52,4 +52,4 @@ jobs:
         with:
           name: gorditas-mesero-apk
           path: artifacts/gorditas-mesero.apk
-          retention-days: 30
+          retention-days: 3

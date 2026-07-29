@@ -56,4 +56,4 @@ jobs:
         with:
           name: gorditas-caja-apk
           path: artifacts/gorditas-caja.apk
-          retention-days: 30
+          retention-days: 3
