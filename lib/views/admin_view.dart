@@ -480,13 +480,13 @@ class _AdminViewState extends State<AdminView> {
                         const Divider(color: Color(0xFFFAF1DE)),
                         const SizedBox(height: 4),
                         SwitchListTile(
-                          value: Globals.splitKitchenMode,
+                          value: Globals.splitKitchenModeFor(Globals.currentBranch),
                           title: const Text('Cocina Especializada', style: TextStyle(color: Color(0xFF3D2E1A), fontSize: 13)),
                           subtitle: const Text('Separa pedidos To Go', style: TextStyle(color: Color(0xFFA08F70), fontSize: 11)),
                           dense: true,
                           contentPadding: EdgeInsets.zero,
                           onChanged: (val) async {
-                            await Globals.setSplitKitchenMode(val);
+                            await Globals.setSplitKitchenMode(Globals.currentBranch, val);
                             setState(() {});
                           },
                         ),

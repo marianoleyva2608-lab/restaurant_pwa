@@ -6,7 +6,13 @@ import 'dart:convert';
 class Globals {
   static String currentBranch = 'Sucursal Maravillas';
   static List<String> branches = ['Sucursal Maravillas', 'Sucursal Pocitos'];
-  static bool splitKitchenMode = false;
+
+  /// Cocina Especializada por sucursal (map branch→bool). Antes era un solo
+  /// booleano global; ahora cada sucursal tiene su propio valor, igual que
+  /// [displayModes].
+  static Map<String, bool> splitKitchenModes = {};
+  static bool splitKitchenModeFor(String branch) =>
+      splitKitchenModes[branch] ?? false;
   static String currentUser = 'Admin';
 
   /// Modo de visualización de cocina por sucursal:
@@ -41,7 +47,13 @@ class Globals {
         if (setting['setting_key'] == 'branches_list') {
           branches = List<String>.from(jsonDecode(setting['setting_value']));
         } else if (setting['setting_key'] == 'split_kitchen_mode') {
-          splitKitchenMode = setting['setting_value'] == 'true';
+          try {
+            final raw = setting['setting_value'] as String;
+            final map = jsonDecode(raw) as Map<String, dynamic>;
+            splitKitchenModes = map.map((k, v) => MapEntry(k, v == true || v == 'true'));
+          } catch (e) {
+            splitKitchenModes = {};
+          }
         } else if (setting['setting_key'] == 'admin_user') {
           final val = setting['setting_value'] as String?;
           if (val != null && val.isNotEmpty) currentUser = val;
@@ -74,13 +86,13 @@ class Globals {
     await prefs.setString('restaurant_branch', branch);
   }
 
-  static Future<void> setSplitKitchenMode(bool value) async {
-    splitKitchenMode = value;
+  static Future<void> setSplitKitchenMode(String branch, bool value) async {
+    splitKitchenModes[branch] = value;
     try {
       final supabase = Supabase.instance.client;
       await supabase.from('admin_settings').upsert({
         'setting_key': 'split_kitchen_mode',
-        'setting_value': value.toString(),
+        'setting_value': jsonEncode(splitKitchenModes),
       });
     } catch (e) {
       print('Error saving split mode: $e');
