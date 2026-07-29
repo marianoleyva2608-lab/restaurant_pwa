@@ -101,7 +101,7 @@ rasp3 (para llevar): PRINT_AREA=takeout
 
 Sin el `PRINT_ORDER_TYPES=dine_in` en rasp2, esa Pi imprimiría también los takeouts que rasp3 imprime — resultando en doble ticket (rasp2 marcaría los items y rasp3 no vería nada). Con el filtro, los takeouts caen SOLO en rasp3.
 
-**Salvavidas automático (sin tocar `.env`):** si `PRINT_AREA=kitchen` o `line` y **no** configuraste `PRINT_ORDER_TYPES`, esa Pi espera `TAKEOUT_GRACE_MS` (default 6000 ms) antes de imprimir la comida de una orden To Go/Delivery, para darle tiempo a una Pi `takeout` dedicada de reclamarla primero. Si al revisar de nuevo ya se imprimió, no la duplica. Si no hay ninguna Pi `takeout` en la sucursal, la imprime igual, solo unos segundos más tarde. Esto reduce el riesgo de doble ticket aunque se te olvide poner `PRINT_ORDER_TYPES=dine_in` — pero configurarlo explícitamente sigue siendo lo más rápido (sin el retraso de los 6 s).
+**Cocina Especializada** (toggle en Ajustes de la PWA, por sucursal): si está activo, una Pi `kitchen`/`line` sin `PRINT_ORDER_TYPES` configurado deja de imprimir To Go/Delivery automáticamente (equivalente a `PRINT_ORDER_TYPES=dine_in`). Si está apagado (Modo Unificado), esa Pi imprime todo, incluyendo To Go — aunque haya una Pi `takeout` dedicada que también los imprima (duplicado intencional, igual que en pantalla).
 
 Cada Pi marca solo los `order_items` que le tocaron por id — cuando la última termina, se marca también `orders.printed_at`. Si dejas `PRINT_AREA` vacía en **dos Pis distintas** de la misma sucursal, ambas se pelean por la orden y solo una imprime.
 
