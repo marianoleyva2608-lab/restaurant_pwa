@@ -133,11 +133,12 @@ const hasEnvOverride = envDisplayMode === 'screen' || envDisplayMode === 'printe
 let displayMode = hasEnvOverride ? envDisplayMode : 'printer';
 
 // Cocina Especializada (toggle en Ajustes de la PWA, admin_settings.
-// split_kitchen_mode, booleano global — no es por sucursal). Cuando está
-// activo, una Pi 'kitchen'/'line' SIN PRINT_ORDER_TYPES configurado a
-// mano deja de imprimir pedidos To Go/Delivery (solo imprime dine_in),
-// igual que kitchen_view.dart hace con la Línea de Producción en
-// pantalla. Se refresca cada 30s, ver setInterval más abajo.
+// split_kitchen_mode — JSON {sucursal: bool}, por sucursal igual que
+// display_modes). Cuando está activo para BRANCH_NAME, una Pi 'kitchen'/
+// 'line' SIN PRINT_ORDER_TYPES configurado a mano deja de imprimir
+// pedidos To Go/Delivery (solo imprime dine_in), igual que
+// kitchen_view.dart hace con la Línea de Producción en pantalla. Se
+// refresca cada 30s, ver setInterval más abajo.
 let splitKitchenMode = false;
 
 async function refreshSplitKitchenModeFromDb() {
@@ -147,8 +148,9 @@ async function refreshSplitKitchenModeFromDb() {
       .select('setting_value')
       .eq('setting_key', 'split_kitchen_mode')
       .maybeSingle();
-    if (error || data?.setting_value === undefined) return;
-    const newValue = data.setting_value === 'true';
+    if (error || !data?.setting_value) return;
+    const modes = JSON.parse(data.setting_value);
+    const newValue = modes?.[BRANCH_NAME] === true || modes?.[BRANCH_NAME] === 'true';
     if (newValue !== splitKitchenMode) {
       console.log(`🔁 Cocina Especializada cambió: ${splitKitchenMode} → ${newValue} (admin_settings)`);
       splitKitchenMode = newValue;

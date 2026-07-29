@@ -239,10 +239,16 @@ class _KitchenViewState extends State<KitchenView> {
       body: StreamBuilder<List<Map<String, dynamic>>>(
         stream: _supabase.from('admin_settings').stream(primaryKey: ['setting_key']).eq('setting_key', 'split_kitchen_mode'),
         builder: (context, settingsSnapshot) {
-          // Actualizar valor global en tiempo real si el admin lo cambia
+          // Actualizar valor por sucursal en tiempo real si el admin lo cambia
           if (settingsSnapshot.hasData && settingsSnapshot.data!.isNotEmpty) {
             final settingValue = settingsSnapshot.data!.first['setting_value'];
-            Globals.splitKitchenMode = settingValue == 'true';
+            try {
+              final map = jsonDecode(settingValue as String) as Map<String, dynamic>;
+              Globals.splitKitchenModes =
+                  map.map((k, v) => MapEntry(k, v == true || v == 'true'));
+            } catch (e) {
+              Globals.splitKitchenModes = {};
+            }
           }
 
           return StreamBuilder<List<Map<String, dynamic>>>(
@@ -274,7 +280,7 @@ class _KitchenViewState extends State<KitchenView> {
                   return isPending && isBranch && (type == 'takeout' || type == 'delivery');
                 } else {
                   // Línea de Producción:
-                  if (Globals.splitKitchenMode) {
+                  if (Globals.splitKitchenModeFor(Globals.currentBranch)) {
                     // Modo Dividido: Solo Comensales (Mesa)
                     return isPending && isBranch && type == 'dine_in';
                   } else {
