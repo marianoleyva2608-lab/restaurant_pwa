@@ -742,18 +742,17 @@ class _CashRegisterViewState extends State<CashRegisterView> {
   /// agrupa por 'recipient' (mesero asignado al reportar la propina).
   Future<void> _showTipsReportDialog() async {
     DateTime selectedDate = DateTime.now();
+    String mode = 'dia'; // 'dia' = un día específico, 'historial' = últimos 30 días
 
-    Future<List<Map<String, dynamic>>> fetchTips(DateTime date) async {
-      final startOfDay = DateTime(date.year, date.month, date.day);
-      final endOfDay = startOfDay.add(const Duration(days: 1));
+    Future<List<Map<String, dynamic>>> fetchTipsRange(DateTime start, DateTime endExclusive) async {
       try {
         final response = await _supabase
             .from('cash_movements')
             .select()
             .eq('branch_name', Globals.currentBranch)
             .eq('category', 'propina')
-            .gte('created_at', startOfDay.toIso8601String())
-            .lt('created_at', endOfDay.toIso8601String())
+            .gte('created_at', start.toIso8601String())
+            .lt('created_at', endExclusive.toIso8601String())
             .order('created_at', ascending: false);
         return List<Map<String, dynamic>>.from(response);
       } catch (_) {
@@ -761,12 +760,25 @@ class _CashRegisterViewState extends State<CashRegisterView> {
       }
     }
 
+    Future<List<Map<String, dynamic>>> fetchTips(DateTime date) {
+      final startOfDay = DateTime(date.year, date.month, date.day);
+      return fetchTipsRange(startOfDay, startOfDay.add(const Duration(days: 1)));
+    }
+
+    Future<List<Map<String, dynamic>>> fetchTipsHistory() {
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final start = today.subtract(const Duration(days: 29));
+      return fetchTipsRange(start, today.add(const Duration(days: 1)));
+    }
+
     await showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDlgState) {
           return FutureBuilder<List<Map<String, dynamic>>>(
-            future: fetchTips(selectedDate),
+            key: ValueKey('$mode-${selectedDate.toIso8601String()}'),
+            future: mode == 'dia' ? fetchTips(selectedDate) : fetchTipsHistory(),
             builder: (context, snapshot) {
               final rows = snapshot.data ?? [];
 
@@ -794,6 +806,25 @@ class _CashRegisterViewState extends State<CashRegisterView> {
                 ..sort((a, b) => (b.value['efectivo']! + b.value['tarjeta']!)
                     .compareTo(a.value['efectivo']! + a.value['tarjeta']!));
 
+              // Agrupa por día (para el modo Historial) — últimos 30 días.
+              final Map<String, Map<String, double>> byDay = {};
+              for (final r in rows) {
+                final createdAt = DateTime.tryParse(r['created_at']?.toString() ?? '');
+                if (createdAt == null) continue;
+                final local = createdAt.toLocal();
+                final key = DateFormat('dd/MM/yyyy').format(local);
+                final amt = double.tryParse(r['amount']?.toString() ?? '0') ?? 0.0;
+                final pm = r['payment_method']?.toString() ?? 'EFECTIVO';
+                byDay.putIfAbsent(key, () => {'efectivo': 0.0, 'tarjeta': 0.0, 'sortKey': local.millisecondsSinceEpoch.toDouble()});
+                if (pm == 'TARJETA') {
+                  byDay[key]!['tarjeta'] = byDay[key]!['tarjeta']! + amt;
+                } else {
+                  byDay[key]!['efectivo'] = byDay[key]!['efectivo']! + amt;
+                }
+              }
+              final dayEntries = byDay.entries.toList()
+                ..sort((a, b) => b.value['sortKey']!.compareTo(a.value['sortKey']!));
+
               return AlertDialog(
                 backgroundColor: const Color(0xFFFAF1DE),
                 title: const Row(
@@ -813,6 +844,21 @@ class _CashRegisterViewState extends State<CashRegisterView> {
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildTipsModeTab(
+                                  'Un Día', mode == 'dia', () => setDlgState(() => mode = 'dia')),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: _buildTipsModeTab(
+                                  'Historial (30 días)', mode == 'historial', () => setDlgState(() => mode = 'historial')),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        if (mode == 'dia')
                         InkWell(
                           onTap: () async {
                             final picked = await showDatePicker(
@@ -847,15 +893,18 @@ class _CashRegisterViewState extends State<CashRegisterView> {
                             padding: EdgeInsets.symmetric(vertical: 24),
                             child: Center(child: CircularProgressIndicator()),
                           )
-                        else if (entries.isEmpty)
-                          const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 24),
+                        else if (rows.isEmpty)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 24),
                             child: Center(
-                              child: Text('No se registraron propinas este día.',
-                                  style: TextStyle(color: Color(0xFFA08F70))),
+                              child: Text(
+                                  mode == 'dia'
+                                      ? 'No se registraron propinas este día.'
+                                      : 'No se registraron propinas en los últimos 30 días.',
+                                  style: const TextStyle(color: Color(0xFFA08F70))),
                             ),
                           )
-                        else ...[
+                        else if (mode == 'dia') ...[
                           // Lo principal: cuánto se debe en total, por medio de pago.
                           // Las propinas son compartidas entre todo el personal, así
                           // que esto es lo que hay que repartir hoy.
@@ -937,6 +986,66 @@ class _CashRegisterViewState extends State<CashRegisterView> {
                               );
                             }),
                           ],
+                        ] else ...[
+                          // Historial: una fila por día con su efectivo/tarjeta/total.
+                          ...dayEntries.map((e) {
+                            final ef = e.value['efectivo']!;
+                            final ta = e.value['tarjeta']!;
+                            final tot = ef + ta;
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.4),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: const Color(0xFFE5DCC4)),
+                              ),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: Colors.teal.withValues(alpha: 0.15),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: const Icon(Icons.calendar_today, color: Colors.teal, size: 16),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(e.key,
+                                            style: const TextStyle(color: Color(0xFF3D2E1A), fontWeight: FontWeight.bold)),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          'Efectivo: \$${ef.toStringAsFixed(2)}  ·  Tarjeta: \$${ta.toStringAsFixed(2)}',
+                                          style: const TextStyle(color: Color(0xFFA08F70), fontSize: 12),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Text('\$${tot.toStringAsFixed(2)}',
+                                      style: const TextStyle(color: Colors.teal, fontWeight: FontWeight.bold, fontSize: 16)),
+                                ],
+                              ),
+                            );
+                          }),
+                          const Divider(color: Color(0xFFA08F70)),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text('TOTAL DEL PERIODO',
+                                  style: TextStyle(color: Color(0xFF3D2E1A), fontWeight: FontWeight.bold)),
+                              Text('\$${total.toStringAsFixed(2)}',
+                                  style: const TextStyle(color: Color(0xFFFF6D00), fontWeight: FontWeight.bold, fontSize: 18)),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Efectivo: \$${totalEfectivo.toStringAsFixed(2)}  ·  Tarjeta: \$${totalTarjeta.toStringAsFixed(2)}',
+                            style: const TextStyle(color: Color(0xFFA08F70), fontSize: 12),
+                          ),
                         ],
                       ],
                     ),
@@ -948,15 +1057,17 @@ class _CashRegisterViewState extends State<CashRegisterView> {
                     child: const Text('Cerrar', style: TextStyle(color: Color(0xFFA08F70))),
                   ),
                   ElevatedButton.icon(
-                    onPressed: entries.isEmpty
+                    onPressed: rows.isEmpty
                         ? null
-                        : () => _exportTipsReportPdf(
-                              selectedDate,
-                              entries,
-                              totalEfectivo,
-                              totalTarjeta,
-                              total,
-                            ),
+                        : () => mode == 'dia'
+                            ? _exportTipsReportPdf(
+                                selectedDate,
+                                entries,
+                                totalEfectivo,
+                                totalTarjeta,
+                                total,
+                              )
+                            : _exportTipsHistoryPdf(dayEntries, totalEfectivo, totalTarjeta, total),
                     icon: const Icon(Icons.print),
                     label: const Text('Exportar / Imprimir'),
                     style: ElevatedButton.styleFrom(
@@ -1039,6 +1150,75 @@ class _CashRegisterViewState extends State<CashRegisterView> {
     await Printing.layoutPdf(
       onLayout: (PdfPageFormat format) async => pdf.save(),
       name: 'Propinas_${Globals.currentBranch}_$dateStr.pdf',
+    );
+  }
+
+  /// Genera un PDF con el historial de propinas (últimos 30 días),
+  /// una fila por día con su efectivo/tarjeta/total.
+  Future<void> _exportTipsHistoryPdf(
+    List<MapEntry<String, Map<String, double>>> dayEntries,
+    double totalEfectivo,
+    double totalTarjeta,
+    double total,
+  ) async {
+    final pdf = pw.Document();
+    final now = DateTime.now();
+
+    pdf.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(32),
+        build: (pw.Context context) {
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Text('Historial de Propinas - ${Globals.currentBranch}',
+                      style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
+                  pw.Text('Últimos 30 días (al ${DateFormat('dd/MM/yyyy').format(now)})',
+                      style: const pw.TextStyle(fontSize: 12)),
+                ],
+              ),
+              pw.SizedBox(height: 20),
+              pw.TableHelper.fromTextArray(
+                headers: ['Fecha', 'Efectivo', 'Tarjeta', 'Total'],
+                data: dayEntries.map((e) {
+                  final ef = e.value['efectivo']!;
+                  final ta = e.value['tarjeta']!;
+                  final tot = ef + ta;
+                  return [
+                    e.key,
+                    '\$${ef.toStringAsFixed(2)}',
+                    '\$${ta.toStringAsFixed(2)}',
+                    '\$${tot.toStringAsFixed(2)}',
+                  ];
+                }).toList(),
+              ),
+              pw.SizedBox(height: 16),
+              pw.Container(
+                alignment: pw.Alignment.centerRight,
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.end,
+                  children: [
+                    pw.Text('Efectivo: \$${totalEfectivo.toStringAsFixed(2)}'),
+                    pw.Text('Tarjeta: \$${totalTarjeta.toStringAsFixed(2)}'),
+                    pw.SizedBox(height: 4),
+                    pw.Text('TOTAL DEL PERIODO: \$${total.toStringAsFixed(2)}',
+                        style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 14)),
+                  ],
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    await Printing.layoutPdf(
+      onLayout: (PdfPageFormat format) async => pdf.save(),
+      name: 'Propinas_Historial_${Globals.currentBranch}.pdf',
     );
   }
 
@@ -1434,6 +1614,32 @@ class _CashRegisterViewState extends State<CashRegisterView> {
               ],
             ),
           ),
+    );
+  }
+
+  /// Botón tipo pestaña para alternar entre "Un Día" e "Historial" dentro
+  /// del Reporte de Propinas.
+  Widget _buildTipsModeTab(String label, bool selected, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: selected ? Colors.teal : const Color(0xFFFAF1DE),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: selected ? Colors.teal : const Color(0xFFE5DCC4)),
+        ),
+        child: Text(
+          label,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: selected ? Colors.white : const Color(0xFFA08F70),
+            fontWeight: FontWeight.bold,
+            fontSize: 13,
+          ),
+        ),
+      ),
     );
   }
 
