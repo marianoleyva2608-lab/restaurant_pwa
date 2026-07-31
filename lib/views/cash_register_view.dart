@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 import '../globals.dart';
 
 class CashRegisterView extends StatefulWidget {
@@ -920,12 +923,98 @@ class _CashRegisterViewState extends State<CashRegisterView> {
                     onPressed: () => Navigator.pop(ctx),
                     child: const Text('Cerrar', style: TextStyle(color: Color(0xFFA08F70))),
                   ),
+                  ElevatedButton.icon(
+                    onPressed: entries.isEmpty
+                        ? null
+                        : () => _exportTipsReportPdf(
+                              selectedDate,
+                              entries,
+                              totalEfectivo,
+                              totalTarjeta,
+                              total,
+                            ),
+                    icon: const Icon(Icons.print),
+                    label: const Text('Exportar / Imprimir'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.teal,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
                 ],
               );
             },
           );
         },
       ),
+    );
+  }
+
+  /// Genera un PDF con el desglose de propinas por mesero del día
+  /// seleccionado (para imprimir o compartir al momento de repartirlas).
+  Future<void> _exportTipsReportPdf(
+    DateTime date,
+    List<MapEntry<String, Map<String, double>>> entries,
+    double totalEfectivo,
+    double totalTarjeta,
+    double total,
+  ) async {
+    final pdf = pw.Document();
+    final dateStr = DateFormat('dd/MM/yyyy').format(date);
+
+    pdf.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(32),
+        build: (pw.Context context) {
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Text('Reporte de Propinas - ${Globals.currentBranch}',
+                      style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
+                  pw.Text('Fecha: $dateStr', style: const pw.TextStyle(fontSize: 12)),
+                ],
+              ),
+              pw.SizedBox(height: 20),
+              pw.TableHelper.fromTextArray(
+                headers: ['Mesero', 'Efectivo', 'Tarjeta', 'Total'],
+                data: entries.map((e) {
+                  final ef = e.value['efectivo']!;
+                  final ta = e.value['tarjeta']!;
+                  final tot = ef + ta;
+                  return [
+                    e.key,
+                    '\$${ef.toStringAsFixed(2)}',
+                    '\$${ta.toStringAsFixed(2)}',
+                    '\$${tot.toStringAsFixed(2)}',
+                  ];
+                }).toList(),
+              ),
+              pw.SizedBox(height: 16),
+              pw.Container(
+                alignment: pw.Alignment.centerRight,
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.end,
+                  children: [
+                    pw.Text('Efectivo: \$${totalEfectivo.toStringAsFixed(2)}'),
+                    pw.Text('Tarjeta: \$${totalTarjeta.toStringAsFixed(2)}'),
+                    pw.SizedBox(height: 4),
+                    pw.Text('TOTAL DEL DÍA: \$${total.toStringAsFixed(2)}',
+                        style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 14)),
+                  ],
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    await Printing.layoutPdf(
+      onLayout: (PdfPageFormat format) async => pdf.save(),
+      name: 'Propinas_${Globals.currentBranch}_$dateStr.pdf',
     );
   }
 
