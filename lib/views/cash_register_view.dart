@@ -577,7 +577,7 @@ class _CashRegisterViewState extends State<CashRegisterView> {
                   orElse: () => <String, dynamic>{},
                 )
               : <String, dynamic>{};
-          final recipientName = (selectedWaiter['name'] as String?) ?? 'Mesero';
+          final recipientName = (selectedWaiter['name'] as String?) ?? 'Todos';
 
           return AlertDialog(
             backgroundColor: const Color(0xFFFAF1DE),
@@ -612,7 +612,7 @@ class _CashRegisterViewState extends State<CashRegisterView> {
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                     ),
                     items: [
-                      const DropdownMenuItem(value: 'none', child: Text('General (sin asignar)')),
+                      const DropdownMenuItem(value: 'none', child: Text('Todos (propina compartida)')),
                       ..._waiters.map((w) => DropdownMenuItem<String>(
                             value: w['id'] as String,
                             child: Text(w['name'] as String),
@@ -856,63 +856,87 @@ class _CashRegisterViewState extends State<CashRegisterView> {
                             ),
                           )
                         else ...[
-                          ...entries.map((e) {
-                            final ef = e.value['efectivo']!;
-                            final ta = e.value['tarjeta']!;
-                            final tot = ef + ta;
-                            return Container(
-                              margin: const EdgeInsets.only(bottom: 8),
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.4),
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: const Color(0xFFE5DCC4)),
-                              ),
-                              child: Row(
-                                children: [
-                                  CircleAvatar(
-                                    backgroundColor: Colors.teal.withValues(alpha: 0.2),
-                                    child: Text(
-                                      e.key.isNotEmpty ? e.key[0].toUpperCase() : '?',
-                                      style: const TextStyle(color: Colors.teal, fontWeight: FontWeight.bold),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(e.key,
-                                            style: const TextStyle(color: Color(0xFF3D2E1A), fontWeight: FontWeight.bold)),
-                                        const SizedBox(height: 2),
-                                        Text(
-                                          'Efectivo: \$${ef.toStringAsFixed(2)}  ·  Tarjeta: \$${ta.toStringAsFixed(2)}',
-                                          style: const TextStyle(color: Color(0xFFA08F70), fontSize: 12),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  Text('\$${tot.toStringAsFixed(2)}',
-                                      style: const TextStyle(color: Colors.teal, fontWeight: FontWeight.bold, fontSize: 16)),
-                                ],
-                              ),
-                            );
-                          }),
-                          const Divider(color: Color(0xFFA08F70)),
+                          // Lo principal: cuánto se debe en total, por medio de pago.
+                          // Las propinas son compartidas entre todo el personal, así
+                          // que esto es lo que hay que repartir hoy.
                           Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text('TOTAL DEL DÍA',
-                                  style: TextStyle(color: Color(0xFF3D2E1A), fontWeight: FontWeight.bold)),
-                              Text('\$${total.toStringAsFixed(2)}',
-                                  style: const TextStyle(color: Color(0xFFFF6D00), fontWeight: FontWeight.bold, fontSize: 18)),
+                              Expanded(
+                                child: _buildTipTotalCard(
+                                    'Debido en Efectivo', totalEfectivo, Icons.payments, Colors.green),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: _buildTipTotalCard(
+                                    'Debido en Tarjeta', totalTarjeta, Icons.credit_card, Colors.blueAccent),
+                              ),
                             ],
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Efectivo: \$${totalEfectivo.toStringAsFixed(2)}  ·  Tarjeta: \$${totalTarjeta.toStringAsFixed(2)}',
-                            style: const TextStyle(color: Color(0xFFA08F70), fontSize: 12),
+                          const SizedBox(height: 12),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.teal.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text('TOTAL DEL DÍA',
+                                    style: TextStyle(color: Color(0xFF3D2E1A), fontWeight: FontWeight.bold)),
+                                Text('\$${total.toStringAsFixed(2)}',
+                                    style: const TextStyle(color: Colors.teal, fontWeight: FontWeight.bold, fontSize: 18)),
+                              ],
+                            ),
                           ),
+                          if (entries.length > 1 || entries.first.key != 'Todos') ...[
+                            const SizedBox(height: 20),
+                            const Text('Detalle por persona asignada',
+                                style: TextStyle(color: Color(0xFFA08F70), fontSize: 12, fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 8),
+                            ...entries.map((e) {
+                              final ef = e.value['efectivo']!;
+                              final ta = e.value['tarjeta']!;
+                              final tot = ef + ta;
+                              return Container(
+                                margin: const EdgeInsets.only(bottom: 8),
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.4),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: const Color(0xFFE5DCC4)),
+                                ),
+                                child: Row(
+                                  children: [
+                                    CircleAvatar(
+                                      backgroundColor: Colors.teal.withValues(alpha: 0.2),
+                                      child: Text(
+                                        e.key.isNotEmpty ? e.key[0].toUpperCase() : '?',
+                                        style: const TextStyle(color: Colors.teal, fontWeight: FontWeight.bold),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(e.key,
+                                              style: const TextStyle(color: Color(0xFF3D2E1A), fontWeight: FontWeight.bold)),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            'Efectivo: \$${ef.toStringAsFixed(2)}  ·  Tarjeta: \$${ta.toStringAsFixed(2)}',
+                                            style: const TextStyle(color: Color(0xFFA08F70), fontSize: 12),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    Text('\$${tot.toStringAsFixed(2)}',
+                                        style: const TextStyle(color: Colors.teal, fontWeight: FontWeight.bold, fontSize: 16)),
+                                  ],
+                                ),
+                              );
+                            }),
+                          ],
                         ],
                       ],
                     ),
@@ -1410,6 +1434,38 @@ class _CashRegisterViewState extends State<CashRegisterView> {
               ],
             ),
           ),
+    );
+  }
+
+  /// Tarjeta compacta para el Reporte de Propinas — resalta cuánto se debe
+  /// por medio de pago (efectivo o tarjeta).
+  Widget _buildTipTotalCard(String title, double amount, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: color, size: 16),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(title,
+                    style: const TextStyle(color: Color(0xFF7A6E5A), fontSize: 11, fontWeight: FontWeight.bold),
+                    overflow: TextOverflow.ellipsis),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text('\$${amount.toStringAsFixed(2)}',
+              style: TextStyle(color: color, fontSize: 20, fontWeight: FontWeight.bold)),
+        ],
+      ),
     );
   }
 
