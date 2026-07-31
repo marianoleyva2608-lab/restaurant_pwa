@@ -115,6 +115,7 @@ class _DishManagementViewState extends State<DishManagementView> {
                       'tacos','tostadas','tortas','especialidades',
                       'mainCourse','breakfast','soup','salad','appetizer',
                       'side','drink','jugos','cafes','refrescos','aguas','alcohol','dessert',
+                      'galletas',
                     ].contains(category) ? category : 'huevos',
                     decoration: const InputDecoration(labelText: 'Categoría'),
                     items: const [
@@ -141,6 +142,7 @@ class _DishManagementViewState extends State<DishManagementView> {
                       DropdownMenuItem(value: 'alcohol',        child: Text('Alcohol')),
                       DropdownMenuItem(value: 'drink',          child: Text('Bebidas (genérico)')),
                       DropdownMenuItem(value: 'dessert',        child: Text('Postres')),
+                      DropdownMenuItem(value: 'galletas',       child: Text('Galletas')),
                     ],
                     onChanged: (v) { if (v != null) category = v; },
                     validator: (v) => v == null || v.isEmpty ? 'Requerido' : null,

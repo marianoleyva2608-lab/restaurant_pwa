@@ -216,6 +216,7 @@ class Globals {
       'tortas': 'Tortas',
       'especialidades': 'Especialidades',
       'guisados': 'Guisados',
+      'galletas': 'Galletas',
     };
     return translations[category] ?? category;
   }
@@ -258,6 +259,7 @@ class Globals {
       'tortas': Icons.lunch_dining,
       'especialidades': Icons.star,
       'guisados': Icons.set_meal,
+      'galletas': Icons.cookie,
     };
     return icons[category] ?? Icons.restaurant_menu;
   }
