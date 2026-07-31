@@ -1290,12 +1290,16 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
   }
 
   // Pregunta propina y devuelve el total final (con propina), o null si se canceló
-  Future<double?> _askPropina(BuildContext context, double total) async {
+  /// Pide la propina al cobrar una cuenta. Devuelve un mapa con
+  /// 'total' (cuenta + propina, lo que se cobra) y 'propina' (solo el
+  /// monto de propina) para que el monto quede registrado por separado
+  /// en cash_movements y no se pierda dentro del total de la venta.
+  Future<Map<String, double>?> _askPropina(BuildContext context, double total) async {
     int selectedPct = -1; // -1 = sin propina
     final customController = TextEditingController();
     double propinaAmount = 0.0;
 
-    return showDialog<double>(
+    return showDialog<Map<String, double>>(
       context: context,
       barrierDismissible: false,
       builder: (ctx) => StatefulBuilder(
@@ -1426,7 +1430,7 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
                 child: const Text('Cancelar', style: TextStyle(color: Color(0xFFA08F70))),
               ),
               ElevatedButton.icon(
-                onPressed: () => Navigator.pop(ctx, totalFinal),
+                onPressed: () => Navigator.pop(ctx, {'total': totalFinal, 'propina': propinaAmount}),
                 icon: const Icon(Icons.arrow_forward),
                 label: const Text('Continuar al cobro', style: TextStyle(fontWeight: FontWeight.bold)),
                 style: ElevatedButton.styleFrom(
@@ -1443,7 +1447,39 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
     );
   }
 
-  Future<void> _showCashPaymentDialog(BuildContext context, List<String> orderIds, double total, String? tableId) async {
+  /// Registra la propina capturada al cobrar una cuenta como movimiento de
+  /// caja (categoría 'propina'), atribuida al mesero de esa cuenta cuando
+  /// se conoce. No bloquea el cobro si el registro falla.
+  Future<void> _registerPropinaMovement({
+    required double propina,
+    required String paymentMethod,
+    required String waiterName,
+  }) async {
+    if (propina <= 0) return;
+    try {
+      await Supabase.instance.client.from('cash_movements').insert({
+        'type': 'salida',
+        'category': 'propina',
+        'amount': propina,
+        'payment_method': paymentMethod,
+        'description': 'Propina registrada al cobrar cuenta',
+        'branch_name': Globals.currentBranch,
+        'registered_by': Globals.currentUser,
+        'recipient': waiterName.isNotEmpty ? waiterName : 'Todos',
+      });
+    } catch (_) {
+      // Si cash_movements no está disponible, no interrumpe el cobro.
+    }
+  }
+
+  Future<void> _showCashPaymentDialog(
+    BuildContext context,
+    List<String> orderIds,
+    double total,
+    String? tableId, {
+    double propina = 0.0,
+    String waiterName = '',
+  }) async {
     final cashController = TextEditingController();
     double change = 0.0;
     bool wantFactura = false;
@@ -1560,7 +1596,8 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
                   final confirmed = await _confirmCardPortion(context, remaining);
                   if (confirmed != true || !ctx.mounted) return;
                   Navigator.pop(ctx);
-                  await _executeFinalizeMixedPayment(context, orderIds, total, tableId, cashEntered, remaining);
+                  await _executeFinalizeMixedPayment(context, orderIds, total, tableId, cashEntered, remaining,
+                      propina: propina, waiterName: waiterName);
                 },
                 icon: const Icon(Icons.credit_card, size: 20),
                 label: Text(
@@ -1590,6 +1627,9 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
                       if (tableId != null) {
                         await supabase.from('restaurant_tables').update({'status': 'available'}).eq('id', tableId as Object);
                       }
+
+                      await _registerPropinaMovement(
+                          propina: propina, paymentMethod: 'EFECTIVO', waiterName: waiterName);
 
                       if (ctx.mounted) {
                         Navigator.pop(ctx); // Cerrar diálogo ahora
@@ -1654,7 +1694,14 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
     return confirm == true;
   }
 
-  Future<void> _showMixedPaymentDialog(BuildContext context, List<String> orderIds, double total, String? tableId) async {
+  Future<void> _showMixedPaymentDialog(
+    BuildContext context,
+    List<String> orderIds,
+    double total,
+    String? tableId, {
+    double propina = 0.0,
+    String waiterName = '',
+  }) async {
     final cashPartController = TextEditingController(text: total.toStringAsFixed(2));
     final cardPartController = TextEditingController(text: '0.00');
     final cashReceivedController = TextEditingController();
@@ -1860,7 +1907,8 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
                         if (!ok) return;
                         setState(() { isCardValidated = true; });
                       }
-                      await _executeFinalizeMixedPayment(context, orderIds, total, tableId, cashAmount, cardAmount);
+                      await _executeFinalizeMixedPayment(context, orderIds, total, tableId, cashAmount, cardAmount,
+                          propina: propina, waiterName: waiterName);
                     },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: (cardAmount > 0 && !isCardValidated) ? Colors.blueAccent : Colors.orangeAccent,
@@ -1950,7 +1998,16 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
     );
   }
 
-  Future<void> _executeFinalizeMixedPayment(BuildContext context, List<String> orderIds, double total, String? tableId, double cashAmount, double cardAmount) async {
+  Future<void> _executeFinalizeMixedPayment(
+    BuildContext context,
+    List<String> orderIds,
+    double total,
+    String? tableId,
+    double cashAmount,
+    double cardAmount, {
+    double propina = 0.0,
+    String waiterName = '',
+  }) async {
     final supabase = Supabase.instance.client;
     try {
       await supabase.from('orders').update({
@@ -1962,6 +2019,16 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
 
       if (tableId != null) {
         await supabase.from('restaurant_tables').update({'status': 'available'}).eq('id', tableId as Object);
+      }
+
+      // La propina se reparte proporcional a cómo se dividió el cobro
+      // entre efectivo y tarjeta.
+      if (propina > 0) {
+        final cashCardTotal = cashAmount + cardAmount;
+        final propinaEfectivo = cashCardTotal > 0 ? propina * (cashAmount / cashCardTotal) : propina;
+        final propinaTarjeta = cashCardTotal > 0 ? propina * (cardAmount / cashCardTotal) : 0.0;
+        await _registerPropinaMovement(propina: propinaEfectivo, paymentMethod: 'EFECTIVO', waiterName: waiterName);
+        await _registerPropinaMovement(propina: propinaTarjeta, paymentMethod: 'TARJETA', waiterName: waiterName);
       }
 
       if (context.mounted) {
@@ -2169,7 +2236,14 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
   /// Mercado Pago, etc.). Solo registra la venta como pagada con
   /// tarjeta para el corte de caja, cuando el cobro real ya se hizo en
   /// una terminal física aparte que no está integrada.
-  Future<void> _markCardPaymentNoTerminal(BuildContext context, List<String> orderIds, double amount, String? tableId) async {
+  Future<void> _markCardPaymentNoTerminal(
+    BuildContext context,
+    List<String> orderIds,
+    double amount,
+    String? tableId, {
+    double propina = 0.0,
+    String waiterName = '',
+  }) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -2213,6 +2287,8 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
       if (tableId != null) {
         await supabase.from('restaurant_tables').update({'status': 'available'}).eq('id', tableId);
       }
+
+      await _registerPropinaMovement(propina: propina, paymentMethod: 'TARJETA', waiterName: waiterName);
 
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
@@ -2872,9 +2948,10 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
                             const SizedBox(height: 12),
                             ElevatedButton.icon(
                               onPressed: () async {
-                                final totalConPropina = await _askPropina(context, totalToPay);
-                                if (totalConPropina == null || !context.mounted) return;
-                                _showCashPaymentDialog(context, orderIds, totalConPropina, widget.tableId);
+                                final propinaResult = await _askPropina(context, totalToPay);
+                                if (propinaResult == null || !context.mounted) return;
+                                _showCashPaymentDialog(context, orderIds, propinaResult['total']!, widget.tableId,
+                                    propina: propinaResult['propina']!, waiterName: waiterName);
                               },
                               icon: const Icon(Icons.payments, size: 28),
                               label: const Text('Efectivo', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
@@ -2889,9 +2966,10 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
                             const SizedBox(height: 16),
                             ElevatedButton.icon(
                               onPressed: () async {
-                                final totalConPropina = await _askPropina(context, totalToPay);
-                                if (totalConPropina == null || !context.mounted) return;
-                                _markCardPaymentNoTerminal(context, orderIds, totalConPropina, widget.tableId);
+                                final propinaResult = await _askPropina(context, totalToPay);
+                                if (propinaResult == null || !context.mounted) return;
+                                _markCardPaymentNoTerminal(context, orderIds, propinaResult['total']!, widget.tableId,
+                                    propina: propinaResult['propina']!, waiterName: waiterName);
                               },
                               icon: const Icon(Icons.credit_card, size: 26),
                               label: const Text('Tarjeta', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
@@ -2906,9 +2984,10 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
                             const SizedBox(height: 16),
                             ElevatedButton.icon(
                               onPressed: () async {
-                                final totalConPropina = await _askPropina(context, totalToPay);
-                                if (totalConPropina == null || !context.mounted) return;
-                                _showMixedPaymentDialog(context, orderIds, totalConPropina, widget.tableId);
+                                final propinaResult = await _askPropina(context, totalToPay);
+                                if (propinaResult == null || !context.mounted) return;
+                                _showMixedPaymentDialog(context, orderIds, propinaResult['total']!, widget.tableId,
+                                    propina: propinaResult['propina']!, waiterName: waiterName);
                               },
                               icon: const Icon(Icons.pie_chart, size: 26),
                               label: const Text('Pago Mixto (Efectivo + Tarjeta)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
