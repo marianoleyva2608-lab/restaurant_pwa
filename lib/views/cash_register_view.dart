@@ -530,6 +530,158 @@ class _CashRegisterViewState extends State<CashRegisterView> {
     );
   }
 
+  /// Diálogo rápido para reportar el total de PROPINAS del día, separado
+  /// por medio de pago (efectivo y tarjeta). Registra hasta dos movimientos
+  /// tipo 'salida' / categoría 'propina' — uno por cada monto distinto de
+  /// cero — para que queden reflejados en el historial y en la nómina.
+  Future<void> _showReportarPropinasDialog() async {
+    final efectivoController = TextEditingController();
+    final tarjetaController = TextEditingController();
+    final notesController = TextEditingController();
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlgState) {
+          final efectivo = double.tryParse(efectivoController.text.trim()) ?? 0;
+          final tarjeta = double.tryParse(tarjetaController.text.trim()) ?? 0;
+          final total = efectivo + tarjeta;
+
+          return AlertDialog(
+            backgroundColor: const Color(0xFFFAF1DE),
+            title: const Row(
+              children: [
+                Icon(Icons.volunteer_activism, color: Colors.teal),
+                SizedBox(width: 8),
+                Text('Reportar Propinas del Día',
+                    style: TextStyle(color: Color(0xFF3D2E1A), fontWeight: FontWeight.bold)),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text(
+                    'Captura el total de propinas recibidas hoy, separado por medio de pago.',
+                    style: TextStyle(color: Color(0xFF7A6E5A), fontSize: 13),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: efectivoController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    autofocus: true,
+                    onChanged: (_) => setDlgState(() {}),
+                    style: const TextStyle(color: Colors.black, fontSize: 20, fontWeight: FontWeight.bold),
+                    decoration: const InputDecoration(
+                      labelText: 'Propina en Efectivo',
+                      prefixText: '\$ ',
+                      prefixIcon: Icon(Icons.payments, color: Colors.green),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: tarjetaController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    onChanged: (_) => setDlgState(() {}),
+                    style: const TextStyle(color: Colors.black, fontSize: 20, fontWeight: FontWeight.bold),
+                    decoration: const InputDecoration(
+                      labelText: 'Propina en Tarjeta',
+                      prefixText: '\$ ',
+                      prefixIcon: Icon(Icons.credit_card, color: Colors.blueAccent),
+                    ),
+                  ),
+                  if (total > 0) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.teal.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        'Total del día: \$${total.toStringAsFixed(2)}',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: Colors.teal, fontWeight: FontWeight.bold, fontSize: 15),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: notesController,
+                    style: const TextStyle(color: Colors.black),
+                    decoration: const InputDecoration(
+                      labelText: 'Notas (opcional)',
+                      prefixIcon: Icon(Icons.note, color: Color(0xFFA08F70)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancelar', style: TextStyle(color: Color(0xFFA08F70))),
+              ),
+              ElevatedButton.icon(
+                onPressed: total <= 0
+                    ? null
+                    : () async {
+                        try {
+                          final notes = notesController.text.trim();
+                          if (efectivo > 0) {
+                            await _supabase.from('cash_movements').insert({
+                              'type': 'salida',
+                              'category': 'propina',
+                              'amount': efectivo,
+                              'payment_method': 'EFECTIVO',
+                              'description': notes.isNotEmpty ? 'Propinas del día (efectivo) - $notes' : 'Propinas del día (efectivo)',
+                              'branch_name': Globals.currentBranch,
+                              'registered_by': Globals.currentUser,
+                              'recipient': 'Mesero',
+                            });
+                          }
+                          if (tarjeta > 0) {
+                            await _supabase.from('cash_movements').insert({
+                              'type': 'salida',
+                              'category': 'propina',
+                              'amount': tarjeta,
+                              'payment_method': 'TARJETA',
+                              'description': notes.isNotEmpty ? 'Propinas del día (tarjeta) - $notes' : 'Propinas del día (tarjeta)',
+                              'branch_name': Globals.currentBranch,
+                              'registered_by': Globals.currentUser,
+                              'recipient': 'Mesero',
+                            });
+                          }
+
+                          if (ctx.mounted) Navigator.pop(ctx);
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                              content: Text('Propinas registradas: \$${total.toStringAsFixed(2)}'),
+                              backgroundColor: Colors.teal,
+                            ));
+                            _fetchMovements();
+                          }
+                        } catch (e) {
+                          if (ctx.mounted) {
+                            ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content: Text('Error: $e')));
+                          }
+                        }
+                      },
+                icon: const Icon(Icons.check),
+                label: const Text('Registrar Propinas'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.teal,
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
   void _showNewMovementDialog() {
     // Resetea controladores antes de mostrar
     _amountController.clear();
@@ -708,6 +860,8 @@ class _CashRegisterViewState extends State<CashRegisterView> {
     double entradasEfectivo = 0;
     double salidasEfectivo = 0;
     double prestamosHoy = 0;
+    double propinasEfectivoHoy = 0;
+    double propinasTarjetaHoy = 0;
 
     for (var m in _movements) {
       final createdAt = DateTime.tryParse(m['created_at']?.toString() ?? '');
@@ -716,6 +870,8 @@ class _CashRegisterViewState extends State<CashRegisterView> {
       if (m['type'] == 'entrada' && m['payment_method'] == 'EFECTIVO' && m['category'] != 'apertura') entradasEfectivo += amount;
       if (m['type'] == 'salida' && m['payment_method'] == 'EFECTIVO') salidasEfectivo += amount;
       if (m['category'] == 'prestamo') prestamosHoy += amount;
+      if (m['category'] == 'propina' && m['payment_method'] == 'EFECTIVO') propinasEfectivoHoy += amount;
+      if (m['category'] == 'propina' && m['payment_method'] == 'TARJETA') propinasTarjetaHoy += amount;
     }
 
     return Scaffold(
@@ -737,6 +893,18 @@ class _CashRegisterViewState extends State<CashRegisterView> {
               label: const Text('Apertura de Caja', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.green,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(right: 8.0),
+            child: ElevatedButton.icon(
+              onPressed: _showReportarPropinasDialog,
+              icon: const Icon(Icons.volunteer_activism, color: Colors.white),
+              label: const Text('Reportar Propinas', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.teal,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
             ),
@@ -807,6 +975,8 @@ class _CashRegisterViewState extends State<CashRegisterView> {
                     _buildSummaryCard('Entradas Extra\n(Efectivo)', '+\$${entradasEfectivo.toStringAsFixed(2)}', Colors.greenAccent, isMobile),
                     _buildSummaryCard('Salidas / Gastos\n(Efectivo)', '-\$${salidasEfectivo.toStringAsFixed(2)}', Colors.redAccent, isMobile),
                     _buildSummaryCard('Préstamos \nEntregados Hoy', '\$${prestamosHoy.toStringAsFixed(2)}', Colors.orangeAccent, isMobile),
+                    _buildSummaryCard('Propinas Hoy\n(Efectivo)', '\$${propinasEfectivoHoy.toStringAsFixed(2)}', Colors.teal, isMobile),
+                    _buildSummaryCard('Propinas Hoy\n(Tarjeta)', '\$${propinasTarjetaHoy.toStringAsFixed(2)}', Colors.teal, isMobile),
                   ],
                 ),
                 if (_closings.isNotEmpty) ...[
