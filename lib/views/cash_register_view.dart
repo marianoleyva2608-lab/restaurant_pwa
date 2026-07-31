@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:intl/intl.dart';
 import '../globals.dart';
 
 class CashRegisterView extends StatefulWidget {
@@ -30,11 +31,31 @@ class _CashRegisterViewState extends State<CashRegisterView> {
 
   List<Map<String, dynamic>> _closings = [];
 
+  // Meseros de la sucursal — para atribuir cada propina a quien le pertenece.
+  List<Map<String, dynamic>> _waiters = [];
+
   @override
   void initState() {
     super.initState();
     _fetchMovements();
     _fetchClosings();
+    _fetchWaitersForTips();
+  }
+
+  Future<void> _fetchWaitersForTips() async {
+    try {
+      final response = await _supabase
+          .from('waiters')
+          .select('id, name')
+          .eq('branch_name', Globals.currentBranch)
+          .order('name', ascending: true);
+      if (mounted) {
+        setState(() => _waiters = List<Map<String, dynamic>>.from(response));
+      }
+    } catch (_) {
+      // Si la tabla de meseros no está disponible, el diálogo de propinas
+      // sigue funcionando con recipient genérico 'Mesero'.
+    }
   }
 
   Future<void> _fetchClosings() async {
@@ -538,6 +559,7 @@ class _CashRegisterViewState extends State<CashRegisterView> {
     final efectivoController = TextEditingController();
     final tarjetaController = TextEditingController();
     final notesController = TextEditingController();
+    String? selectedWaiterId = 'none';
 
     await showDialog(
       context: context,
@@ -546,6 +568,13 @@ class _CashRegisterViewState extends State<CashRegisterView> {
           final efectivo = double.tryParse(efectivoController.text.trim()) ?? 0;
           final tarjeta = double.tryParse(tarjetaController.text.trim()) ?? 0;
           final total = efectivo + tarjeta;
+          final selectedWaiter = (selectedWaiterId != null && selectedWaiterId != 'none')
+              ? _waiters.firstWhere(
+                  (w) => w['id'] == selectedWaiterId,
+                  orElse: () => <String, dynamic>{},
+                )
+              : <String, dynamic>{};
+          final recipientName = (selectedWaiter['name'] as String?) ?? 'Mesero';
 
           return AlertDialog(
             backgroundColor: const Color(0xFFFAF1DE),
@@ -565,6 +594,28 @@ class _CashRegisterViewState extends State<CashRegisterView> {
                   const Text(
                     'Captura el total de propinas recibidas hoy, separado por medio de pago.',
                     style: TextStyle(color: Color(0xFF7A6E5A), fontSize: 13),
+                  ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    initialValue: selectedWaiterId,
+                    dropdownColor: const Color(0xFFFAF1DE),
+                    style: const TextStyle(color: Color(0xFF3D2E1A)),
+                    decoration: InputDecoration(
+                      labelText: '¿Para quién es la propina?',
+                      labelStyle: const TextStyle(color: Color(0xFFA08F70)),
+                      prefixIcon: const Icon(Icons.person, color: Color(0xFFA08F70)),
+                      filled: true,
+                      fillColor: const Color(0xFFFAF1DE),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    items: [
+                      const DropdownMenuItem(value: 'none', child: Text('General (sin asignar)')),
+                      ..._waiters.map((w) => DropdownMenuItem<String>(
+                            value: w['id'] as String,
+                            child: Text(w['name'] as String),
+                          )),
+                    ],
+                    onChanged: (val) => setDlgState(() => selectedWaiterId = val),
                   ),
                   const SizedBox(height: 16),
                   TextField(
@@ -638,7 +689,7 @@ class _CashRegisterViewState extends State<CashRegisterView> {
                               'description': notes.isNotEmpty ? 'Propinas del día (efectivo) - $notes' : 'Propinas del día (efectivo)',
                               'branch_name': Globals.currentBranch,
                               'registered_by': Globals.currentUser,
-                              'recipient': 'Mesero',
+                              'recipient': recipientName,
                             });
                           }
                           if (tarjeta > 0) {
@@ -650,14 +701,14 @@ class _CashRegisterViewState extends State<CashRegisterView> {
                               'description': notes.isNotEmpty ? 'Propinas del día (tarjeta) - $notes' : 'Propinas del día (tarjeta)',
                               'branch_name': Globals.currentBranch,
                               'registered_by': Globals.currentUser,
-                              'recipient': 'Mesero',
+                              'recipient': recipientName,
                             });
                           }
 
                           if (ctx.mounted) Navigator.pop(ctx);
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                              content: Text('Propinas registradas: \$${total.toStringAsFixed(2)}'),
+                              content: Text('Propinas registradas para $recipientName: \$${total.toStringAsFixed(2)}'),
                               backgroundColor: Colors.teal,
                             ));
                             _fetchMovements();
@@ -676,6 +727,202 @@ class _CashRegisterViewState extends State<CashRegisterView> {
                 ),
               ),
             ],
+          );
+        },
+      ),
+    );
+  }
+
+  /// Reporte de propinas de UN DÍA, agrupado por mesero — responde a
+  /// "cuánto se sacó de propina hoy y para quién es". Lee los movimientos
+  /// de cash_movements con categoría 'propina' del día seleccionado y los
+  /// agrupa por 'recipient' (mesero asignado al reportar la propina).
+  Future<void> _showTipsReportDialog() async {
+    DateTime selectedDate = DateTime.now();
+
+    Future<List<Map<String, dynamic>>> fetchTips(DateTime date) async {
+      final startOfDay = DateTime(date.year, date.month, date.day);
+      final endOfDay = startOfDay.add(const Duration(days: 1));
+      try {
+        final response = await _supabase
+            .from('cash_movements')
+            .select()
+            .eq('branch_name', Globals.currentBranch)
+            .eq('category', 'propina')
+            .gte('created_at', startOfDay.toIso8601String())
+            .lt('created_at', endOfDay.toIso8601String())
+            .order('created_at', ascending: false);
+        return List<Map<String, dynamic>>.from(response);
+      } catch (_) {
+        return [];
+      }
+    }
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlgState) {
+          return FutureBuilder<List<Map<String, dynamic>>>(
+            future: fetchTips(selectedDate),
+            builder: (context, snapshot) {
+              final rows = snapshot.data ?? [];
+
+              // Agrupa por mesero (recipient) sumando efectivo y tarjeta.
+              final Map<String, Map<String, double>> byWaiter = {};
+              double totalEfectivo = 0, totalTarjeta = 0;
+              for (final r in rows) {
+                final rawName = (r['recipient'] as String?)?.trim();
+                final key = (rawName == null || rawName.isEmpty || rawName == 'N/A')
+                    ? 'Sin asignar'
+                    : rawName;
+                final amt = double.tryParse(r['amount']?.toString() ?? '0') ?? 0.0;
+                final pm = r['payment_method']?.toString() ?? 'EFECTIVO';
+                byWaiter.putIfAbsent(key, () => {'efectivo': 0.0, 'tarjeta': 0.0});
+                if (pm == 'TARJETA') {
+                  byWaiter[key]!['tarjeta'] = byWaiter[key]!['tarjeta']! + amt;
+                  totalTarjeta += amt;
+                } else {
+                  byWaiter[key]!['efectivo'] = byWaiter[key]!['efectivo']! + amt;
+                  totalEfectivo += amt;
+                }
+              }
+              final total = totalEfectivo + totalTarjeta;
+              final entries = byWaiter.entries.toList()
+                ..sort((a, b) => (b.value['efectivo']! + b.value['tarjeta']!)
+                    .compareTo(a.value['efectivo']! + a.value['tarjeta']!));
+
+              return AlertDialog(
+                backgroundColor: const Color(0xFFFAF1DE),
+                title: const Row(
+                  children: [
+                    Icon(Icons.summarize, color: Colors.teal),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text('Reporte de Propinas',
+                          style: TextStyle(color: Color(0xFF3D2E1A), fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
+                content: SizedBox(
+                  width: 420,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        InkWell(
+                          onTap: () async {
+                            final picked = await showDatePicker(
+                              context: context,
+                              initialDate: selectedDate,
+                              firstDate: DateTime(2024),
+                              lastDate: DateTime(2100),
+                            );
+                            if (picked != null) {
+                              setDlgState(() => selectedDate = picked);
+                            }
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE5DCC4).withValues(alpha: 0.3),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(DateFormat('dd/MM/yyyy').format(selectedDate),
+                                    style: const TextStyle(color: Color(0xFF3D2E1A), fontWeight: FontWeight.bold)),
+                                const Icon(Icons.calendar_month, color: Color(0xFFFF6D00)),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        if (snapshot.connectionState == ConnectionState.waiting)
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 24),
+                            child: Center(child: CircularProgressIndicator()),
+                          )
+                        else if (entries.isEmpty)
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 24),
+                            child: Center(
+                              child: Text('No se registraron propinas este día.',
+                                  style: TextStyle(color: Color(0xFFA08F70))),
+                            ),
+                          )
+                        else ...[
+                          ...entries.map((e) {
+                            final ef = e.value['efectivo']!;
+                            final ta = e.value['tarjeta']!;
+                            final tot = ef + ta;
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.4),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: const Color(0xFFE5DCC4)),
+                              ),
+                              child: Row(
+                                children: [
+                                  CircleAvatar(
+                                    backgroundColor: Colors.teal.withValues(alpha: 0.2),
+                                    child: Text(
+                                      e.key.isNotEmpty ? e.key[0].toUpperCase() : '?',
+                                      style: const TextStyle(color: Colors.teal, fontWeight: FontWeight.bold),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(e.key,
+                                            style: const TextStyle(color: Color(0xFF3D2E1A), fontWeight: FontWeight.bold)),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          'Efectivo: \$${ef.toStringAsFixed(2)}  ·  Tarjeta: \$${ta.toStringAsFixed(2)}',
+                                          style: const TextStyle(color: Color(0xFFA08F70), fontSize: 12),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Text('\$${tot.toStringAsFixed(2)}',
+                                      style: const TextStyle(color: Colors.teal, fontWeight: FontWeight.bold, fontSize: 16)),
+                                ],
+                              ),
+                            );
+                          }),
+                          const Divider(color: Color(0xFFA08F70)),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text('TOTAL DEL DÍA',
+                                  style: TextStyle(color: Color(0xFF3D2E1A), fontWeight: FontWeight.bold)),
+                              Text('\$${total.toStringAsFixed(2)}',
+                                  style: const TextStyle(color: Color(0xFFFF6D00), fontWeight: FontWeight.bold, fontSize: 18)),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Efectivo: \$${totalEfectivo.toStringAsFixed(2)}  ·  Tarjeta: \$${totalTarjeta.toStringAsFixed(2)}',
+                            style: const TextStyle(color: Color(0xFFA08F70), fontSize: 12),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: const Text('Cerrar', style: TextStyle(color: Color(0xFFA08F70))),
+                  ),
+                ],
+              );
+            },
           );
         },
       ),
@@ -905,6 +1152,19 @@ class _CashRegisterViewState extends State<CashRegisterView> {
               label: const Text('Reportar Propinas', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.teal,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(right: 8.0),
+            child: ElevatedButton.icon(
+              onPressed: _showTipsReportDialog,
+              icon: const Icon(Icons.summarize, color: Colors.teal),
+              label: const Text('Reporte de Propinas', style: TextStyle(color: Colors.teal, fontWeight: FontWeight.bold)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFFAF1DE),
+                side: const BorderSide(color: Colors.teal),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
             ),
