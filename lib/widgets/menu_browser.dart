@@ -18,7 +18,10 @@ class _MenuBrowserState extends State<MenuBrowser> {
   String _searchQuery = '';
 
   static String _drinkSubcat(String name) {
-    final n = name.toLowerCase();
+    final n = name.toLowerCase().trim();
+    if (n.contains('choco')) return 'choco';
+    if (n == 'té' || n == 'te') return 'te';
+    if (n.contains('leche')) return 'leche';
     if (n.contains('jugo')) return 'jugos';
     if (n.contains('café') ||
         n.contains('cafe') ||
@@ -78,7 +81,7 @@ class _MenuBrowserState extends State<MenuBrowser> {
   // Categorías de bebida: NO se muestran como tarjetas (DishCard) en la lista.
   // El chip de categoría y el submenú de bebidas se conservan.
   static const _allDrinkCats = {
-    'drink', 'bebidas', 'jugos', 'cafes', 'refrescos', 'aguas', 'alcohol',
+    'drink', 'bebidas', 'jugos', 'cafes', 'refrescos', 'aguas', 'alcohol', 'choco', 'te', 'leche',
   };
   static bool _isDrinkCategory(String category) =>
       _allDrinkCats.contains(category.toLowerCase());
@@ -99,7 +102,10 @@ class _MenuBrowserState extends State<MenuBrowser> {
             'cafes',
             'refrescos',
             'aguas',
-            'alcohol'
+            'alcohol',
+            'choco',
+            'te',
+            'leche',
           };
           if (!allDrinkCats.contains(dish.category)) continue;
           if (_selectedDrinkSubcat != null &&
@@ -162,7 +168,7 @@ class _MenuBrowserState extends State<MenuBrowser> {
       // Refrescos, Jugos y Aguas tienen diálogo dedicado con SABORES y TAMAÑOS
       // (cargados de la BD) — abrirlo vía addDishToCart con un platillo
       // representativo de la subcategoría.
-      const dialogSubcats = {'refrescos', 'jugos', 'aguas'};
+      const dialogSubcats = {'refrescos', 'jugos', 'aguas', 'choco', 'te', 'leche'};
       if (dialogSubcats.contains(label)) {
         Dish rep = items.first;
         if (label == 'aguas') {
@@ -212,7 +218,7 @@ class _MenuBrowserState extends State<MenuBrowser> {
     }
 
     const skipMultiFlavor = {
-      'drink', 'bebidas', 'jugos', 'cafes', 'refrescos', 'aguas', 'alcohol', 'gorditas',
+      'drink', 'bebidas', 'jugos', 'cafes', 'refrescos', 'aguas', 'alcohol', 'choco', 'te', 'leche', 'gorditas',
       'menudo',   // needs separate Menudo + Cuajadilla cards
       'lo_dulce', // needs separate Molletes / Churros+HotCakes cards
       'dessert',  // same items sometimes stored as 'dessert'
@@ -275,6 +281,9 @@ class _MenuBrowserState extends State<MenuBrowser> {
       ('jugos', 'Jugos', Icons.local_drink),
       ('refrescos', 'Refrescos', Icons.sports_bar),
       ('cafes', 'Cafés', Icons.coffee),
+      ('choco', 'Choco', Icons.icecream),
+      ('te', 'Té', Icons.emoji_food_beverage),
+      ('leche', 'Leche', Icons.local_cafe),
     ];
     showModalBottomSheet<void>(
       context: context,
@@ -417,7 +426,7 @@ class _MenuBrowserState extends State<MenuBrowser> {
 
   /// Categorías que mantienen tarjetas individuales (lógica especial)
   static const _skipMultiFlavor = {
-    'drink', 'bebidas', 'jugos', 'cafes', 'refrescos', 'aguas', 'alcohol',
+    'drink', 'bebidas', 'jugos', 'cafes', 'refrescos', 'aguas', 'alcohol', 'choco', 'te', 'leche',
     'gorditas',
     'menudo',             // tarjetas separadas: Menudo + Cuajadillas
     'lo_dulce', 'dessert', // tarjetas separadas: Molletes vs Churros+HotCakes

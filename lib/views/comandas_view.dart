@@ -101,7 +101,7 @@ class _ComandasViewState extends State<ComandasView> {
       // Refrescos, Jugos, Aguas, Choco y Té tienen diálogo dedicado con
       // SABORES (y, en algunos, TAMAÑOS cargados de la BD) — abrirlo vía
       // addDishToCart con un platillo representativo de la subcategoría.
-      const dialogSubcats = {'refrescos', 'jugos', 'aguas', 'choco', 'te'};
+      const dialogSubcats = {'refrescos', 'jugos', 'aguas', 'choco', 'te', 'leche'};
       if (dialogSubcats.contains(label)) {
         Dish rep = items.first;
         if (label == 'aguas') {
@@ -289,13 +289,14 @@ class _ComandasViewState extends State<ComandasView> {
   }
 
 
-  static const _drinkSubcats = ['jugos', 'cafes', 'refrescos', 'aguas', 'alcohol', 'choco', 'te'];
+  static const _drinkSubcats = ['jugos', 'cafes', 'refrescos', 'aguas', 'alcohol', 'choco', 'te', 'leche'];
 
   // Detecta subcategoría de bebida por nombre cuando la categoría es 'drink'
   static String _drinkSubcat(String name) {
     final n = name.toLowerCase().trim();
     if (n.contains('choco')) return 'choco';
     if (n == 'té' || n == 'te') return 'te';
+    if (n.contains('leche')) return 'leche';
     if (n.contains('jugo') || n.contains('naranja') || n.contains('zanahoria') ||
         n.contains('betabel') || n.contains('verde') || n.contains('piña') ||
         n.contains('mango') || n.contains('fresa') || n.contains('apio'))
@@ -330,7 +331,7 @@ class _ComandasViewState extends State<ComandasView> {
   // Categorías de bebida: NO se muestran como tarjetas (DishCard) en la lista.
   // El chip de categoría y el submenú de bebidas se conservan.
   static const _allDrinkCats = {
-    'drink', 'bebidas', 'jugos', 'cafes', 'refrescos', 'aguas', 'alcohol', 'choco', 'te',
+    'drink', 'bebidas', 'jugos', 'cafes', 'refrescos', 'aguas', 'alcohol', 'choco', 'te', 'leche',
   };
   static bool _isDrinkCategory(String category) =>
       _allDrinkCats.contains(category.toLowerCase());
@@ -1755,6 +1756,7 @@ class _ComandasViewState extends State<ComandasView> {
       ('cafes', 'Cafés', Icons.coffee),
       ('choco', 'Choco', Icons.icecream),
       ('te', 'Té', Icons.emoji_food_beverage),
+      ('leche', 'Leche', Icons.local_cafe),
     ];
     showModalBottomSheet<void>(
       context: context,
