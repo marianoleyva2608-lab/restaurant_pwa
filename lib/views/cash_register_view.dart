@@ -1440,18 +1440,6 @@ class _CashRegisterViewState extends State<CashRegisterView> {
           Padding(
             padding: const EdgeInsets.only(right: 8.0),
             child: ElevatedButton.icon(
-              onPressed: _showReportarPropinasDialog,
-              icon: const Icon(Icons.volunteer_activism, color: Colors.white),
-              label: const Text('Reportar Propinas', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.teal,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(right: 8.0),
-            child: ElevatedButton.icon(
               onPressed: _showTipsReportDialog,
               icon: const Icon(Icons.summarize, color: Colors.teal),
               label: const Text('Reporte de Propinas', style: TextStyle(color: Colors.teal, fontWeight: FontWeight.bold)),
