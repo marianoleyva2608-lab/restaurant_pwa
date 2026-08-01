@@ -2864,24 +2864,52 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text('Añadir descuento:', style: TextStyle(color: Color(0xFF7A6E5A), fontSize: 14)),
+                                const Text('Añadir descuento:',
+                                    style: TextStyle(
+                                        color: Colors.black,
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.bold)),
                                 SizedBox(
-                                  width: 120,
-                                  height: 40,
+                                  width: 130,
+                                  height: 48,
                                   child: TextFormField(
-                                    initialValue: _discountPercent > 0 ? _discountPercent.toStringAsFixed(0) : '',
+                                    initialValue: _discountPercent > 0
+                                        ? _discountPercent.toStringAsFixed(0)
+                                        : '',
                                     keyboardType: TextInputType.number,
                                     textAlign: TextAlign.center,
-                                    style: const TextStyle(color: Color(0xFFFF6D00), fontWeight: FontWeight.bold),
+                                    style: const TextStyle(
+                                        color: Color(0xFFFF6D00),
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 20),
                                     decoration: InputDecoration(
                                       hintText: '0',
-                                      hintStyle: const TextStyle(color: Colors.white30),
+                                      hintStyle: const TextStyle(
+                                          color: Color(0xFFA08F70),
+                                          fontSize: 20),
                                       suffixText: '%',
-                                      suffixStyle: const TextStyle(color: Color(0xFFFF6D00), fontWeight: FontWeight.bold),
+                                      suffixStyle: const TextStyle(
+                                          color: Color(0xFFFF6D00),
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 18),
                                       contentPadding: EdgeInsets.zero,
                                       filled: true,
-                                      fillColor: const Color(0xFFFAF1DE),
-                                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                                      fillColor: Colors.white,
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                        borderSide: const BorderSide(
+                                            color: Color(0xFFFF6D00), width: 2),
+                                      ),
+                                      enabledBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                        borderSide: const BorderSide(
+                                            color: Color(0xFFFF6D00), width: 2),
+                                      ),
+                                      focusedBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                        borderSide: const BorderSide(
+                                            color: Color(0xFFFF6D00), width: 3),
+                                      ),
                                     ),
                                     onChanged: (val) {
                                       double? parsed = double.tryParse(val);
@@ -2898,15 +2926,31 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  const Text('Subtotal:', style: TextStyle(color: Colors.grey, fontSize: 14)),
-                                  Text('\$${subtotal.toStringAsFixed(2)}', style: const TextStyle(color: Colors.grey, fontSize: 14)),
+                                  const Text('Subtotal:',
+                                      style: TextStyle(
+                                          color: Colors.black87,
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w600)),
+                                  Text('\$${subtotal.toStringAsFixed(2)}',
+                                      style: const TextStyle(
+                                          color: Colors.black87,
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w600)),
                                 ],
                               ),
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text('Descuento (${_discountPercent.toInt()}%):', style: const TextStyle(color: Colors.redAccent, fontSize: 14)),
-                                  Text('-\$${discountAmount.toStringAsFixed(2)}', style: const TextStyle(color: Colors.redAccent, fontSize: 14)),
+                                  Text('Descuento (${_discountPercent.toInt()}%):',
+                                      style: const TextStyle(
+                                          color: Colors.red,
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.bold)),
+                                  Text('-\$${discountAmount.toStringAsFixed(2)}',
+                                      style: const TextStyle(
+                                          color: Colors.red,
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.bold)),
                                 ],
                               ),
                               const SizedBox(height: 8),
