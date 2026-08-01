@@ -508,8 +508,11 @@ void showLoDulcePickerSheet(BuildContext context, List<Dish> items, {String? rep
 
   // Cualquier otro platillo de "Lo dulce" que no encaje en las categorías
   // anteriores también se muestra, uno por uno, para que no quede invisible.
+  // Se excluyen TODAS las variantes "mollete" (incluyendo "1/2 orden"): el
+  // diálogo de Molletes Dulces ya calcula la media orden como la mitad del
+  // precio, así que un registro aparte para 1/2 orden sería redundante.
   final otros = items.where((d) =>
-      d != molletes &&
+      !d.name.toLowerCase().contains('mollete') &&
       !hotCakes.contains(d) &&
       d != churros &&
       !galletas.contains(d)).toList();
