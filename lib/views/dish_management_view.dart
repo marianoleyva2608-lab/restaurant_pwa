@@ -11,6 +11,8 @@ class DishManagementView extends StatefulWidget {
 
 class _DishManagementViewState extends State<DishManagementView> {
   final _supabase = Supabase.instance.client;
+  final _searchController = TextEditingController();
+  String _searchQuery = '';
 
   Future<void> _showDishDialog({Map<String, dynamic>? dish}) async {
     final isEditing = dish != null;
@@ -313,13 +315,19 @@ class _DishManagementViewState extends State<DishManagementView> {
   }
 
   @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final isMobile = MediaQuery.of(context).size.width < 700;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: EdgeInsets.all(isMobile ? 16.0 : 24.0),
+          padding: EdgeInsets.fromLTRB(isMobile ? 16.0 : 24.0, isMobile ? 16.0 : 24.0, isMobile ? 16.0 : 24.0, 0),
           child: Flex(
             direction: isMobile ? Axis.vertical : Axis.horizontal,
             crossAxisAlignment: isMobile ? CrossAxisAlignment.start : CrossAxisAlignment.center,
@@ -343,6 +351,33 @@ class _DishManagementViewState extends State<DishManagementView> {
             ],
           ),
         ),
+        Padding(
+          padding: EdgeInsets.fromLTRB(isMobile ? 16.0 : 24.0, 16.0, isMobile ? 16.0 : 24.0, 0),
+          child: TextField(
+            controller: _searchController,
+            decoration: InputDecoration(
+              hintText: 'Buscar platillo por nombre...',
+              prefixIcon: const Icon(Icons.search),
+              suffixIcon: _searchQuery.isEmpty
+                  ? null
+                  : IconButton(
+                      icon: const Icon(Icons.clear),
+                      onPressed: () {
+                        _searchController.clear();
+                        setState(() => _searchQuery = '');
+                      },
+                    ),
+              filled: true,
+              fillColor: const Color(0xFFFAF1DE),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: Color(0xFFE5DCC4)),
+              ),
+              contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
+            ),
+            onChanged: (v) => setState(() => _searchQuery = v.trim()),
+          ),
+        ),
         Expanded(
           child: StreamBuilder<List<Map<String, dynamic>>>(
             stream: _supabase.from('dishes').stream(primaryKey: ['id']).order('name', ascending: true),
@@ -351,7 +386,24 @@ class _DishManagementViewState extends State<DishManagementView> {
                 return const Center(child: CircularProgressIndicator());
               }
 
-              final dishes = snapshot.data!;
+              final allDishes = snapshot.data!;
+              final dishes = _searchQuery.isEmpty
+                  ? allDishes
+                  : allDishes
+                      .where((d) => (d['name'] ?? '')
+                          .toString()
+                          .toLowerCase()
+                          .contains(_searchQuery.toLowerCase()))
+                      .toList();
+
+              if (dishes.isEmpty) {
+                return const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Text('No se encontraron platillos con ese nombre.'),
+                  ),
+                );
+              }
 
               return ListView.separated(
                 padding: EdgeInsets.all(isMobile ? 16 : 24),
