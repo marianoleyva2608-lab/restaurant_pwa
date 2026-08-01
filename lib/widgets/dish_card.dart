@@ -500,14 +500,19 @@ void showLoDulcePickerSheet(BuildContext context, List<Dish> items, {String? rep
   final molletes = findFirst((d) => d.name.toLowerCase().contains('mollete'));
   final hotCakes = items.where((d) => d.name.toLowerCase().contains('hot cake')).toList();
   final churros = findFirst((d) => d.name.toLowerCase().contains('churro'));
+  // Todas las galletas se agrupan en UNA sola opción "Galletas" con selector
+  // de variante adentro (igual que Hot Cakes), en vez de una línea por cada una.
+  final galletas = items.where((d) =>
+      d.name.toLowerCase().contains('galleta') ||
+      d.category == 'galletas').toList();
 
-  // Cualquier otro platillo de "Lo dulce" que no sea Molletes/Hot Cakes/Churros
-  // (por ejemplo Galletas u otros postres nuevos) se muestra también, uno por uno,
-  // para que no quede invisible en el picker.
+  // Cualquier otro platillo de "Lo dulce" que no encaje en las categorías
+  // anteriores también se muestra, uno por uno, para que no quede invisible.
   final otros = items.where((d) =>
       d != molletes &&
       !hotCakes.contains(d) &&
-      d != churros).toList();
+      d != churros &&
+      !galletas.contains(d)).toList();
 
   final options = <(String, IconData, VoidCallback)>[
     if (molletes != null)
@@ -521,6 +526,14 @@ void showLoDulcePickerSheet(BuildContext context, List<Dish> items, {String? rep
     if (churros != null)
       ('Churros', Icons.bakery_dining, () {
         _addPreparedDishWithComment(context, churros, replaceKey: replaceKey);
+      }),
+    if (galletas.isNotEmpty)
+      ('Galletas', Icons.cookie, () {
+        if (galletas.length == 1) {
+          _addPreparedDishWithComment(context, galletas.first, replaceKey: replaceKey);
+        } else {
+          addMultiFlavorVariantToCart(context, galletas, 'Galletas', 'Galletas', replaceKey: replaceKey);
+        }
       }),
     for (final dish in otros)
       (dish.name, Icons.cookie, () {
