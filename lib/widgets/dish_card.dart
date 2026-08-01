@@ -501,6 +501,14 @@ void showLoDulcePickerSheet(BuildContext context, List<Dish> items, {String? rep
   final hotCakes = items.where((d) => d.name.toLowerCase().contains('hot cake')).toList();
   final churros = findFirst((d) => d.name.toLowerCase().contains('churro'));
 
+  // Cualquier otro platillo de "Lo dulce" que no sea Molletes/Hot Cakes/Churros
+  // (por ejemplo Galletas u otros postres nuevos) se muestra también, uno por uno,
+  // para que no quede invisible en el picker.
+  final otros = items.where((d) =>
+      d != molletes &&
+      !hotCakes.contains(d) &&
+      d != churros).toList();
+
   final options = <(String, IconData, VoidCallback)>[
     if (molletes != null)
       ('Molletes Dulces', Icons.breakfast_dining, () {
@@ -513,6 +521,10 @@ void showLoDulcePickerSheet(BuildContext context, List<Dish> items, {String? rep
     if (churros != null)
       ('Churros', Icons.bakery_dining, () {
         _addPreparedDishWithComment(context, churros, replaceKey: replaceKey);
+      }),
+    for (final dish in otros)
+      (dish.name, Icons.cookie, () {
+        _addPreparedDishWithComment(context, dish, replaceKey: replaceKey);
       }),
   ];
 
