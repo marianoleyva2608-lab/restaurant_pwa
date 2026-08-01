@@ -306,7 +306,7 @@ class _MenuBrowserState extends State<MenuBrowser> {
                 child: Container(
                   width: 40,
                   height: 4,
-                  margin: const EdgeInsets.only(bottom: 12),
+                  margin: const EdgeInsets.only(bottom: 6),
                   decoration: BoxDecoration(
                     color: const Color(0xFFE5DCC4),
                     borderRadius: BorderRadius.circular(2),
@@ -314,7 +314,7 @@ class _MenuBrowserState extends State<MenuBrowser> {
                 ),
               ),
               const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                 child: Text(
                   'Bebidas',
                   style: TextStyle(
@@ -324,7 +324,7 @@ class _MenuBrowserState extends State<MenuBrowser> {
                   ),
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 2),
               for (final s in subcats) ...[
                 InkWell(
                   onTap: () {
@@ -334,7 +334,7 @@ class _MenuBrowserState extends State<MenuBrowser> {
                   borderRadius: BorderRadius.circular(14),
                   child: Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 20, vertical: 18),
+                        horizontal: 16, vertical: 10),
                     decoration: BoxDecoration(
                       color: const Color(0xFFFAF1DE),
                       borderRadius: BorderRadius.circular(14),
@@ -343,13 +343,13 @@ class _MenuBrowserState extends State<MenuBrowser> {
                     ),
                     child: Row(
                       children: [
-                        Icon(s.$3, size: 28, color: const Color(0xFFFF6D00)),
+                        Icon(s.$3, size: 24, color: const Color(0xFFFF6D00)),
                         const SizedBox(width: 16),
                         Text(
                           s.$2,
                           style: const TextStyle(
                             color: Color(0xFFA08F70),
-                            fontSize: 18,
+                            fontSize: 16,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -360,7 +360,7 @@ class _MenuBrowserState extends State<MenuBrowser> {
                     ),
                   ),
                 ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 6),
                 ],
               ],
             ),
