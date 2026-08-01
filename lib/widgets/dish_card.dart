@@ -2384,6 +2384,10 @@ Future<void> addMultiFlavorVariantToCart(BuildContext context,
   String? selectedTerminoHuevo;
   const terminosHuevo = ['Tierno', 'Cocido', 'Sellados'];
 
+  // Huevo Revuelto: obliga a elegir Jamón o Tocino.
+  String? selectedProteinaHuevo;
+  const proteinasHuevo = ['Jamón', 'Tocino'];
+
   // Quesadilla de Maíz: opción "Frita" (de comal por default). Es
   // exclusiva de este platillo — no aplica a los demás sabores del
   // grupo (Burrito, Taco Chico, etc.).
@@ -2538,6 +2542,12 @@ Future<void> addMultiFlavorVariantToCart(BuildContext context,
             matchedByFlavor.values.any((d) =>
                 d.category == 'huevos' || d.name.toLowerCase().contains('huevo'));
 
+        // Huevo Revuelto: exige elegir Jamón o Tocino (solo cuando el
+        // sabor realmente seleccionado es un huevo "revuelto").
+        final selectedIsRevueltoHuevo = selectedIsHuevoFlavor &&
+            matchedByFlavor.values.any((d) =>
+                d.name.toLowerCase().contains('revuelto'));
+
         // Quesadilla de Maíz: la opción "Frita" solo aparece cuando ese
         // es el sabor realmente seleccionado, no para el resto del grupo.
         final selectedIsQuesadillaMaiz = matchedByFlavor.values
@@ -2575,6 +2585,7 @@ Future<void> addMultiFlavorVariantToCart(BuildContext context,
             (!selectedIsEnmolada || selectedEnmolQty != null) &&
             (!isMenudo || selectedTiposCarne.isNotEmpty) &&
             (!selectedIsHuevoFlavor || selectedTerminoHuevo != null) &&
+            (!selectedIsRevueltoHuevo || selectedProteinaHuevo != null) &&
             (!needsPiezas || selectedPiezasLoDulce != null) &&
             // En el diálogo MIXTO (multi-sabor) no hay toggle Con Queso, así
             // que la única forma de "no dejar la gordita vacía" es exigir al
@@ -2935,6 +2946,31 @@ Future<void> addMultiFlavorVariantToCart(BuildContext context,
                         value: selectedTerminoHuevo == termino,
                         onChanged: (v) => setDialogState(() {
                           selectedTerminoHuevo = v ? termino : null;
+                        }),
+                      )).toList(),
+                    ),
+                  ],
+                  // Con Jamón o Tocino: solo si el sabor elegido es huevo revuelto
+                  if (selectedIsRevueltoHuevo) ...[
+                    const SizedBox(height: 12),
+                    const Divider(color: Color(0xFFE5DCC4)),
+                    const SizedBox(height: 8),
+                    const Text('¿CON JAMÓN O TOCINO?',
+                        style: TextStyle(
+                            color: const Color(0xFF7A6E5A),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 1)),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 8,
+                      children: proteinasHuevo.map((proteina) => _ToggleOption(
+                        icon: proteina == 'Jamón' ? Icons.lunch_dining : Icons.outdoor_grill,
+                        label: proteina,
+                        value: selectedProteinaHuevo == proteina,
+                        onChanged: (v) => setDialogState(() {
+                          selectedProteinaHuevo = v ? proteina : null;
                         }),
                       )).toList(),
                     ),
@@ -3585,6 +3621,9 @@ Future<void> addMultiFlavorVariantToCart(BuildContext context,
                                   dish.name.toLowerCase().contains('huevo')) &&
                               selectedTerminoHuevo != null)
                             selectedTerminoHuevo!,
+                          if (dish.name.toLowerCase().contains('revuelto') &&
+                              selectedProteinaHuevo != null)
+                            'Con $selectedProteinaHuevo',
                           if (dish.name.toLowerCase() == 'quesadilla de maíz' &&
                               selectedFritaQuesadilla)
                             'Frita',
