@@ -722,8 +722,12 @@ class _AdminViewState extends State<AdminView> {
                             }
                             
                             final tables = (tablesSnapshot.data as List<Map<String, dynamic>>).where((t) => t['branch_name'] == Globals.currentBranch).toList();
-                            final activeOrders = (ordersSnapshot.data as List<Map<String, dynamic>>).where((o) => 
-                              o['branch_name'] == Globals.currentBranch && 
+                            // Comparación tolerante de sucursal (ignora
+                            // mayúsculas/acentos/prefijo "Sucursal") y acepta
+                            // órdenes sin branch_name, para que nunca se
+                            // "pierda" una cuenta To Go en Caja.
+                            final activeOrders = (ordersSnapshot.data as List<Map<String, dynamic>>).where((o) =>
+                              Globals.matchesCurrentBranch(o['branch_name'] as String?) &&
                               ['pending', 'ready', 'incomplete'].contains(o['status'])
                             ).toList();
                             final nonTableOrders = activeOrders.where((o) => o['table_id'] == null).toList();

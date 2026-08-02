@@ -86,6 +86,31 @@ class Globals {
     await prefs.setString('restaurant_branch', branch);
   }
 
+  /// Normaliza un nombre de sucursal para poder compararlo entre dispositivos:
+  /// ignora mayúsculas/minúsculas, espacios de sobra, acentos y el prefijo
+  /// "Sucursal ". Así "Sucursal Maravillas", "sucursal maravillas" y
+  /// "Maravillas" se consideran la misma sucursal.
+  static String normalizeBranch(String? branch) {
+    if (branch == null) return '';
+    var b = branch.trim().toLowerCase();
+    const accents = {
+      'á': 'a', 'é': 'e', 'í': 'i', 'ó': 'o', 'ú': 'u', 'ü': 'u', 'ñ': 'n',
+    };
+    accents.forEach((k, v) => b = b.replaceAll(k, v));
+    b = b.replaceAll(RegExp(r'^sucursal\s+'), '');
+    b = b.replaceAll(RegExp(r'\s+'), ' ').trim();
+    return b;
+  }
+
+  /// True si el registro pertenece a la sucursal activa de este dispositivo.
+  /// Los registros SIN sucursal (branch_name null o vacío) se consideran
+  /// visibles en cualquier sucursal, para que nunca "desaparezca" una cuenta
+  /// por un dato faltante.
+  static bool matchesCurrentBranch(String? branch) {
+    if (branch == null || branch.trim().isEmpty) return true;
+    return normalizeBranch(branch) == normalizeBranch(currentBranch);
+  }
+
   static Future<void> setSplitKitchenMode(String branch, bool value) async {
     try {
       final supabase = Supabase.instance.client;

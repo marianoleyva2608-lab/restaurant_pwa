@@ -1116,7 +1116,7 @@ class _ComandasViewState extends State<ComandasView> {
                               final activeToGoOrders = (activeToGoSnapshot.data ?? [])
                                   .where((o) =>
                                       o['table_id'] == null &&
-                                      o['branch_name'] == Globals.currentBranch &&
+                                      Globals.matchesCurrentBranch(o['branch_name'] as String?) &&
                                       ['pending', 'ready'].contains(o['status']))
                                   .toList()
                                 ..sort((a, b) => (a['created_at'] as String? ?? '')
