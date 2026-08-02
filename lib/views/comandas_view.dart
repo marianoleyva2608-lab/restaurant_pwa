@@ -968,6 +968,29 @@ class _ComandasViewState extends State<ComandasView> {
     final deliveryAddressController = TextEditingController();
     final deliveryPhoneController = TextEditingController();
     DeliveryFeeBreakdown? deliveryFee;
+
+    // Órdenes To Go activas: consulta FRESCA a la base cada vez que se abre
+    // el diálogo (y al tocar "Actualizar"). Antes esto usaba un stream en
+    // tiempo real, pero si el evento de UPDATE no llegaba a la tablet, las
+    // cuentas que Caja ya había cerrado se seguían viendo aquí como activas.
+    Future<List<Map<String, dynamic>>> fetchActiveToGo() async {
+      final rows = await _supabase
+          .from('orders')
+          .select()
+          .eq('order_type', 'takeout')
+          .inFilter('status', ['pending', 'ready']);
+      return (rows as List)
+          .cast<Map<String, dynamic>>()
+          .where((o) =>
+              o['table_id'] == null &&
+              Globals.matchesCurrentBranch(o['branch_name'] as String?))
+          .toList()
+        ..sort((a, b) => (a['created_at'] as String? ?? '')
+            .compareTo(b['created_at'] as String? ?? ''));
+    }
+
+    Future<List<Map<String, dynamic>>> toGoFuture = fetchActiveToGo();
+
     await showDialog(
       context: context,
       barrierDismissible: false,
@@ -1107,20 +1130,10 @@ class _ComandasViewState extends State<ComandasView> {
                               );
                             },
                           )
-                        : StreamBuilder<List<Map<String, dynamic>>>(
-                            stream: _supabase
-                                .from('orders')
-                                .stream(primaryKey: ['id'])
-                                .eq('order_type', 'takeout'),
+                        : FutureBuilder<List<Map<String, dynamic>>>(
+                            future: toGoFuture,
                             builder: (context, activeToGoSnapshot) {
-                              final activeToGoOrders = (activeToGoSnapshot.data ?? [])
-                                  .where((o) =>
-                                      o['table_id'] == null &&
-                                      Globals.matchesCurrentBranch(o['branch_name'] as String?) &&
-                                      ['pending', 'ready'].contains(o['status']))
-                                  .toList()
-                                ..sort((a, b) => (a['created_at'] as String? ?? '')
-                                    .compareTo(b['created_at'] as String? ?? ''));
+                              final activeToGoOrders = activeToGoSnapshot.data ?? [];
 
                               return Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1130,16 +1143,34 @@ class _ComandasViewState extends State<ComandasView> {
                                   // poder retomarlas (agregar artículos,
                                   // imprimir su cuenta) sin duplicarlas.
                                   if (activeToGoOrders.isNotEmpty) ...[
-                                    const Padding(
-                                      padding: EdgeInsets.only(bottom: 8),
-                                      child: Text(
-                                        'ÓRDENES TO GO ACTIVAS',
-                                        style: TextStyle(
-                                          color: Color(0xFFA08F70),
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 12,
-                                          letterSpacing: 1,
-                                        ),
+                                    Padding(
+                                      padding: const EdgeInsets.only(bottom: 8),
+                                      child: Row(
+                                        children: [
+                                          const Text(
+                                            'ÓRDENES TO GO ACTIVAS',
+                                            style: TextStyle(
+                                              color: Color(0xFFA08F70),
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 12,
+                                              letterSpacing: 1,
+                                            ),
+                                          ),
+                                          const Spacer(),
+                                          TextButton.icon(
+                                            onPressed: () => setStateDialog(() {
+                                              toGoFuture = fetchActiveToGo();
+                                            }),
+                                            icon: const Icon(Icons.refresh, size: 16),
+                                            label: const Text('Actualizar',
+                                                style: TextStyle(fontSize: 12)),
+                                            style: TextButton.styleFrom(
+                                              foregroundColor: const Color(0xFFE07A30),
+                                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                                              minimumSize: const Size(0, 30),
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ),
                                     SizedBox(
