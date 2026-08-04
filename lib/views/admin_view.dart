@@ -22,6 +22,20 @@ import 'print_status_view.dart';
 import '../utils/app_updater.dart';
 import '../utils/url_opener.dart';
 
+/// Dispara un "tick" cada [interval], empezando inmediatamente (a
+/// diferencia de Stream.periodic, que espera un intervalo antes del
+/// primero). Se usa junto con .asyncMap para refrescar datos por polling
+/// en vez de depender solo de Supabase Realtime — vimos casos donde una
+/// orden nueva (ej. Delivery recién creada) no aparecía en Caja hasta que
+/// otra actualización a esa misma fila disparaba el evento realtime; con
+/// polling la vista se refresca sola sin depender de eso.
+Stream<void> _ticker([Duration interval = const Duration(seconds: 4)]) async* {
+  while (true) {
+    yield null;
+    await Future.delayed(interval);
+  }
+}
+
 /// Refrescos/Aguas/Jugos comparten un solo dish_id representativo en la
 /// BD sin importar el TAMAÑO elegido, así que `dishes.name` puede no
 /// reflejar el tamaño real — el primer guisado sí lo trae (ej. "600 ml").
@@ -715,7 +729,9 @@ class _AdminViewState extends State<AdminView> {
                       stream: _supabase.from('restaurant_tables').stream(primaryKey: ['id']).eq('branch_name', Globals.currentBranch).order('table_number', ascending: true),
                       builder: (context, tablesSnapshot) {
                         return StreamBuilder<List<Map<String, dynamic>>>(
-                          stream: _supabase.from('orders').stream(primaryKey: ['id']),
+                          stream: _ticker().asyncMap((_) async =>
+                              List<Map<String, dynamic>>.from(
+                                  await _supabase.from('orders').select())),
                           builder: (context, ordersSnapshot) {
                             if (!tablesSnapshot.hasData || !ordersSnapshot.hasData) {
                               return const Center(child: CircularProgressIndicator());
@@ -2716,10 +2732,11 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
     final supabase = Supabase.instance.client;
 
     return StreamBuilder<List<Map<String, dynamic>>>(
-      stream: supabase
-          .from('orders')
-          .stream(primaryKey: ['id'])
-          .inFilter('status', ['pending', 'ready', 'incomplete']),
+      stream: _ticker().asyncMap((_) async => List<Map<String, dynamic>>.from(
+          await supabase
+              .from('orders')
+              .select()
+              .inFilter('status', ['pending', 'ready', 'incomplete']))),
       builder: (context, orderSnapshot) {
         if (!orderSnapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
@@ -2827,9 +2844,7 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
             
             Expanded(
               child: StreamBuilder<List<Map<String, dynamic>>>(
-                stream: supabase.from('order_items')
-                    .stream(primaryKey: ['id'])
-                    .inFilter('order_id', orderIds)
+                stream: _ticker()
                     .asyncMap((_) async {
                       final items = await supabase.from('order_items').select('''
                         id, order_id, quantity, status, price_at_time,
@@ -3110,24 +3125,6 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
                                 minimumSize: const Size.fromHeight(60),
                                 backgroundColor: Colors.blueAccent,
                                 foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                                elevation: 4,
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            ElevatedButton.icon(
-                              onPressed: () async {
-                                final propinaResult = await _askPropina(context, totalToPay);
-                                if (propinaResult == null || !context.mounted) return;
-                                _showMixedPaymentDialog(context, orderIds, propinaResult['total']!, widget.tableId,
-                                    propina: propinaResult['propina']!, waiterName: waiterName);
-                              },
-                              icon: const Icon(Icons.pie_chart, size: 26),
-                              label: const Text('Pago Mixto (Efectivo + Tarjeta)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                              style: ElevatedButton.styleFrom(
-                                minimumSize: const Size.fromHeight(60),
-                                backgroundColor: Colors.orangeAccent,
-                                foregroundColor: Colors.black,
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                                 elevation: 4,
                               ),
