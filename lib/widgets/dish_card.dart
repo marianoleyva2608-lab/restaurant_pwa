@@ -2412,10 +2412,10 @@ Future<void> addMultiFlavorVariantToCart(BuildContext context,
   String? selectedTerminoHuevo;
   const terminosHuevo = ['Tierno', 'Cocido', 'Sellados'];
 
-  // Huevo Revuelto: obliga a elegir Jamón, Tocino o Ninguno (para quienes
-  // no quieren ninguno de los dos, ej. por dieta o preferencia).
+  // Huevo Revuelto: Jamón o Tocino, opcional (se puede dejar sin elegir
+  // ninguno de los dos tocando el que ya está seleccionado para deseleccionar).
   String? selectedProteinaHuevo;
-  const proteinasHuevo = ['Jamón', 'Tocino', 'Ninguno'];
+  const proteinasHuevo = ['Jamón', 'Tocino'];
 
   // Quesadilla de Maíz: opción "Frita" (de comal por default). Es
   // exclusiva de este platillo — no aplica a los demás sabores del
@@ -2571,8 +2571,8 @@ Future<void> addMultiFlavorVariantToCart(BuildContext context,
             matchedByFlavor.values.any((d) =>
                 d.category == 'huevos' || d.name.toLowerCase().contains('huevo'));
 
-        // Huevo Revuelto: exige elegir Jamón o Tocino (solo cuando el
-        // sabor realmente seleccionado es un huevo "revuelto").
+        // Huevo Revuelto: muestra el selector Jamón/Tocino (opcional, solo
+        // cuando el sabor realmente seleccionado es un huevo "revuelto").
         final selectedIsRevueltoHuevo = selectedIsHuevoFlavor &&
             matchedByFlavor.values.any((d) =>
                 d.name.toLowerCase().contains('revuelto'));
@@ -2614,7 +2614,8 @@ Future<void> addMultiFlavorVariantToCart(BuildContext context,
             (!selectedIsEnmolada || selectedEnmolQty != null) &&
             (!isMenudo || selectedTiposCarne.isNotEmpty) &&
             (!selectedIsHuevoFlavor || selectedTerminoHuevo != null) &&
-            (!selectedIsRevueltoHuevo || selectedProteinaHuevo != null) &&
+            // Jamón/Tocino ya no es obligatorio: se puede dejar sin elegir
+            // ninguno de los dos para pedir el huevo revuelto solo.
             (!needsPiezas || selectedPiezasLoDulce != null) &&
             // En el diálogo MIXTO (multi-sabor) no hay toggle Con Queso, así
             // que la única forma de "no dejar la gordita vacía" es exigir al
@@ -2995,11 +2996,7 @@ Future<void> addMultiFlavorVariantToCart(BuildContext context,
                       spacing: 10,
                       runSpacing: 8,
                       children: proteinasHuevo.map((proteina) => _ToggleOption(
-                        icon: proteina == 'Jamón'
-                            ? Icons.lunch_dining
-                            : proteina == 'Tocino'
-                                ? Icons.outdoor_grill
-                                : Icons.block,
+                        icon: proteina == 'Jamón' ? Icons.lunch_dining : Icons.outdoor_grill,
                         label: proteina,
                         value: selectedProteinaHuevo == proteina,
                         onChanged: (v) => setDialogState(() {
@@ -3655,8 +3652,7 @@ Future<void> addMultiFlavorVariantToCart(BuildContext context,
                               selectedTerminoHuevo != null)
                             selectedTerminoHuevo!,
                           if (dish.name.toLowerCase().contains('revuelto') &&
-                              selectedProteinaHuevo != null &&
-                              selectedProteinaHuevo != 'Ninguno')
+                              selectedProteinaHuevo != null)
                             'Con $selectedProteinaHuevo',
                           if (dish.name.toLowerCase() == 'quesadilla de maíz' &&
                               selectedFritaQuesadilla)
