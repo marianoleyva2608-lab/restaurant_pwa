@@ -3655,10 +3655,9 @@ Future<void> addMultiFlavorVariantToCart(BuildContext context,
                               selectedTerminoHuevo != null)
                             selectedTerminoHuevo!,
                           if (dish.name.toLowerCase().contains('revuelto') &&
-                              selectedProteinaHuevo != null)
-                            selectedProteinaHuevo == 'Ninguno'
-                                ? 'Sin jamón/tocino'
-                                : 'Con $selectedProteinaHuevo',
+                              selectedProteinaHuevo != null &&
+                              selectedProteinaHuevo != 'Ninguno')
+                            'Con $selectedProteinaHuevo',
                           if (dish.name.toLowerCase() == 'quesadilla de maíz' &&
                               selectedFritaQuesadilla)
                             'Frita',
