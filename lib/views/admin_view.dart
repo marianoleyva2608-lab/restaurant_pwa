@@ -726,7 +726,14 @@ class _AdminViewState extends State<AdminView> {
                   ),
                   Expanded(
                     child: StreamBuilder<List<Map<String, dynamic>>>(
-                      stream: _supabase.from('restaurant_tables').stream(primaryKey: ['id']).eq('branch_name', Globals.currentBranch).order('table_number', ascending: true),
+                      stream: _ticker().asyncMap((_) async {
+                        final rows = await _supabase
+                            .from('restaurant_tables')
+                            .select()
+                            .eq('branch_name', Globals.currentBranch)
+                            .order('table_number', ascending: true);
+                        return List<Map<String, dynamic>>.from(rows);
+                      }),
                       builder: (context, tablesSnapshot) {
                         return StreamBuilder<List<Map<String, dynamic>>>(
                           stream: _ticker().asyncMap((_) async =>
