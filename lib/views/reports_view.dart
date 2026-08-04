@@ -29,6 +29,7 @@ class _ReportsViewState extends State<ReportsView> {
   double _ventasTarjeta = 0.0;
   double _ventasClip = 0.0;
   double _ventasTransferencia = 0.0;
+  double _ventasCredito = 0.0;
   List<Map<String, dynamic>> _topProducts = [];
 
   // Vista activa: 'historial' o 'cortes'
@@ -87,7 +88,7 @@ class _ReportsViewState extends State<ReportsView> {
       _filteredOrders = localFiltered;
 
       double total = 0.0;
-      double eff = 0.0, tar = 0.0, clip = 0.0, tra = 0.0;
+      double eff = 0.0, tar = 0.0, clip = 0.0, tra = 0.0, cred = 0.0;
 
       for (var o in _filteredOrders) {
         final amt = (o['total_amount'] as num?)?.toDouble() ?? 0.0;
@@ -100,6 +101,8 @@ class _ReportsViewState extends State<ReportsView> {
           clip += amt;
         } else if (pm == 'TRANSFERENCIA') {
           tra += amt;
+        } else if (pm == 'CREDITO') {
+          cred += amt;
         } else {
           eff += amt;
         }
@@ -112,6 +115,7 @@ class _ReportsViewState extends State<ReportsView> {
       _ventasTarjeta = tar;
       _ventasClip = clip;
       _ventasTransferencia = tra;
+      _ventasCredito = cred;
     });
     _fetchTopProducts();
   }
@@ -222,7 +226,9 @@ class _ReportsViewState extends State<ReportsView> {
 
       for (var o in orders) {
         final pm = o['payment_method']?.toString().toUpperCase() ?? 'EFECTIVO';
-        if (pm.contains('CLIP')) {
+        if (pm.contains('CREDITO')) {
+          o['ui_method'] = 'CREDITO';
+        } else if (pm.contains('CLIP')) {
           o['ui_method'] = 'CLIP';
         } else if (pm.contains('TARJETA') || pm.contains('CARD') || pm.contains('MERCADO')) {
           o['ui_method'] = 'TARJETA';
@@ -826,6 +832,8 @@ class _ReportsViewState extends State<ReportsView> {
                           _buildPaymentMethodRow('Clip', _ventasClip, Icons.contactless, Colors.amberAccent),
                           const SizedBox(height: 16),
                           _buildPaymentMethodRow('Efectivo', _efectivoEnCaja, Icons.money, Colors.greenAccent[400]!),
+                          const SizedBox(height: 16),
+                          _buildPaymentMethodRow('Crédito (Uber/Didi)', _ventasCredito, Icons.receipt_long, Colors.purpleAccent),
                           const SizedBox(height: 24),
                           ElevatedButton(
                             onPressed: () {},
@@ -891,6 +899,8 @@ class _ReportsViewState extends State<ReportsView> {
                                 _buildPaymentMethodRow('Tarjeta', _ventasTarjeta, Icons.credit_card, const Color(0xFFFF6D00)),
                                 const SizedBox(height: 16),
                                 _buildPaymentMethodRow('Efectivo', _efectivoEnCaja, Icons.money, Colors.greenAccent[400]!),
+                                const SizedBox(height: 16),
+                                _buildPaymentMethodRow('Crédito (Uber/Didi)', _ventasCredito, Icons.receipt_long, Colors.purpleAccent),
                                 const SizedBox(height: 24),
                                 ElevatedButton(
                                   onPressed: () {},
@@ -982,6 +992,7 @@ class _ReportsViewState extends State<ReportsView> {
             DropdownMenuItem(value: 'EFECTIVO', child: Text('Efectivo')),
             DropdownMenuItem(value: 'TARJETA', child: Text('Tarjeta')),
             DropdownMenuItem(value: 'TRANSFERENCIA', child: Text('Transferencia')),
+            DropdownMenuItem(value: 'CREDITO', child: Text('Crédito (Uber/Didi)')),
           ],
           onChanged: (val) {
             if (val != null) {
@@ -1042,7 +1053,9 @@ class _ReportsViewState extends State<ReportsView> {
           ? const Color(0xFFFF6D00)
           : method == 'TRANSFERENCIA'
               ? Colors.purpleAccent
-              : Colors.green;
+              : method == 'CREDITO'
+                  ? Colors.indigoAccent
+                  : Colors.green;
       final String idShort = o['id'].toString().length >= 8
           ? o['id'].toString().substring(0, 8)
           : o['id'].toString();
@@ -1238,7 +1251,7 @@ class _ReportsViewState extends State<ReportsView> {
     final now = DateTime.now();
     final startOfDay = DateTime(now.year, now.month, now.day);
 
-    double efectivo = 0, tarjeta = 0;
+    double efectivo = 0, tarjeta = 0, credito = 0;
     int ordenesHoy = 0;
     try {
       var query = _supabase
@@ -1254,7 +1267,9 @@ class _ReportsViewState extends State<ReportsView> {
         ordenesHoy++;
         final pm = (o['payment_method']?.toString() ?? '').toLowerCase();
         final total = double.tryParse(o['total_amount']?.toString() ?? '0') ?? 0.0;
-        if (pm.contains('mixed') || o['amount_cash'] != null || o['amount_card'] != null) {
+        if (pm.contains('credito')) {
+          credito += total;
+        } else if (pm.contains('mixed') || o['amount_cash'] != null || o['amount_card'] != null) {
           efectivo += double.tryParse(o['amount_cash']?.toString() ?? '0') ?? 0.0;
           tarjeta += double.tryParse(o['amount_card']?.toString() ?? '0') ?? 0.0;
         } else if (pm.contains('cash') || pm.contains('efectivo')) {
@@ -1265,7 +1280,7 @@ class _ReportsViewState extends State<ReportsView> {
       }
     } catch (_) {}
 
-    final total = efectivo + tarjeta;
+    final total = efectivo + tarjeta + credito;
     if (!mounted) return;
     await showDialog(
       context: context,
@@ -1280,6 +1295,8 @@ class _ReportsViewState extends State<ReportsView> {
             const SizedBox(height: 8),
             Text('Ventas en efectivo: \$${efectivo.toStringAsFixed(2)}', style: const TextStyle(color: Color(0xFF7A6E5A))),
             Text('Ventas en tarjeta: \$${tarjeta.toStringAsFixed(2)}', style: const TextStyle(color: Color(0xFF7A6E5A))),
+            if (credito > 0)
+              Text('Ventas a crédito (Uber/Didi): \$${credito.toStringAsFixed(2)}', style: const TextStyle(color: Color(0xFF7A6E5A))),
             const Divider(),
             Text('Total del día: \$${total.toStringAsFixed(2)}',
                 style: const TextStyle(color: Color(0xFFFF6D00), fontWeight: FontWeight.bold, fontSize: 18)),
@@ -1330,6 +1347,7 @@ class _ReportsViewState extends State<ReportsView> {
         'efectivo': 0.0,
         'tarjeta': 0.0,
         'transferencia': 0.0,
+        'credito': 0.0,
       });
       final amt = (o['total_amount'] as num?)?.toDouble() ?? 0.0;
       byDay[key]!['count'] = (byDay[key]!['count'] as int) + 1;
@@ -1339,6 +1357,8 @@ class _ReportsViewState extends State<ReportsView> {
         byDay[key]!['tarjeta'] = (byDay[key]!['tarjeta'] as double) + amt;
       } else if (pm == 'TRANSFERENCIA') {
         byDay[key]!['transferencia'] = (byDay[key]!['transferencia'] as double) + amt;
+      } else if (pm == 'CREDITO') {
+        byDay[key]!['credito'] = (byDay[key]!['credito'] as double) + amt;
       } else {
         byDay[key]!['efectivo'] = (byDay[key]!['efectivo'] as double) + amt;
       }

@@ -722,12 +722,8 @@ class _AdminViewState extends State<AdminView> {
                             }
                             
                             final tables = (tablesSnapshot.data as List<Map<String, dynamic>>).where((t) => t['branch_name'] == Globals.currentBranch).toList();
-                            // Comparación tolerante de sucursal (ignora
-                            // mayúsculas/acentos/prefijo "Sucursal") y acepta
-                            // órdenes sin branch_name, para que nunca se
-                            // "pierda" una cuenta To Go en Caja.
-                            final activeOrders = (ordersSnapshot.data as List<Map<String, dynamic>>).where((o) =>
-                              Globals.matchesCurrentBranch(o['branch_name'] as String?) &&
+                            final activeOrders = (ordersSnapshot.data as List<Map<String, dynamic>>).where((o) => 
+                              o['branch_name'] == Globals.currentBranch && 
                               ['pending', 'ready', 'incomplete'].contains(o['status'])
                             ).toList();
                             final nonTableOrders = activeOrders.where((o) => o['table_id'] == null).toList();
@@ -755,7 +751,12 @@ class _AdminViewState extends State<AdminView> {
                                               final order = nonTableOrders[index];
                                               final isSelected = _selectedOrderId == order['id'];
                                               final orderType = order['order_type'];
-                                              final orderTypeStr = orderType == 'takeout' ? 'To Go' : 'Delivery';
+                                              final platform = order['delivery_platform'] as String?;
+                                              final orderTypeStr = orderType == 'takeout'
+                                                  ? 'To Go'
+                                                  : platform != null
+                                                      ? platform[0].toUpperCase() + platform.substring(1)
+                                                      : 'Delivery';
 
                                                String? waiterName;
                                                if (order['waiter_id'] != null) {
@@ -780,6 +781,16 @@ class _AdminViewState extends State<AdminView> {
                                                 // Nombre visible: quitar DIR / TEL del subtitle.
                                                 cleanName = cleanName
                                                     .replaceAll(RegExp(r'\s*-\s*DIR:.*'), '')
+                                                    .trim();
+                                              }
+                                              // Quitar el prefijo "Uber - " / "Didi - " del nombre
+                                              // (ya se muestra como título de la tarjeta).
+                                              if (platform != null && cleanName != null) {
+                                                cleanName = cleanName
+                                                    .replaceFirst(
+                                                        RegExp('^${RegExp.escape(platform)}\\s*-\\s*',
+                                                            caseSensitive: false),
+                                                        '')
                                                     .trim();
                                               }
                                               final extraInfo = [
@@ -2309,6 +2320,75 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
     }
   }
 
+  /// Cobro a "Crédito" para pedidos de delivery por plataforma (Uber Eats /
+  /// Didi Food): el repartidor recoge en el restaurante y el pago real lo
+  /// hace la plataforma después (liquidación semanal/quincenal), no en el
+  /// momento. Por eso NO se pide efectivo/tarjeta ni propina aquí — solo se
+  /// marca la orden como cobrada para que salga de "pendientes" y quede
+  /// registrada aparte en los reportes (no cuenta como efectivo ni tarjeta
+  /// para el corte de caja del día).
+  Future<void> _markCreditPayment(
+    BuildContext context,
+    List<String> orderIds,
+    double amount,
+    String platform,
+  ) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        backgroundColor: const Color(0xFFFAF1DE),
+        title: Row(
+          children: [
+            const Icon(Icons.receipt_long, color: Colors.purpleAccent, size: 28),
+            const SizedBox(width: 12),
+            Text('Cobro a Crédito (${platform.toUpperCase()})',
+                style: const TextStyle(color: Color(0xFFFF6D00), fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Text(
+          'Se registra \$${amount.toStringAsFixed(2)} como venta a crédito de ${platform.toUpperCase()}.\n\n'
+          'No se cobra efectivo ni tarjeta hoy — ${platform.toUpperCase()} paga al restaurante después. '
+          'Esta venta no cuenta en el efectivo esperado del Cierre de Caja.',
+          style: const TextStyle(color: Color(0xFF7A6E5A)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar', style: TextStyle(color: Color(0xFFA08F70))),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.purpleAccent, foregroundColor: Colors.white),
+            child: const Text('Confirmar cobro a crédito'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+
+    try {
+      final supabase = Supabase.instance.client;
+      await supabase.from('orders').update({
+        'status': 'completed',
+        'payment_method': 'credito',
+      }).inFilter('id', orderIds);
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Venta a crédito (${platform.toUpperCase()}) registrada'),
+          backgroundColor: Colors.green,
+        ));
+        await _showTicketQrDialog(context, orderIds);
+        widget.onDeselect?.call();
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    }
+  }
+
   Future<void> _payWithMercadoPago(BuildContext context, double amount, void Function() onFinish) async {
     showDialog(
       context: context, 
@@ -2684,6 +2764,7 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
         }
 
         final orderType = orders.isNotEmpty ? orders.first['order_type'] : null;
+        final deliveryPlatform = orders.isNotEmpty ? orders.first['delivery_platform'] as String? : null;
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -2715,7 +2796,11 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
                           border: Border.all(color: (orderType == 'takeout' ? Colors.orangeAccent : Colors.purpleAccent).withValues(alpha: 0.5)),
                         ),
                         child: Text(
-                          orderType == 'takeout' ? 'PEDIDO TO GO' : 'ENTREGA A DOMICILIO',
+                          orderType == 'takeout'
+                              ? 'PEDIDO TO GO'
+                              : deliveryPlatform != null
+                                  ? 'ENTREGA A DOMICILIO - ${deliveryPlatform.toUpperCase()}'
+                                  : 'ENTREGA A DOMICILIO',
                           style: TextStyle(
                             color: orderType == 'takeout' ? Colors.orangeAccent : Colors.purpleAccent,
                             fontSize: 12,
@@ -3047,6 +3132,25 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
                                 elevation: 4,
                               ),
                             ),
+                            if (orderType == 'delivery' && deliveryPlatform != null) ...[
+                              const SizedBox(height: 16),
+                              ElevatedButton.icon(
+                                onPressed: () => _markCreditPayment(
+                                    context, orderIds, totalToPay, deliveryPlatform),
+                                icon: const Icon(Icons.receipt_long, size: 26),
+                                label: Text(
+                                    'Crédito (${deliveryPlatform.toUpperCase()})',
+                                    style: const TextStyle(
+                                        fontSize: 18, fontWeight: FontWeight.bold)),
+                                style: ElevatedButton.styleFrom(
+                                  minimumSize: const Size.fromHeight(60),
+                                  backgroundColor: Colors.purpleAccent,
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                  elevation: 4,
+                                ),
+                              ),
+                            ],
                             const SizedBox(height: 16),
                             OutlinedButton.icon(
                               onPressed: () => _cancelOrdersWithPin(context, orderIds, widget.tableId),

@@ -481,6 +481,16 @@ class _OrderTicketState extends State<_OrderTicket> {
       _customerName = _customerName!
           .replaceAll(RegExp(r'\s*-\s*DIR:.*'), '')
           .trim();
+      // Quitar también el prefijo "Uber - " / "Didi - " (se muestra aparte
+      // como tipo de orden).
+      final platform = widget.order['delivery_platform'] as String?;
+      if (platform != null) {
+        _customerName = _customerName!
+            .replaceFirst(
+                RegExp('^${RegExp.escape(platform)}\\s*-\\s*', caseSensitive: false),
+                '')
+            .trim();
+      }
     }
     
     // Load table number asynchronously if dine_in
@@ -495,8 +505,13 @@ class _OrderTicketState extends State<_OrderTicket> {
       }).catchError((_) {});
     } else {
       if (mounted) {
+        final platform = widget.order['delivery_platform'] as String?;
         setState(() {
-          _orderTypeStr = orderType == 'takeout' ? 'To Go' : 'Delivery';
+          _orderTypeStr = orderType == 'takeout'
+              ? 'To Go'
+              : platform != null
+                  ? platform[0].toUpperCase() + platform.substring(1)
+                  : 'Delivery';
         });
       }
     }

@@ -32,6 +32,8 @@ class _ComandasViewState extends State<ComandasView> {
   String? _selectedWaiterId;
   String _selectedOrderType = 'dine_in';
   String? _customerName;
+  // 'uber' o 'didi' cuando _selectedOrderType == 'delivery'.
+  String? _selectedDeliveryPlatform;
   // Id de una orden To Go/Delivery activa que el mesero eligió retomar
   // desde la lista de "Órdenes To Go Activas" (para agregar artículos,
   // imprimir su cuenta, etc.). Null cuando se está armando una orden nueva.
@@ -968,29 +970,11 @@ class _ComandasViewState extends State<ComandasView> {
     final deliveryAddressController = TextEditingController();
     final deliveryPhoneController = TextEditingController();
     DeliveryFeeBreakdown? deliveryFee;
-
-    // Órdenes To Go activas: consulta FRESCA a la base cada vez que se abre
-    // el diálogo (y al tocar "Actualizar"). Antes esto usaba un stream en
-    // tiempo real, pero si el evento de UPDATE no llegaba a la tablet, las
-    // cuentas que Caja ya había cerrado se seguían viendo aquí como activas.
-    Future<List<Map<String, dynamic>>> fetchActiveToGo() async {
-      final rows = await _supabase
-          .from('orders')
-          .select()
-          .eq('order_type', 'takeout')
-          .inFilter('status', ['pending', 'ready']);
-      return (rows as List)
-          .cast<Map<String, dynamic>>()
-          .where((o) =>
-              o['table_id'] == null &&
-              Globals.matchesCurrentBranch(o['branch_name'] as String?))
-          .toList()
-        ..sort((a, b) => (a['created_at'] as String? ?? '')
-            .compareTo(b['created_at'] as String? ?? ''));
-    }
-
-    Future<List<Map<String, dynamic>>> toGoFuture = fetchActiveToGo();
-
+    // Plataforma de delivery: Uber Eats o Didi Food. El repartidor de la
+    // plataforma recoge en el restaurante — no aplica cuota de envío propia,
+    // y el cobro real lo hace la plataforma (se registra como "crédito" en
+    // Caja porque el dinero llega después, no en el momento).
+    String? tempDeliveryPlatform;
     await showDialog(
       context: context,
       barrierDismissible: false,
@@ -1004,14 +988,12 @@ class _ComandasViewState extends State<ComandasView> {
                 height: MediaQuery.of(context).size.height * 0.80,
                 child: Column(
                   children: [
-                    // Order Type Selector — el segmento Delivery quedó
-                    // oculto por ahora (se reactiva agregándolo de vuelta
-                    // a la lista). La lógica de delivery en el resto del
-                    // archivo sigue intacta por si se reactiva.
+                    // Order Type Selector — Mesa / Llevar / Delivery.
                     SegmentedButton<String>(
                       segments: const [
                         ButtonSegment(value: 'dine_in', label: Text('Mesa'), icon: Icon(Icons.table_restaurant)),
                         ButtonSegment(value: 'takeout', label: Text('Llevar'), icon: Icon(Icons.takeout_dining)),
+                        ButtonSegment(value: 'delivery', label: Text('Delivery'), icon: Icon(Icons.delivery_dining)),
                       ],
                       selected: {tempOrderType},
                       onSelectionChanged: (Set<String> newSelection) {
@@ -1082,6 +1064,7 @@ class _ComandasViewState extends State<ComandasView> {
                                                     _selectedTableId = table['id'];
                                                     _selectedTableNumber = table['table_number'].toString();
                                                     _customerName = null;
+                                                    _selectedDeliveryPlatform = null;
                                                     _selectedExistingOrderId = null;
                                                   });
                                                   Navigator.pop(context);
@@ -1130,10 +1113,20 @@ class _ComandasViewState extends State<ComandasView> {
                               );
                             },
                           )
-                        : FutureBuilder<List<Map<String, dynamic>>>(
-                            future: toGoFuture,
+                        : StreamBuilder<List<Map<String, dynamic>>>(
+                            stream: _supabase
+                                .from('orders')
+                                .stream(primaryKey: ['id'])
+                                .eq('order_type', 'takeout'),
                             builder: (context, activeToGoSnapshot) {
-                              final activeToGoOrders = activeToGoSnapshot.data ?? [];
+                              final activeToGoOrders = (activeToGoSnapshot.data ?? [])
+                                  .where((o) =>
+                                      o['table_id'] == null &&
+                                      o['branch_name'] == Globals.currentBranch &&
+                                      ['pending', 'ready'].contains(o['status']))
+                                  .toList()
+                                ..sort((a, b) => (a['created_at'] as String? ?? '')
+                                    .compareTo(b['created_at'] as String? ?? ''));
 
                               return Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1143,34 +1136,16 @@ class _ComandasViewState extends State<ComandasView> {
                                   // poder retomarlas (agregar artículos,
                                   // imprimir su cuenta) sin duplicarlas.
                                   if (activeToGoOrders.isNotEmpty) ...[
-                                    Padding(
-                                      padding: const EdgeInsets.only(bottom: 8),
-                                      child: Row(
-                                        children: [
-                                          const Text(
-                                            'ÓRDENES TO GO ACTIVAS',
-                                            style: TextStyle(
-                                              color: Color(0xFFA08F70),
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 12,
-                                              letterSpacing: 1,
-                                            ),
-                                          ),
-                                          const Spacer(),
-                                          TextButton.icon(
-                                            onPressed: () => setStateDialog(() {
-                                              toGoFuture = fetchActiveToGo();
-                                            }),
-                                            icon: const Icon(Icons.refresh, size: 16),
-                                            label: const Text('Actualizar',
-                                                style: TextStyle(fontSize: 12)),
-                                            style: TextButton.styleFrom(
-                                              foregroundColor: const Color(0xFFE07A30),
-                                              padding: const EdgeInsets.symmetric(horizontal: 8),
-                                              minimumSize: const Size(0, 30),
-                                            ),
-                                          ),
-                                        ],
+                                    const Padding(
+                                      padding: EdgeInsets.only(bottom: 8),
+                                      child: Text(
+                                        'ÓRDENES TO GO ACTIVAS',
+                                        style: TextStyle(
+                                          color: Color(0xFFA08F70),
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 12,
+                                          letterSpacing: 1,
+                                        ),
                                       ),
                                     ),
                                     SizedBox(
@@ -1190,6 +1165,7 @@ class _ComandasViewState extends State<ComandasView> {
                                                 _selectedTableId = null;
                                                 _selectedTableNumber = null;
                                                 _customerName = name;
+                                                _selectedDeliveryPlatform = null;
                                                 _selectedExistingOrderId = o['id'] as String;
                                               });
                                               Navigator.pop(context);
@@ -1265,6 +1241,56 @@ class _ComandasViewState extends State<ComandasView> {
                                   },
                                 ),
                                 if (tempOrderType == 'delivery') ...[
+                                  const SizedBox(height: 16),
+                                  const Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: Text('PLATAFORMA',
+                                        style: TextStyle(
+                                            color: Color(0xFFA08F70),
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w600,
+                                            letterSpacing: 1)),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    children: ['Uber', 'Didi'].map((platform) {
+                                      final selected =
+                                          tempDeliveryPlatform == platform;
+                                      return Expanded(
+                                        child: Padding(
+                                          padding: EdgeInsets.only(
+                                              right: platform == 'Uber' ? 8 : 0,
+                                              left: platform == 'Didi' ? 8 : 0),
+                                          child: OutlinedButton.icon(
+                                            onPressed: () => setStateDialog(
+                                                () => tempDeliveryPlatform =
+                                                    platform),
+                                            icon: Icon(Icons.delivery_dining,
+                                                color: selected
+                                                    ? Colors.white
+                                                    : const Color(0xFFE07A30)),
+                                            label: Text(platform,
+                                                style: TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    color: selected
+                                                        ? Colors.white
+                                                        : const Color(
+                                                            0xFFE07A30))),
+                                            style: OutlinedButton.styleFrom(
+                                              backgroundColor: selected
+                                                  ? const Color(0xFFE07A30)
+                                                  : Colors.transparent,
+                                              side: const BorderSide(
+                                                  color: Color(0xFFE07A30),
+                                                  width: 1.5),
+                                              minimumSize:
+                                                  const Size.fromHeight(48),
+                                            ),
+                                          ),
+                                        ),
+                                      );
+                                    }).toList(),
+                                  ),
                                   const SizedBox(height: 12),
                                   TextField(
                                     controller: deliveryAddressController,
@@ -1312,24 +1338,25 @@ class _ComandasViewState extends State<ComandasView> {
                                       return;
                                     }
                                     if (tempOrderType == 'delivery' &&
-                                        deliveryAddressController.text
-                                            .trim()
-                                            .isEmpty) {
+                                        tempDeliveryPlatform == null) {
                                       ScaffoldMessenger.of(context).showSnackBar(
                                         const SnackBar(
                                             content: Text(
-                                                'Ingresa la dirección de entrega')),
+                                                'Elige la plataforma: Uber o Didi')),
                                       );
                                       return;
                                     }
-                                    // Para delivery, empaquetamos
-                                    // nombre + dirección + tel + cuota
-                                    // en el customer_name para que se
-                                    // muestre en cocina (que parsea
-                                    // "DIR:", "TEL:" en admin_view).
+                                    // Para delivery, empaquetamos plataforma +
+                                    // nombre + dirección + tel + cuota en el
+                                    // customer_name para que se muestre en
+                                    // cocina (que parsea "DIR:", "TEL:" en
+                                    // admin_view). La plataforma también se
+                                    // guarda aparte en delivery_platform.
                                     String finalCustomerName =
                                         tempCustomerName!.trim();
                                     if (tempOrderType == 'delivery') {
+                                      finalCustomerName =
+                                          '$tempDeliveryPlatform - $finalCustomerName';
                                       final addr = deliveryAddressController
                                           .text
                                           .trim();
@@ -1338,8 +1365,9 @@ class _ComandasViewState extends State<ComandasView> {
                                           .trim();
                                       final feeTotal =
                                           deliveryFee?.total ?? 0;
-                                      finalCustomerName =
-                                          '$finalCustomerName - DIR: $addr';
+                                      if (addr.isNotEmpty) {
+                                        finalCustomerName += ' - DIR: $addr';
+                                      }
                                       if (tel.isNotEmpty) {
                                         finalCustomerName +=
                                             ' - TEL: $tel';
@@ -1348,7 +1376,8 @@ class _ComandasViewState extends State<ComandasView> {
                                         finalCustomerName +=
                                             ' - ENVÍO: \$${feeTotal.toStringAsFixed(0)}';
                                       }
-                                      // Inyectar la cuota como artículo del carrito.
+                                      // Inyectar la cuota como artículo del carrito
+                                      // (0 si Uber/Didi no cobra envío aparte).
                                       context.read<CartProvider>().setDeliveryFee(
                                             feeTotal.toDouble(),
                                           );
@@ -1361,6 +1390,11 @@ class _ComandasViewState extends State<ComandasView> {
                                     setState(() {
                                       _selectedOrderType = tempOrderType;
                                       _customerName = finalCustomerName;
+                                      _selectedDeliveryPlatform =
+                                          tempOrderType == 'delivery'
+                                              ? tempDeliveryPlatform!
+                                                  .toLowerCase()
+                                              : null;
                                       _selectedTableId = null;
                                       _selectedTableNumber = null;
                                       _selectedExistingOrderId = null;
@@ -1654,6 +1688,7 @@ class _ComandasViewState extends State<ComandasView> {
                     tableNumber: _selectedTableNumber,
                     orderType: _selectedOrderType,
                     customerName: _customerName,
+                    deliveryPlatform: _selectedDeliveryPlatform,
                     existingOrderId: _selectedExistingOrderId,
                     waiterId: _selectedWaiterId,
                     onEditItem: _editCartItem,
@@ -1662,6 +1697,7 @@ class _ComandasViewState extends State<ComandasView> {
                         // After submission, maybe clear or ask for next order
                         setState(() {
                            _customerName = null;
+                           _selectedDeliveryPlatform = null;
                            _selectedOrderType = 'dine_in';
                            _selectedTableId = null;
                            _selectedTableNumber = null;

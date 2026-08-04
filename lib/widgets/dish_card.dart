@@ -2412,9 +2412,10 @@ Future<void> addMultiFlavorVariantToCart(BuildContext context,
   String? selectedTerminoHuevo;
   const terminosHuevo = ['Tierno', 'Cocido', 'Sellados'];
 
-  // Huevo Revuelto: obliga a elegir Jamón o Tocino.
+  // Huevo Revuelto: obliga a elegir Jamón, Tocino o Ninguno (para quienes
+  // no quieren ninguno de los dos, ej. por dieta o preferencia).
   String? selectedProteinaHuevo;
-  const proteinasHuevo = ['Jamón', 'Tocino'];
+  const proteinasHuevo = ['Jamón', 'Tocino', 'Ninguno'];
 
   // Quesadilla de Maíz: opción "Frita" (de comal por default). Es
   // exclusiva de este platillo — no aplica a los demás sabores del
@@ -2994,7 +2995,11 @@ Future<void> addMultiFlavorVariantToCart(BuildContext context,
                       spacing: 10,
                       runSpacing: 8,
                       children: proteinasHuevo.map((proteina) => _ToggleOption(
-                        icon: proteina == 'Jamón' ? Icons.lunch_dining : Icons.outdoor_grill,
+                        icon: proteina == 'Jamón'
+                            ? Icons.lunch_dining
+                            : proteina == 'Tocino'
+                                ? Icons.outdoor_grill
+                                : Icons.block,
                         label: proteina,
                         value: selectedProteinaHuevo == proteina,
                         onChanged: (v) => setDialogState(() {
@@ -3651,7 +3656,9 @@ Future<void> addMultiFlavorVariantToCart(BuildContext context,
                             selectedTerminoHuevo!,
                           if (dish.name.toLowerCase().contains('revuelto') &&
                               selectedProteinaHuevo != null)
-                            'Con $selectedProteinaHuevo',
+                            selectedProteinaHuevo == 'Ninguno'
+                                ? 'Sin jamón/tocino'
+                                : 'Con $selectedProteinaHuevo',
                           if (dish.name.toLowerCase() == 'quesadilla de maíz' &&
                               selectedFritaQuesadilla)
                             'Frita',

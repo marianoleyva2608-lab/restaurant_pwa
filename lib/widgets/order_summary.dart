@@ -115,6 +115,10 @@ class OrderSummaryWidget extends StatefulWidget {
   final String orderType;
   final String? customerName;
   final String? waiterId;
+  // Plataforma cuando orderType == 'delivery': 'uber' o 'didi'. El
+  // repartidor de la plataforma recoge en el restaurante; el cobro lo
+  // hace la plataforma y se registra en Caja como pago a crédito.
+  final String? deliveryPlatform;
   // Orden To Go/Delivery ya existente que se retoma (ej. desde la lista
   // de "Órdenes To Go Activas"). Permite ver sus items, imprimir la
   // cuenta o agregarle más artículos sin crear una orden duplicada.
@@ -132,6 +136,7 @@ class OrderSummaryWidget extends StatefulWidget {
     this.tableNumber,
     required this.orderType,
     this.customerName,
+    this.deliveryPlatform,
     this.existingOrderId,
     required this.waiterId,
     required this.onOrderSubmitted,
@@ -1043,6 +1048,7 @@ class _OrderSummaryWidgetState extends State<OrderSummaryWidget> {
             'total_amount': cart.totalAmount,
             'order_type': widget.orderType,
             'customer_name': widget.customerName,
+            'delivery_platform': widget.deliveryPlatform,
             'branch_name': Globals.currentBranch,
             'daily_folio': nextFolio,
             'sent_to_kitchen_at': DateTime.now().toUtc().toIso8601String(),
@@ -1081,6 +1087,7 @@ class _OrderSummaryWidgetState extends State<OrderSummaryWidget> {
             'total_amount': cart.totalAmount,
             'order_type': widget.orderType,
             'customer_name': widget.customerName,
+            'delivery_platform': widget.deliveryPlatform,
             'branch_name': Globals.currentBranch,
             'daily_folio': nextFolio,
             'sent_to_kitchen_at': DateTime.now().toUtc().toIso8601String(),
