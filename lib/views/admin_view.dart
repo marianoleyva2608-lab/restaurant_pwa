@@ -736,9 +736,19 @@ class _AdminViewState extends State<AdminView> {
                       }),
                       builder: (context, tablesSnapshot) {
                         return StreamBuilder<List<Map<String, dynamic>>>(
-                          stream: _ticker().asyncMap((_) async =>
-                              List<Map<String, dynamic>>.from(
-                                  await _supabase.from('orders').select())),
+                          // Antes pedía TODAS las órdenes sin filtro
+                          // (select() a secas): Supabase/PostgREST limita a
+                          // 1000 filas por default, y con meses de historial
+                          // las órdenes activas más recientes podían quedar
+                          // fuera de esas 1000. Filtramos por status en el
+                          // servidor para traer solo lo que importa aquí.
+                          stream: _ticker().asyncMap((_) async {
+                            final rows = await _supabase
+                                .from('orders')
+                                .select()
+                                .inFilter('status', ['pending', 'ready', 'incomplete']);
+                            return List<Map<String, dynamic>>.from(rows);
+                          }),
                           builder: (context, ordersSnapshot) {
                             if (!tablesSnapshot.hasData || !ordersSnapshot.hasData) {
                               return const Center(child: CircularProgressIndicator());
