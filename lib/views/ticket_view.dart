@@ -71,6 +71,7 @@ class _TicketViewState extends State<TicketView> {
       case 'dine_in':
         return 'COMER AQUÍ';
       case 'to_go':
+      case 'takeout':
         return 'PARA LLEVAR';
       case 'delivery':
         return 'A DOMICILIO';

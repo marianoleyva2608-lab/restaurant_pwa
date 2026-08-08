@@ -476,6 +476,20 @@ class _OrderSummaryWidgetState extends State<OrderSummaryWidget> {
                     borderRadius: BorderRadius.circular(14)),
               ),
             ),
+            const SizedBox(height: 12),
+            ElevatedButton.icon(
+              onPressed: () => Navigator.pop(ctx, 'mixed'),
+              icon: const Icon(Icons.pie_chart),
+              label: const Text('Pago Mixto',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              style: ElevatedButton.styleFrom(
+                minimumSize: const Size(double.infinity, 56),
+                backgroundColor: Colors.blueAccent,
+                foregroundColor: Color(0xFFFAF1DE),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14)),
+              ),
+            ),
           ],
         ),
         actions: [
@@ -676,7 +690,239 @@ class _OrderSummaryWidgetState extends State<OrderSummaryWidget> {
               .showSnackBar(SnackBar(content: Text('Error: $e')));
         }
       }
+    } else if (method == 'mixed') {
+      await _showMixedPaymentDialog(context, orderIds, total, tableId);
     }
+  }
+
+  /// Cobro dividido entre efectivo y tarjeta. Guarda 'payment_method':
+  /// 'mixed' + 'amount_cash'/'amount_card' — mismo esquema que ya leen
+  /// reports_view.dart y cash_register_view.dart para el corte de caja,
+  /// así que el pago mixto hecho por el mesero se refleja igual que el
+  /// que ya podía registrar Caja/Admin.
+  Future<void> _showMixedPaymentDialog(BuildContext context,
+      List<String> orderIds, double total, String? tableId) async {
+    final supabase = Supabase.instance.client;
+    final cashController =
+        TextEditingController(text: total.toStringAsFixed(2));
+    final cardController = TextEditingController(text: '0.00');
+    final cashReceivedController = TextEditingController();
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx2, setS) {
+          final cashAmount = double.tryParse(cashController.text) ?? 0.0;
+          final cardAmount = double.tryParse(cardController.text) ?? 0.0;
+          final totalEntered = cashAmount + cardAmount;
+          final cashReceived =
+              double.tryParse(cashReceivedController.text) ?? 0.0;
+          double change = cashReceived - cashAmount;
+          if (change < 0) change = 0;
+
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+            backgroundColor: const Color(0xFFFAF1DE),
+            title: const Row(
+              children: [
+                Icon(Icons.pie_chart, color: Colors.blueAccent, size: 28),
+                SizedBox(width: 12),
+                Text('Pago Mixto',
+                    style: TextStyle(
+                        color: Color(0xFFFF6D00), fontWeight: FontWeight.bold)),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                        color: const Color(0xFFFAF1DE),
+                        borderRadius: BorderRadius.circular(16)),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Total a Cobrar:',
+                            style: TextStyle(
+                                color: Colors.black,
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold)),
+                        Text('\$${total.toStringAsFixed(2)}',
+                            style: const TextStyle(
+                                color: Color(0xFFFF6D00),
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: cardController,
+                          keyboardType:
+                              const TextInputType.numberWithOptions(decimal: true),
+                          style: const TextStyle(color: Color(0xFF3D2E1A)),
+                          decoration: InputDecoration(
+                            labelText: 'Tarjeta (\$)',
+                            labelStyle: const TextStyle(color: Color(0xFFA08F70)),
+                            filled: true,
+                            fillColor: const Color(0xFFFAF1DE),
+                            border:
+                                OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                            prefixIcon:
+                                const Icon(Icons.credit_card, color: Colors.blueAccent),
+                          ),
+                          onChanged: (val) {
+                            var amount = double.tryParse(val) ?? 0.0;
+                            if (amount > total) amount = total;
+                            setS(() => cashController.text =
+                                (total - amount).toStringAsFixed(2));
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextField(
+                          controller: cashController,
+                          keyboardType:
+                              const TextInputType.numberWithOptions(decimal: true),
+                          style: const TextStyle(color: Color(0xFF3D2E1A)),
+                          decoration: InputDecoration(
+                            labelText: 'Efectivo (\$)',
+                            labelStyle: const TextStyle(color: Color(0xFFA08F70)),
+                            filled: true,
+                            fillColor: const Color(0xFFFAF1DE),
+                            border:
+                                OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                            prefixIcon: const Icon(Icons.payments, color: Colors.green),
+                          ),
+                          onChanged: (val) {
+                            var amount = double.tryParse(val) ?? 0.0;
+                            if (amount > total) amount = total;
+                            setS(() => cardController.text =
+                                (total - amount).toStringAsFixed(2));
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  TextField(
+                    controller: cashReceivedController,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFFFF6D00)),
+                    decoration: InputDecoration(
+                      labelText:
+                          'Efectivo recibido del cliente (para el cambio)',
+                      labelStyle: const TextStyle(
+                          color: Colors.orangeAccent,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold),
+                      prefixIcon: const Icon(Icons.money, color: Colors.green),
+                      filled: true,
+                      fillColor: const Color(0xFFFAF1DE),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
+                      hintText: '0.00',
+                    ),
+                    onChanged: (_) => setS(() {}),
+                  ),
+                  if (change > 0)
+                    Container(
+                      width: double.infinity,
+                      margin: const EdgeInsets.only(top: 16),
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.green.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.green.withOpacity(0.3)),
+                      ),
+                      child: Column(
+                        children: [
+                          const Text('CAMBIO PARA EL CLIENTE',
+                              style: TextStyle(
+                                  color: Colors.green,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                  letterSpacing: 1.2)),
+                          const SizedBox(height: 8),
+                          Text('\$${change.toStringAsFixed(2)}',
+                              style: const TextStyle(
+                                  color: Colors.green,
+                                  fontSize: 36,
+                                  fontWeight: FontWeight.w900)),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx2),
+                child: const Text('Cancelar',
+                    style: TextStyle(color: Color(0xFFA08F70))),
+              ),
+              ElevatedButton(
+                onPressed: totalEntered < total
+                    ? null
+                    : () async {
+                        try {
+                          await supabase.from('orders').update({
+                            'status': 'completed',
+                            'payment_method': 'mixed',
+                            'amount_cash': cashAmount,
+                            'amount_card': cardAmount,
+                          }).inFilter('id', orderIds);
+                          if (tableId != null) {
+                            await supabase
+                                .from('restaurant_tables')
+                                .update({'status': 'available'}).eq(
+                                    'id', tableId as Object);
+                          }
+                          if (ctx2.mounted) {
+                            Navigator.pop(ctx2);
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                    content: Text(
+                                        'Pago mixto finalizado con éxito'),
+                                    backgroundColor: Colors.green),
+                              );
+                              await showTicketQrDialog(context, orderIds);
+                              if (mounted) setState(() => _existingItems = []);
+                            }
+                          }
+                        } catch (e) {
+                          if (ctx2.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Error: $e')));
+                          }
+                        }
+                      },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blueAccent,
+                  foregroundColor: Color(0xFFFAF1DE),
+                  minimumSize: const Size(150, 50),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                ),
+                child: const Text('FINALIZAR COBRO',
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 16)),
+              ),
+            ],
+          );
+        },
+      ),
+    );
   }
 
   Future<void> _cobrarCuenta(BuildContext context) async {
