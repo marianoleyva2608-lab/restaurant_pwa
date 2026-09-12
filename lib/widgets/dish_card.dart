@@ -2455,6 +2455,10 @@ Future<void> addMultiFlavorVariantToCart(BuildContext context,
   // exclusiva de este platillo — no aplica a los demás sabores del
   // grupo (Burrito, Taco Chico, etc.).
   bool selectedFritaQuesadilla = false;
+  // Quesadilla de Maíz: "Solo Queso" permite agregarla SIN elegir guisado
+  // (igual que ya se puede en el diálogo individual). Solo tiene efecto
+  // cuando Quesadilla es el único sabor del grupo que requiere guisado.
+  bool soloQuesoQuesadilla = false;
 
   // Lo Dulce: selector de piezas (1, 2, 3)
   // Detecta por categoryPrefix (Lo dulce) o por categoría de los platillos
@@ -2625,6 +2629,14 @@ Future<void> addMultiFlavorVariantToCart(BuildContext context,
         final selectedIsQuesadillaMaiz = matchedByFlavor.values
             .any((d) => d.name.toLowerCase() == 'quesadilla de maíz');
 
+        // "Solo Queso" solo puede saltarse el guisado si Quesadilla es el
+        // ÚNICO sabor seleccionado que lo requiere (si además eligieron
+        // Gordita, Taco, etc., esos sí necesitan su guisado).
+        final bool onlyQuesadillaNeedsGuisado = matchedByFlavor.values
+            .isNotEmpty &&
+            matchedByFlavor.values.every((d) =>
+                !d.requiresGuisado || d.name.toLowerCase() == 'quesadilla de maíz');
+
         // El sabor "Chilaquiles" (p.ej. dentro de Molletes) exige elegir
         // salsa: 1 obligatoria, máx. 2. También aplica si TODO el grupo ya
         // es de categoría "chilaquiles" (ej. "Chilaquiles" vs "Huevo" como
@@ -2665,7 +2677,9 @@ Future<void> addMultiFlavorVariantToCart(BuildContext context,
             // menos un guisado cuando el sabor lo requiere. La opción "solo
             // con queso" vive en el diálogo simple (individual) y ahí sí se
             // permite sin guisado.
-            (!selectedRequiresGuisado || selectedGuisados.isNotEmpty) &&
+            (!selectedRequiresGuisado ||
+                selectedGuisados.isNotEmpty ||
+                (soloQuesoQuesadilla && onlyQuesadillaNeedsGuisado)) &&
             (!hasChilaquilFlavor || selectedSalsasChilaquil.isNotEmpty) &&
             // Si seleccionaron un extra de guisado, deben elegir cuál.
             (!extrasDisponibles.any((e) =>
@@ -3068,6 +3082,15 @@ Future<void> addMultiFlavorVariantToCart(BuildContext context,
                       value: selectedFritaQuesadilla,
                       onChanged: (v) => setDialogState(() {
                         selectedFritaQuesadilla = v;
+                      }),
+                    ),
+                    const SizedBox(height: 10),
+                    _ToggleOption(
+                      icon: Icons.local_pizza,
+                      label: 'Solo Queso (sin guisado)',
+                      value: soloQuesoQuesadilla,
+                      onChanged: (v) => setDialogState(() {
+                        soloQuesoQuesadilla = v;
                       }),
                     ),
                   ],
@@ -3701,8 +3724,13 @@ Future<void> addMultiFlavorVariantToCart(BuildContext context,
                             : dialogQty;
                         final isChilaquilFl = dish.category == 'chilaquiles' ||
                             flavor.toLowerCase().contains('chilaquil');
+                        final isQuesadillaSoloQueso =
+                            dish.name.toLowerCase() == 'quesadilla de maíz' &&
+                                soloQuesoQuesadilla;
                         final extras = [
-                          if (dish.requiresGuisado) ...selectedGuisados,
+                          if (dish.requiresGuisado && !isQuesadillaSoloQueso)
+                            ...selectedGuisados,
+                          if (isQuesadillaSoloQueso) 'Solo queso',
                           if (selectedIsEnmolada && selectedEnmolQty != null)
                             '$selectedEnmolQty piezas',
                           if (isMenudo && selectedTiposCarne.isNotEmpty)
