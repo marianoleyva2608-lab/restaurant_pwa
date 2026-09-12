@@ -353,10 +353,12 @@ String _drinkDisplayName(String type) {
 /// opciones de sabor/guisado, ej. arrachera, sopes, enchiladas): permite
 /// cantidad y un comentario libre antes de agregar a la orden.
 Future<void> _addPreparedDishWithComment(
-    BuildContext context, Dish dish, {String? replaceKey}) async {
+    BuildContext context, Dish dish,
+    {String? replaceKey, bool allowCourtesy = false}) async {
   final cart = context.read<CartProvider>();
   final commentController = TextEditingController();
   int dialogQty = 1;
+  bool cortesiaSelected = false;
 
   await showDialog(
     context: context,
@@ -375,6 +377,17 @@ Future<void> _addPreparedDishWithComment(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (allowCourtesy) ...[
+                  _ToggleOption(
+                    icon: Icons.card_giftcard,
+                    label: 'Cortesía',
+                    price: 'Gratis',
+                    value: cortesiaSelected,
+                    onChanged: (v) =>
+                        setDialogState(() => cortesiaSelected = v),
+                  ),
+                  const SizedBox(height: 12),
+                ],
                 _buildCommentField(commentController),
                 const SizedBox(height: 12),
                 const Divider(color: Color(0xFFE5DCC4)),
@@ -453,9 +466,15 @@ Future<void> _addPreparedDishWithComment(
               onPressed: () {
                 Navigator.pop(ctx);
                 final comment = commentController.text.trim();
+                final dishToAdd = cortesiaSelected
+                    ? dish.copyWith(price: 0)
+                    : dish;
                 cart.addItemWithGuisados(
-                  dish,
-                  [if (comment.isNotEmpty) comment],
+                  dishToAdd,
+                  [
+                    if (cortesiaSelected) 'Cortesía',
+                    if (comment.isNotEmpty) comment,
+                  ],
                   quantity: dialogQty,
                 );
                 if (replaceKey != null) cart.removeItem(replaceKey);
@@ -528,12 +547,14 @@ void showLoDulcePickerSheet(BuildContext context, List<Dish> items, {String? rep
       }),
     if (churros != null)
       ('Churros', Icons.bakery_dining, () {
-        _addPreparedDishWithComment(context, churros, replaceKey: replaceKey);
+        _addPreparedDishWithComment(context, churros,
+            replaceKey: replaceKey, allowCourtesy: true);
       }),
     if (galletas.isNotEmpty)
       ('Galletas', Icons.cookie, () {
         if (galletas.length == 1) {
-          _addPreparedDishWithComment(context, galletas.first, replaceKey: replaceKey);
+          _addPreparedDishWithComment(context, galletas.first,
+              replaceKey: replaceKey);
         } else {
           addMultiFlavorVariantToCart(context, galletas, 'Galletas', 'Galletas', replaceKey: replaceKey);
         }
@@ -1260,6 +1281,19 @@ Future<void> addDishToCart(BuildContext context, Dish dish, {String? replaceKey}
       !isRefresco &&
       !isAguaFresca &&
       !isJugo;
+
+  // Café de cortesía: solo miércoles y jueves. Ese día se abre un diálogo
+  // con el botón Cortesía; el resto de la semana el café se agrega directo
+  // como cualquier otra bebida simple.
+  final bool isCafe = nameLower.contains('café') || nameLower.contains('cafe');
+  final bool isCourtesyDay = const {DateTime.wednesday, DateTime.thursday}
+      .contains(DateTime.now().weekday);
+  if (isBebidaSimple && isCafe && isCourtesyDay) {
+    await _addPreparedDishWithComment(context, dish,
+        replaceKey: replaceKey, allowCourtesy: true);
+    return;
+  }
+
   if (isBebidaSimple) {
     cart.addItemWithGuisados(dish, []);
     if (replaceKey != null) cart.removeItem(replaceKey);
@@ -2429,6 +2463,11 @@ Future<void> addMultiFlavorVariantToCart(BuildContext context,
   int? selectedPiezasLoDulce;
   const loDulcePiezas = [1, 2, 3];
 
+  // Cortesía: solo aplica al grupo de Hot Cakes (no Galletas ni otros
+  // grupos que también pasan por este diálogo mixto).
+  final bool isHotCakesGroup = categoryPrefix.toLowerCase() == 'hot cakes' ||
+      dishes.any((d) => d.name.toLowerCase().contains('hot cake'));
+
   // Sabores que tienen variantes de piezas en la BD (e.g. Hot Cakes pero no Churros)
   final flavorsWithQtyVariants = dishes
       .where((d) => _extractQuantity(d.name) != null)
@@ -2475,6 +2514,10 @@ Future<void> addMultiFlavorVariantToCart(BuildContext context,
   const salsasChilaquilOptions = ['Roja', 'Verde', 'Ranchera'];
   bool conQuesoExtra = false;
   const quesoExtraPrecio = 5.0;
+
+  // Cortesía: solo aplica a "Lo dulce" (Hot Cakes, Galletas, etc. en el
+  // diálogo mixto). Al activarla, el platillo se agrega con precio $0.
+  bool cortesiaSelected = false;
 
   // Comentarios libres (ej. "sin lechuga, sin chile") para platillos preparados
   final allowsComment = _isPreparedDishes(dishes);
@@ -2642,15 +2685,17 @@ Future<void> addMultiFlavorVariantToCart(BuildContext context,
         // Sumar el subtotal real respetando la cantidad por-platillo.
         // Para lo_dulce: multiplicamos también por dialogQty (cantidad general)
         // para que se pueda pedir N veces el mismo postre.
-        final double totalPrice = (isLoDulce
-                ? matchedByFlavor.entries.fold<double>(0, (s, e) =>
-                    s + e.value.price * qtyForLoDulceDish(e.value, e.key))
-                : matchedByFlavor.values
-                    .fold<double>(0, (s, d) => s + d.price)) *
-                dialogQty +
-            (showQuesoToggle && conQuesoExtra
-                ? quesoExtraPrecio * dialogQty
-                : 0);
+        final double totalPrice = (isHotCakesGroup && cortesiaSelected)
+            ? 0
+            : (isLoDulce
+                    ? matchedByFlavor.entries.fold<double>(0, (s, e) =>
+                        s + e.value.price * qtyForLoDulceDish(e.value, e.key))
+                    : matchedByFlavor.values
+                        .fold<double>(0, (s, d) => s + d.price)) *
+                    dialogQty +
+                (showQuesoToggle && conQuesoExtra
+                    ? quesoExtraPrecio * dialogQty
+                    : 0);
 
         // Piezas por orden: prioriza la variante seleccionada (matchedByFlavor);
         // si no hay selección, usa la primera que tenga un valor > 0. Así el
@@ -3161,6 +3206,21 @@ Future<void> addMultiFlavorVariantToCart(BuildContext context,
                           setDialogState(() => conQuesoExtra = v),
                     ),
                   ],
+                  // Cortesía: botón para marcar Hot Cakes como regalo de
+                  // la casa (precio $0 en el ticket).
+                  if (isHotCakesGroup) ...[
+                    const SizedBox(height: 12),
+                    const Divider(color: Color(0xFFE5DCC4)),
+                    const SizedBox(height: 8),
+                    _ToggleOption(
+                      icon: Icons.card_giftcard,
+                      label: 'Cortesía',
+                      price: 'Gratis',
+                      value: cortesiaSelected,
+                      onChanged: (v) =>
+                          setDialogState(() => cortesiaSelected = v),
+                    ),
+                  ],
                   // Guisado: aparece cuando algún platillo seleccionado lo requiere
                   if (anyRequiresGuisado && guisados.isNotEmpty) ...[
                     const SizedBox(height: 12),
@@ -3661,11 +3721,14 @@ Future<void> addMultiFlavorVariantToCart(BuildContext context,
                               selectedSalsasChilaquil.isNotEmpty)
                             'Salsa ${selectedSalsasChilaquil.join(" + ")}',
                           if (showQuesoToggle && conQuesoExtra) 'Con queso',
+                          if (isHotCakesGroup && cortesiaSelected) 'Cortesía',
                           if (allowsComment && comment.isNotEmpty) comment,
                         ];
-                        final dishToAdd = showQuesoToggle && conQuesoExtra
-                            ? dish.copyWith(price: dish.price + quesoExtraPrecio)
-                            : dish;
+                        final dishToAdd = (isHotCakesGroup && cortesiaSelected)
+                            ? dish.copyWith(price: 0)
+                            : (showQuesoToggle && conQuesoExtra
+                                ? dish.copyWith(price: dish.price + quesoExtraPrecio)
+                                : dish);
                         cart.addItemWithGuisados(dishToAdd, extras, quantity: effectiveQty);
                       }
                       // Agregar las ÓRDENES EXTRAS seleccionadas; usamos
