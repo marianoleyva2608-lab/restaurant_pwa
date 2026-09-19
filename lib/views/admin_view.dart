@@ -754,9 +754,9 @@ class _AdminViewState extends State<AdminView> {
                               return const Center(child: CircularProgressIndicator());
                             }
                             
-                            final tables = (tablesSnapshot.data as List<Map<String, dynamic>>).where((t) => t['branch_name'] == Globals.currentBranch).toList();
+                            final tables = (tablesSnapshot.data as List<Map<String, dynamic>>).where((t) => Globals.matchesCurrentBranch(t['branch_name'] as String?)).toList();
                             final activeOrders = (ordersSnapshot.data as List<Map<String, dynamic>>).where((o) => 
-                              o['branch_name'] == Globals.currentBranch && 
+                              Globals.matchesCurrentBranch(o['branch_name'] as String?)&& 
                               ['pending', 'ready', 'incomplete'].contains(o['status'])
                             ).toList();
                             final nonTableOrders = activeOrders.where((o) => o['table_id'] == null).toList();
