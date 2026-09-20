@@ -983,10 +983,16 @@ class _ComandasViewState extends State<ComandasView> {
     Timer? toGoRefreshTimer;
     Future<void> refreshToGoOrders() async {
       try {
+        // Filtrar por status en el servidor es indispensable: sin esto,
+        // PostgREST tope-a en 1000 filas por default y con meses de
+        // historial las ordenes pending/ready recientes quedan fuera
+        // (mismo bug ya resuelto antes en admin_view.dart, commit
+        // 6228111 "orders sin filtro traia TODO el historial").
         final rows = await _supabase
             .from('orders')
             .select()
-            .eq('order_type', 'takeout');
+            .eq('order_type', 'takeout')
+            .inFilter('status', ['pending', 'ready']);
         toGoOrdersCache = List<Map<String, dynamic>>.from(rows);
       } catch (e) {
         debugPrint('Error refreshing to-go orders: $e');
