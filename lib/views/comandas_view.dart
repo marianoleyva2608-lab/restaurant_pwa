@@ -975,12 +975,40 @@ class _ComandasViewState extends State<ComandasView> {
     // y el cobro real lo hace la plataforma (se registra como "crédito" en
     // Caja porque el dinero llega después, no en el momento).
     String? tempDeliveryPlatform;
+    // Las órdenes To Go activas de este diálogo se refrescan por polling
+    // (igual que Vista General en admin_view.dart) en vez de con
+    // `.stream()`, que en algunos despliegues (build web) no entrega la
+    // carga inicial de forma confiable.
+    List<Map<String, dynamic>> toGoOrdersCache = [];
+    Timer? toGoRefreshTimer;
+    Future<void> refreshToGoOrders() async {
+      try {
+        final rows = await _supabase
+            .from('orders')
+            .select()
+            .eq('order_type', 'takeout');
+        toGoOrdersCache = List<Map<String, dynamic>>.from(rows);
+      } catch (e) {
+        debugPrint('Error refreshing to-go orders: $e');
+      }
+    }
+
     await showDialog(
       context: context,
       barrierDismissible: false,
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setStateDialog) {
+            if (toGoRefreshTimer == null) {
+              refreshToGoOrders().then((_) {
+                if (context.mounted) setStateDialog(() {});
+              });
+              toGoRefreshTimer =
+                  Timer.periodic(const Duration(seconds: 3), (_) async {
+                await refreshToGoOrders();
+                if (context.mounted) setStateDialog(() {});
+              });
+            }
             return AlertDialog(
               title: const Text('Tipo de Orden'),
               content: SizedBox(
@@ -1113,13 +1141,9 @@ class _ComandasViewState extends State<ComandasView> {
                               );
                             },
                           )
-                        : StreamBuilder<List<Map<String, dynamic>>>(
-                            stream: _supabase
-                                .from('orders')
-                                .stream(primaryKey: ['id'])
-                                .eq('order_type', 'takeout'),
-                            builder: (context, activeToGoSnapshot) {
-                              final activeToGoOrders = (activeToGoSnapshot.data ?? [])
+                        : Builder(
+                            builder: (context) {
+                              final activeToGoOrders = toGoOrdersCache
                                   .where((o) =>
                                       o['table_id'] == null &&
                                       Globals.matchesCurrentBranch(o['branch_name'] as String?)&&
@@ -1431,6 +1455,7 @@ class _ComandasViewState extends State<ComandasView> {
         );
       },
     );
+    toGoRefreshTimer?.cancel();
   }
 
   @override
