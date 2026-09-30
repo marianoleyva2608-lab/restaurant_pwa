@@ -1831,7 +1831,9 @@ class _CashRegisterViewState extends State<CashRegisterView> {
         backgroundColor: const Color(0xFFFAF1DE),
         elevation: 0,
         iconTheme: const IconThemeData(color: Color(0xFFFAF1DE)),
-        actions: [
+        // En móvil los botones se mueven a una barra inferior centrada
+        // (ver bottomNavigationBar); en pantallas grandes siguen arriba.
+        actions: isMobile ? null : [
           // Todos los botones de acción van dentro de un único
           // SingleChildScrollView horizontal: en tablets/pantallas angostas
           // el AppBar normal recorta los botones que no caben y no deja
@@ -2040,6 +2042,72 @@ class _CashRegisterViewState extends State<CashRegisterView> {
               ],
             ),
           ),
+      bottomNavigationBar: isMobile ? _buildMobileActionBar() : null,
+    );
+  }
+
+  /// Barra inferior para celulares: los 5 botones de acción centrados y
+  /// siempre visibles (en el AppBar no cabían y quedaban recortados).
+  Widget _buildMobileActionBar() {
+    Widget item(IconData icon, String label, Color color, VoidCallback onTap, {bool filled = false}) {
+      return Expanded(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 3),
+          child: Material(
+            color: filled ? color : const Color(0xFFFAF1DE),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(color: color, width: 1.5),
+            ),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: onTap,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(icon, size: 22, color: filled ? Colors.white : color),
+                    const SizedBox(height: 4),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(label,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: filled ? Colors.white : color)),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      decoration: const BoxDecoration(
+        color: Color(0xFFFAF1DE),
+        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, -2))],
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(6, 8, 6, 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              item(Icons.savings, 'Apertura', Colors.green, _showAperturaCajaDialog, filled: true),
+              item(Icons.summarize, 'Propinas', Colors.teal, _showTipsReportDialog),
+              item(Icons.receipt_long, 'Gastos', Colors.redAccent, _showExpensesReportDialog),
+              item(Icons.point_of_sale, 'Cierre', Colors.blueAccent, _showCierreCajaDialog, filled: true),
+              item(Icons.add, 'Nuevo', const Color(0xFFFF6D00), _showNewMovementDialog, filled: true),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
