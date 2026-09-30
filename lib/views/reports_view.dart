@@ -490,9 +490,14 @@ class _ReportsViewState extends State<ReportsView> {
                                     child: Padding(
                                       padding: const EdgeInsets.only(left: 8),
                                       child: Text(
-                                        _selectedDate != null
+                                        _timeFilter == 'exact_date' &&
+                                                _selectedDate != null
                                             ? '${_selectedDate!.day}/${_selectedDate!.month}/${_selectedDate!.year}'
-                                            : 'Fecha Específica...',
+                                            : (_timeFilter == 'range' &&
+                                                    _rangeStart != null &&
+                                                    _rangeEnd != null)
+                                                ? '${_rangeStart!.day}/${_rangeStart!.month} - ${_rangeEnd!.day}/${_rangeEnd!.month}'
+                                                : 'Fecha Específica...',
                                       ),
                                     ),
                                   ),
@@ -510,18 +515,42 @@ class _ReportsViewState extends State<ReportsView> {
                                 ],
                                 onChanged: (value) async {
                                   if (value == 'custom') {
-                                    final date = await showDatePicker(
+                                    // "Fecha Específica" ahora también permite
+                                    // elegir un rango (inicio y final) con el
+                                    // mismo selector de calendario. Si el
+                                    // usuario toca un solo día, se usa como
+                                    // fecha exacta; si elige dos días, se usa
+                                    // como rango.
+                                    final range = await showDateRangePicker(
                                       context: context,
-                                      initialDate: DateTime.now(),
+                                      initialDateRange:
+                                          _rangeStart != null && _rangeEnd != null
+                                              ? DateTimeRange(
+                                                  start: _rangeStart!,
+                                                  end: _rangeEnd!)
+                                              : null,
                                       firstDate: DateTime(2020),
                                       lastDate: DateTime(2100),
+                                      helpText:
+                                          'Selecciona una fecha (o un rango)',
+                                      saveText: 'Aplicar',
                                     );
-                                    if (date != null) {
+                                    if (range != null) {
                                       setState(() {
-                                        _selectedDate = date;
-                                        _timeFilter = 'exact_date';
-                                        _rangeStart = null;
-                                        _rangeEnd = null;
+                                        if (range.start.year == range.end.year &&
+                                            range.start.month ==
+                                                range.end.month &&
+                                            range.start.day == range.end.day) {
+                                          _selectedDate = range.start;
+                                          _timeFilter = 'exact_date';
+                                          _rangeStart = null;
+                                          _rangeEnd = null;
+                                        } else {
+                                          _rangeStart = range.start;
+                                          _rangeEnd = range.end;
+                                          _timeFilter = 'range';
+                                          _selectedDate = null;
+                                        }
                                       });
                                       _fetchReports();
                                     }
