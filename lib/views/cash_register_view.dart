@@ -1233,6 +1233,405 @@ class _CashRegisterViewState extends State<CashRegisterView> {
     );
   }
 
+  /// Reporte de Gastos: todas las salidas de caja (préstamos, gastos,
+  /// propinas, vacaciones, corte, otro) agrupadas por categoría, con
+  /// filtro por Un Día / Periodo (inicio-final) / Historial (30 días).
+  /// Usa comparación tolerante de sucursal (Globals.normalizeBranch) para
+  /// no perder movimientos con branch_name guardado con variaciones de
+  /// mayúsculas/acentos, igual que el Historial de Ventas.
+  Future<void> _showExpensesReportDialog() async {
+    DateTime selectedDate = DateTime.now();
+    DateTime? rangeStart;
+    DateTime? rangeEnd;
+    String mode = 'dia'; // 'dia', 'periodo', 'historial'
+
+    Future<List<Map<String, dynamic>>> fetchExpensesRange(
+        DateTime start, DateTime endExclusive) async {
+      try {
+        final response = await _supabase
+            .from('cash_movements')
+            .select()
+            .eq('type', 'salida')
+            .gte('created_at', start.toIso8601String())
+            .lt('created_at', endExclusive.toIso8601String())
+            .order('created_at', ascending: false);
+        final wanted = Globals.normalizeBranch(Globals.currentBranch);
+        return List<Map<String, dynamic>>.from(response)
+            .where((m) =>
+                Globals.normalizeBranch(m['branch_name']?.toString()) ==
+                wanted)
+            .toList();
+      } catch (_) {
+        return [];
+      }
+    }
+
+    Future<List<Map<String, dynamic>>> fetchExpensesDay(DateTime date) {
+      final startOfDay = DateTime(date.year, date.month, date.day);
+      return fetchExpensesRange(startOfDay, startOfDay.add(const Duration(days: 1)));
+    }
+
+    Future<List<Map<String, dynamic>>> fetchExpensesHistory() {
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final start = today.subtract(const Duration(days: 29));
+      return fetchExpensesRange(start, today.add(const Duration(days: 1)));
+    }
+
+    Future<List<Map<String, dynamic>>> fetchExpensesPeriod() {
+      if (rangeStart == null || rangeEnd == null) return Future.value([]);
+      final start = DateTime(rangeStart!.year, rangeStart!.month, rangeStart!.day);
+      final endExclusive = DateTime(rangeEnd!.year, rangeEnd!.month, rangeEnd!.day)
+          .add(const Duration(days: 1));
+      return fetchExpensesRange(start, endExclusive);
+    }
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlgState) {
+          final future = mode == 'dia'
+              ? fetchExpensesDay(selectedDate)
+              : mode == 'periodo'
+                  ? fetchExpensesPeriod()
+                  : fetchExpensesHistory();
+
+          return FutureBuilder<List<Map<String, dynamic>>>(
+            key: ValueKey('$mode-${selectedDate.toIso8601String()}-$rangeStart-$rangeEnd'),
+            future: future,
+            builder: (context, snapshot) {
+              final rows = snapshot.data ?? [];
+
+              // Agrupa por categoría sumando montos.
+              final Map<String, double> byCategory = {};
+              double total = 0;
+              for (final r in rows) {
+                final cat = (r['category']?.toString() ?? 'otro');
+                final amt = double.tryParse(r['amount']?.toString() ?? '0') ?? 0.0;
+                byCategory[cat] = (byCategory[cat] ?? 0) + amt;
+                total += amt;
+              }
+              final catEntries = byCategory.entries.toList()
+                ..sort((a, b) => b.value.compareTo(a.value));
+
+              return AlertDialog(
+                backgroundColor: const Color(0xFFFAF1DE),
+                title: const Row(
+                  children: [
+                    Icon(Icons.receipt_long, color: Colors.redAccent),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text('Reporte de Gastos',
+                          style: TextStyle(color: Color(0xFF3D2E1A), fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
+                content: SizedBox(
+                  width: 420,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildTipsModeTab(
+                                  'Un Día', mode == 'dia', () => setDlgState(() => mode = 'dia')),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: _buildTipsModeTab(
+                                  'Periodo', mode == 'periodo', () => setDlgState(() => mode = 'periodo')),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: _buildTipsModeTab(
+                                  'Historial (30 días)', mode == 'historial', () => setDlgState(() => mode = 'historial')),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        if (mode == 'dia')
+                          InkWell(
+                            onTap: () async {
+                              final picked = await showDatePicker(
+                                context: context,
+                                initialDate: selectedDate,
+                                firstDate: DateTime(2024),
+                                lastDate: DateTime(2100),
+                              );
+                              if (picked != null) {
+                                setDlgState(() => selectedDate = picked);
+                              }
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFE5DCC4).withValues(alpha: 0.3),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(DateFormat('dd/MM/yyyy').format(selectedDate),
+                                      style: const TextStyle(color: Color(0xFF3D2E1A), fontWeight: FontWeight.bold)),
+                                  const Icon(Icons.calendar_month, color: Color(0xFFFF6D00)),
+                                ],
+                              ),
+                            ),
+                          ),
+                        if (mode == 'periodo')
+                          InkWell(
+                            onTap: () async {
+                              final range = await showDateRangePicker(
+                                context: context,
+                                initialDateRange: rangeStart != null && rangeEnd != null
+                                    ? DateTimeRange(start: rangeStart!, end: rangeEnd!)
+                                    : null,
+                                firstDate: DateTime(2024),
+                                lastDate: DateTime(2100),
+                                helpText: 'Selecciona el periodo de gastos',
+                                saveText: 'Aplicar',
+                              );
+                              if (range != null) {
+                                setDlgState(() {
+                                  rangeStart = range.start;
+                                  rangeEnd = range.end;
+                                });
+                              }
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFE5DCC4).withValues(alpha: 0.3),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    rangeStart != null && rangeEnd != null
+                                        ? '${DateFormat('dd/MM/yyyy').format(rangeStart!)} - ${DateFormat('dd/MM/yyyy').format(rangeEnd!)}'
+                                        : 'Selecciona inicio y final...',
+                                    style: const TextStyle(color: Color(0xFF3D2E1A), fontWeight: FontWeight.bold),
+                                  ),
+                                  const Icon(Icons.date_range, color: Color(0xFFFF6D00)),
+                                ],
+                              ),
+                            ),
+                          ),
+                        const SizedBox(height: 16),
+                        if (mode == 'periodo' && (rangeStart == null || rangeEnd == null))
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 24),
+                            child: Center(
+                              child: Text('Selecciona un periodo (inicio y final) para ver los gastos.',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(color: Color(0xFFA08F70))),
+                            ),
+                          )
+                        else if (snapshot.connectionState == ConnectionState.waiting)
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 24),
+                            child: Center(child: CircularProgressIndicator()),
+                          )
+                        else if (rows.isEmpty)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 24),
+                            child: Center(
+                              child: Text(
+                                  mode == 'dia'
+                                      ? 'No se registraron gastos este día.'
+                                      : 'No se registraron gastos en ese periodo.',
+                                  style: const TextStyle(color: Color(0xFFA08F70))),
+                            ),
+                          )
+                        else ...[
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.redAccent.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text('TOTAL DE GASTOS',
+                                    style: TextStyle(color: Color(0xFF3D2E1A), fontWeight: FontWeight.bold)),
+                                Text('-\$${total.toStringAsFixed(2)}',
+                                    style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 18)),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          const Text('Desglose por categoría',
+                              style: TextStyle(color: Color(0xFFA08F70), fontSize: 12, fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 8),
+                          ...catEntries.map((e) => Container(
+                                margin: const EdgeInsets.only(bottom: 8),
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.4),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: const Color(0xFFE5DCC4)),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(e.key.toUpperCase(),
+                                          style: const TextStyle(color: Color(0xFF3D2E1A), fontWeight: FontWeight.bold)),
+                                    ),
+                                    Text('\$${e.value.toStringAsFixed(2)}',
+                                        style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 15)),
+                                  ],
+                                ),
+                              )),
+                          const SizedBox(height: 16),
+                          const Text('Detalle de movimientos',
+                              style: TextStyle(color: Color(0xFFA08F70), fontSize: 12, fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 8),
+                          ...rows.map((r) {
+                            final createdAt = DateTime.tryParse(r['created_at']?.toString() ?? '');
+                            final dateStr = createdAt != null
+                                ? DateFormat('dd/MM/yyyy HH:mm').format(createdAt.toLocal())
+                                : '';
+                            final amt = double.tryParse(r['amount']?.toString() ?? '0') ?? 0.0;
+                            final recipient = r['recipient']?.toString();
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 6),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          '${(r['category']?.toString() ?? 'otro').toUpperCase()} · $dateStr',
+                                          style: const TextStyle(color: Color(0xFF3D2E1A), fontWeight: FontWeight.bold, fontSize: 12),
+                                        ),
+                                        Text(
+                                          '${(recipient != null && recipient != 'N/A') ? 'Destinatario: $recipient - ' : ''}${r['description'] ?? 'Sin descripción'}',
+                                          style: const TextStyle(color: Color(0xFFA08F70), fontSize: 12),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Text('-\$${amt.toStringAsFixed(2)}',
+                                      style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+                                ],
+                              ),
+                            );
+                          }),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: const Text('Cerrar', style: TextStyle(color: Color(0xFFA08F70))),
+                  ),
+                  ElevatedButton.icon(
+                    onPressed: rows.isEmpty
+                        ? null
+                        : () => _exportExpensesReportPdf(mode, selectedDate, rangeStart, rangeEnd, rows, catEntries, total),
+                    icon: const Icon(Icons.print),
+                    label: const Text('Exportar / Imprimir'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.redAccent,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ],
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  /// Genera un PDF con el desglose de gastos (por categoría y detalle) del
+  /// periodo/día seleccionado en el Reporte de Gastos.
+  Future<void> _exportExpensesReportPdf(
+    String mode,
+    DateTime selectedDate,
+    DateTime? rangeStart,
+    DateTime? rangeEnd,
+    List<Map<String, dynamic>> rows,
+    List<MapEntry<String, double>> catEntries,
+    double total,
+  ) async {
+    final pdf = pw.Document();
+    final periodLabel = mode == 'dia'
+        ? DateFormat('dd/MM/yyyy').format(selectedDate)
+        : mode == 'periodo' && rangeStart != null && rangeEnd != null
+            ? '${DateFormat('dd/MM/yyyy').format(rangeStart)} - ${DateFormat('dd/MM/yyyy').format(rangeEnd)}'
+            : 'Últimos 30 días';
+
+    pdf.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(32),
+        build: (pw.Context context) {
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Text('Reporte de Gastos - ${Globals.currentBranch}',
+                      style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
+                  pw.Text(periodLabel, style: const pw.TextStyle(fontSize: 12)),
+                ],
+              ),
+              pw.SizedBox(height: 20),
+              pw.Text('Desglose por categoría', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+              pw.TableHelper.fromTextArray(
+                headers: ['Categoría', 'Monto'],
+                data: catEntries
+                    .map((e) => [e.key.toUpperCase(), '\$${e.value.toStringAsFixed(2)}'])
+                    .toList(),
+              ),
+              pw.SizedBox(height: 16),
+              pw.Text('Detalle de movimientos', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+              pw.TableHelper.fromTextArray(
+                headers: ['Fecha', 'Categoría', 'Descripción', 'Monto'],
+                data: rows.map((r) {
+                  final createdAt = DateTime.tryParse(r['created_at']?.toString() ?? '');
+                  final dateStr = createdAt != null
+                      ? DateFormat('dd/MM/yyyy HH:mm').format(createdAt.toLocal())
+                      : '';
+                  final amt = double.tryParse(r['amount']?.toString() ?? '0') ?? 0.0;
+                  return [
+                    dateStr,
+                    (r['category']?.toString() ?? 'otro').toUpperCase(),
+                    (r['description']?.toString().isNotEmpty ?? false) ? r['description'].toString() : 'Sin descripción',
+                    '\$${amt.toStringAsFixed(2)}',
+                  ];
+                }).toList(),
+              ),
+              pw.SizedBox(height: 16),
+              pw.Container(
+                alignment: pw.Alignment.centerRight,
+                child: pw.Text('TOTAL DE GASTOS: \$${total.toStringAsFixed(2)}',
+                    style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 14)),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    await Printing.layoutPdf(
+      onLayout: (PdfPageFormat format) async => pdf.save(),
+      name: 'Reporte_Gastos_${Globals.currentBranch}.pdf',
+    );
+  }
+
   void _showNewMovementDialog() {
     // Resetea controladores antes de mostrar
     _amountController.clear();
@@ -1457,6 +1856,19 @@ class _CashRegisterViewState extends State<CashRegisterView> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFFAF1DE),
                 side: const BorderSide(color: Colors.teal),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(right: 8.0),
+            child: ElevatedButton.icon(
+              onPressed: _showExpensesReportDialog,
+              icon: const Icon(Icons.receipt_long, color: Colors.redAccent),
+              label: const Text('Reporte de Gastos', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFFAF1DE),
+                side: const BorderSide(color: Colors.redAccent),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
             ),
