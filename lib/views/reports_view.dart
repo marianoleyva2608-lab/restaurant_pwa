@@ -37,11 +37,15 @@ class _ReportsViewState extends State<ReportsView> {
   bool _isPrintingCorte = false;
 
   // Filtros
-  String _timeFilter = 'all'; // all, day, week, month, exact_date
-  String _branchFilter = 'Todas'; 
+  String _timeFilter = 'all'; // all, day, week, month, exact_date, range
+  String _branchFilter = 'Todas';
   String _waiterFilter = 'Todos';
   String _paymentFilter = 'Todos';
   DateTime? _selectedDate;
+  // Periodo de venta: fecha de inicio y fecha final elegidas con
+  // showDateRangePicker (_timeFilter == 'range').
+  DateTime? _rangeStart;
+  DateTime? _rangeEnd;
   List<Map<String, dynamic>> _waitersList = [];
 
   @override
@@ -220,6 +224,25 @@ class _ReportsViewState extends State<ReportsView> {
         query = query
             .gte('created_at', startOfDate)
             .lte('created_at', endOfDate);
+      } else if (_timeFilter == 'range' &&
+          _rangeStart != null &&
+          _rangeEnd != null) {
+        final startOfRange = DateTime(
+          _rangeStart!.year,
+          _rangeStart!.month,
+          _rangeStart!.day,
+        ).toUtc().toIso8601String();
+        final endOfRange = DateTime(
+          _rangeEnd!.year,
+          _rangeEnd!.month,
+          _rangeEnd!.day,
+          23,
+          59,
+          59,
+        ).toUtc().toIso8601String();
+        query = query
+            .gte('created_at', startOfRange)
+            .lte('created_at', endOfRange);
       }
 
       // El filtro de sucursal se aplica del lado del cliente (ver
@@ -423,7 +446,9 @@ class _ReportsViewState extends State<ReportsView> {
                               child: DropdownButton<String>(
                                 value: _timeFilter == 'exact_date'
                                     ? 'custom'
-                                    : _timeFilter,
+                                    : _timeFilter == 'range'
+                                        ? 'period'
+                                        : _timeFilter,
                                 dropdownColor: const Color(0xFFFAF1DE),
                                 style: const TextStyle(color: Color(0xFF7A6E5A)),
                                 icon: const Icon(
@@ -471,6 +496,17 @@ class _ReportsViewState extends State<ReportsView> {
                                       ),
                                     ),
                                   ),
+                                  DropdownMenuItem(
+                                    value: 'period',
+                                    child: Padding(
+                                      padding: const EdgeInsets.only(left: 8),
+                                      child: Text(
+                                        _rangeStart != null && _rangeEnd != null
+                                            ? '${_rangeStart!.day}/${_rangeStart!.month} - ${_rangeEnd!.day}/${_rangeEnd!.month}'
+                                            : 'Periodo (inicio - final)...',
+                                      ),
+                                    ),
+                                  ),
                                 ],
                                 onChanged: (value) async {
                                   if (value == 'custom') {
@@ -484,6 +520,28 @@ class _ReportsViewState extends State<ReportsView> {
                                       setState(() {
                                         _selectedDate = date;
                                         _timeFilter = 'exact_date';
+                                        _rangeStart = null;
+                                        _rangeEnd = null;
+                                      });
+                                      _fetchReports();
+                                    }
+                                  } else if (value == 'period') {
+                                    final range = await showDateRangePicker(
+                                      context: context,
+                                      initialDateRange: _rangeStart != null && _rangeEnd != null
+                                          ? DateTimeRange(start: _rangeStart!, end: _rangeEnd!)
+                                          : null,
+                                      firstDate: DateTime(2020),
+                                      lastDate: DateTime(2100),
+                                      helpText: 'Selecciona el periodo de venta',
+                                      saveText: 'Aplicar',
+                                    );
+                                    if (range != null) {
+                                      setState(() {
+                                        _rangeStart = range.start;
+                                        _rangeEnd = range.end;
+                                        _timeFilter = 'range';
+                                        _selectedDate = null;
                                       });
                                       _fetchReports();
                                     }
@@ -491,6 +549,8 @@ class _ReportsViewState extends State<ReportsView> {
                                     setState(() {
                                       _timeFilter = value;
                                       _selectedDate = null;
+                                      _rangeStart = null;
+                                      _rangeEnd = null;
                                     });
                                     _fetchReports();
                                   }
