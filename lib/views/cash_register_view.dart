@@ -1832,71 +1832,86 @@ class _CashRegisterViewState extends State<CashRegisterView> {
         elevation: 0,
         iconTheme: const IconThemeData(color: Color(0xFFFAF1DE)),
         actions: [
-          // Botón dedicado para registrar el fondo inicial de la caja
-          // (cash de arranque del día). Abre el mismo diálogo pero pre-configurado
-          // como entrada de tipo 'apertura'.
-          Padding(
-            padding: const EdgeInsets.only(right: 8.0),
-            child: ElevatedButton.icon(
-              onPressed: _showAperturaCajaDialog,
-              icon: const Icon(Icons.savings, color: Colors.white),
-              label: const Text('Apertura de Caja', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
+          // Todos los botones de acción van dentro de un único
+          // SingleChildScrollView horizontal: en tablets/pantallas angostas
+          // el AppBar normal recorta los botones que no caben y no deja
+          // desplazarse para verlos. Con esto el usuario puede arrastrar
+          // con el dedo hacia los lados y llegar a todos los botones
+          // (Apertura, Reporte de Propinas, Reporte de Gastos, Cierre de
+          // Caja, Nuevo Movimiento).
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: Row(
+              children: [
+                // Botón dedicado para registrar el fondo inicial de la caja
+                // (cash de arranque del día). Abre el mismo diálogo pero pre-configurado
+                // como entrada de tipo 'apertura'.
+                Padding(
+                  padding: const EdgeInsets.only(right: 8.0),
+                  child: ElevatedButton.icon(
+                    onPressed: _showAperturaCajaDialog,
+                    icon: const Icon(Icons.savings, color: Colors.white),
+                    label: const Text('Apertura de Caja', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(right: 8.0),
+                  child: ElevatedButton.icon(
+                    onPressed: _showTipsReportDialog,
+                    icon: const Icon(Icons.summarize, color: Colors.teal),
+                    label: const Text('Reporte de Propinas', style: TextStyle(color: Colors.teal, fontWeight: FontWeight.bold)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFFAF1DE),
+                      side: const BorderSide(color: Colors.teal),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(right: 8.0),
+                  child: ElevatedButton.icon(
+                    onPressed: _showExpensesReportDialog,
+                    icon: const Icon(Icons.receipt_long, color: Colors.redAccent),
+                    label: const Text('Reporte de Gastos', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFFAF1DE),
+                      side: const BorderSide(color: Colors.redAccent),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(right: 8.0),
+                  child: ElevatedButton.icon(
+                    onPressed: _showCierreCajaDialog,
+                    icon: const Icon(Icons.point_of_sale, color: Colors.white),
+                    label: const Text('Cierre de Caja', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blueAccent,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(right: 16.0),
+                  child: ElevatedButton.icon(
+                    onPressed: _showNewMovementDialog,
+                    icon: const Icon(Icons.add, color: Color(0xFFFAF1DE)),
+                    label: const Text('Nuevo Movimiento', style: TextStyle(color: Color(0xFFFAF1DE), fontWeight: FontWeight.bold)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFFF6D00),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.only(right: 8.0),
-            child: ElevatedButton.icon(
-              onPressed: _showTipsReportDialog,
-              icon: const Icon(Icons.summarize, color: Colors.teal),
-              label: const Text('Reporte de Propinas', style: TextStyle(color: Colors.teal, fontWeight: FontWeight.bold)),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFFAF1DE),
-                side: const BorderSide(color: Colors.teal),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(right: 8.0),
-            child: ElevatedButton.icon(
-              onPressed: _showExpensesReportDialog,
-              icon: const Icon(Icons.receipt_long, color: Colors.redAccent),
-              label: const Text('Reporte de Gastos', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFFAF1DE),
-                side: const BorderSide(color: Colors.redAccent),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(right: 8.0),
-            child: ElevatedButton.icon(
-              onPressed: _showCierreCajaDialog,
-              icon: const Icon(Icons.point_of_sale, color: Colors.white),
-              label: const Text('Cierre de Caja', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blueAccent,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(right: 16.0),
-            child: ElevatedButton.icon(
-              onPressed: _showNewMovementDialog,
-              icon: const Icon(Icons.add, color: Color(0xFFFAF1DE)),
-              label: const Text('Nuevo Movimiento', style: TextStyle(color: Color(0xFFFAF1DE), fontWeight: FontWeight.bold)),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFFF6D00),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-            ),
-          )
         ],
       ),
       body: _isLoading
