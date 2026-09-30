@@ -67,6 +67,16 @@ class _ReportsViewState extends State<ReportsView> {
     setState(() {
       var localFiltered = List<Map<String, dynamic>>.from(_orders);
 
+      // Comparación tolerante de sucursal (igual que Globals.matchesCurrentBranch):
+      // ignora mayúsculas/minúsculas, acentos, espacios y el prefijo "Sucursal ",
+      // para que una venta vieja con el nombre escrito distinto no desaparezca.
+      if (_branchFilter != 'Todas') {
+        final wanted = Globals.normalizeBranch(_branchFilter);
+        localFiltered = localFiltered
+            .where((o) => Globals.normalizeBranch(o['branch_name']?.toString()) == wanted)
+            .toList();
+      }
+
       if (_paymentFilter != 'Todos') {
         localFiltered = localFiltered
             .where((o) => o['ui_method'] == _paymentFilter)
@@ -212,9 +222,11 @@ class _ReportsViewState extends State<ReportsView> {
             .lte('created_at', endOfDate);
       }
 
-      if (_branchFilter != 'Todas') {
-        query = query.eq('branch_name', _branchFilter);
-      }
+      // El filtro de sucursal se aplica del lado del cliente (ver
+      // _applyFilter) con comparación tolerante (Globals.normalizeBranch),
+      // no aquí con .eq() exacto: ventas viejas guardadas con el nombre de
+      // sucursal escrito distinto (mayúsculas, sin el prefijo "Sucursal ",
+      // espacios, etc.) quedaban excluidas del historial con el .eq() literal.
 
       if (_waiterFilter != 'Todos') {
         query = query.eq('waiter_id', _waiterFilter);
@@ -370,6 +382,10 @@ class _ReportsViewState extends State<ReportsView> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
+              // Forzamos que siempre se pueda arrastrar hacia abajo (aunque
+              // el contenido quepa completo en pantalla), para que el
+              // desplazamiento funcione de forma consistente en tablet/APK.
+              physics: const AlwaysScrollableScrollPhysics(),
               padding: EdgeInsets.all(isSmall ? 16.0 : 32.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1254,16 +1270,22 @@ class _ReportsViewState extends State<ReportsView> {
     double efectivo = 0, tarjeta = 0, credito = 0;
     int ordenesHoy = 0;
     try {
-      var query = _supabase
+      final query = _supabase
           .from('orders')
-          .select('total_amount, payment_method, amount_cash, amount_card')
+          .select('total_amount, payment_method, amount_cash, amount_card, branch_name')
           .eq('status', 'completed')
           .gte('created_at', startOfDay.toIso8601String());
-      if (_branchFilter != 'Todas') {
-        query = query.eq('branch_name', _branchFilter);
-      }
-      final orders = await query;
-      for (final o in (orders as List)) {
+      final allOrders = await query;
+      // Sucursal con comparación tolerante (ver nota en _applyFilter).
+      final wanted = _branchFilter != 'Todas'
+          ? Globals.normalizeBranch(_branchFilter)
+          : null;
+      final orders = wanted == null
+          ? (allOrders as List)
+          : (allOrders as List)
+              .where((o) => Globals.normalizeBranch(o['branch_name']?.toString()) == wanted)
+              .toList();
+      for (final o in orders) {
         ordenesHoy++;
         final pm = (o['payment_method']?.toString() ?? '').toLowerCase();
         final total = double.tryParse(o['total_amount']?.toString() ?? '0') ?? 0.0;
