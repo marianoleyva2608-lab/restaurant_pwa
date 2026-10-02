@@ -105,11 +105,11 @@ class _CashRegisterViewState extends State<CashRegisterView> {
     // Ventas a crédito (Uber/Didi): la plataforma paga después, no hoy —
     // no son efectivo ni tarjeta, se muestran aparte para no distorsionar
     // el efectivo esperado ni el corte de tarjeta.
-    double creditoVentas = 0;
+    double creditoVentas = 0, didiVentas = 0, uberVentas = 0;
     try {
       final orders = await _supabase
           .from('orders')
-          .select('total_amount, payment_method, amount_cash, amount_card')
+          .select('total_amount, payment_method, amount_cash, amount_card, delivery_platform')
           .eq('branch_name', Globals.currentBranch)
           .eq('status', 'completed')
           .gte('created_at', startOfDay.toUtc().toIso8601String());
@@ -118,6 +118,11 @@ class _CashRegisterViewState extends State<CashRegisterView> {
         final total = double.tryParse(o['total_amount']?.toString() ?? '0') ?? 0.0;
         if (pm.contains('credito')) {
           creditoVentas += total;
+          if ((o['delivery_platform']?.toString() ?? '').toLowerCase() == 'uber') {
+            uberVentas += total;
+          } else {
+            didiVentas += total;
+          }
         } else if (pm.contains('mixed') || o['amount_cash'] != null || o['amount_card'] != null) {
           efectivoVentas += double.tryParse(o['amount_cash']?.toString() ?? '0') ?? 0.0;
           tarjetaVentas += double.tryParse(o['amount_card']?.toString() ?? '0') ?? 0.0;
@@ -135,6 +140,8 @@ class _CashRegisterViewState extends State<CashRegisterView> {
       'efectivoVentas': efectivoVentas,
       'tarjetaVentas': tarjetaVentas,
       'creditoVentas': creditoVentas,
+      'didiVentas': didiVentas,
+      'uberVentas': uberVentas,
       'entradas': entradas,
       'salidas': salidas,
       'expected': expected,
@@ -202,9 +209,11 @@ class _CashRegisterViewState extends State<CashRegisterView> {
                             style: const TextStyle(color: Color(0xFF3D2E1A))),
                         Text('Ventas en tarjeta: \$${breakdown['tarjetaVentas']!.toStringAsFixed(2)}',
                             style: const TextStyle(color: Color(0xFF3D2E1A))),
-                        if ((breakdown['creditoVentas'] ?? 0) > 0)
-                          Text(
-                              'Ventas a crédito (Uber/Didi): \$${breakdown['creditoVentas']!.toStringAsFixed(2)}',
+                        if ((breakdown['didiVentas'] ?? 0) > 0)
+                          Text('Ventas DiDi (crédito): \$${breakdown['didiVentas']!.toStringAsFixed(2)}',
+                              style: const TextStyle(color: Color(0xFF3D2E1A))),
+                        if ((breakdown['uberVentas'] ?? 0) > 0)
+                          Text('Ventas Uber (crédito): \$${breakdown['uberVentas']!.toStringAsFixed(2)}',
                               style: const TextStyle(color: Color(0xFF3D2E1A))),
                         if (breakdown['entradas']! > 0)
                           Text('Entradas extra: \$${breakdown['entradas']!.toStringAsFixed(2)}',

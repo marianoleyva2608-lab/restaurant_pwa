@@ -1157,6 +1157,8 @@ class _ReportsViewState extends State<ReportsView> {
             Expanded(flex: 2, child: Text('EFECTIVO', style: TextStyle(color: Color(0xFFA08F70), fontSize: 12, fontWeight: FontWeight.bold))),
             Expanded(flex: 2, child: Text('TARJETA', style: TextStyle(color: Color(0xFFA08F70), fontSize: 12, fontWeight: FontWeight.bold))),
             Expanded(flex: 2, child: Text('TRANSFERENCIA', style: TextStyle(color: Color(0xFFA08F70), fontSize: 12, fontWeight: FontWeight.bold))),
+            Expanded(flex: 2, child: Text('DIDI', style: TextStyle(color: Color(0xFFA08F70), fontSize: 12, fontWeight: FontWeight.bold))),
+            Expanded(flex: 2, child: Text('UBER', style: TextStyle(color: Color(0xFFA08F70), fontSize: 12, fontWeight: FontWeight.bold))),
             Expanded(flex: 2, child: Text('TOTAL DÍA', style: TextStyle(color: Color(0xFFA08F70), fontSize: 12, fontWeight: FontWeight.bold), textAlign: TextAlign.right)),
           ],
         ),
@@ -1201,6 +1203,8 @@ class _ReportsViewState extends State<ReportsView> {
                 Expanded(flex: 2, child: Text('\$${(c['efectivo'] as double).toStringAsFixed(2)}', style: const TextStyle(color: Colors.greenAccent))),
                 Expanded(flex: 2, child: Text('\$${(c['tarjeta'] as double).toStringAsFixed(2)}', style: const TextStyle(color: Color(0xFFFF6D00)))),
                 Expanded(flex: 2, child: Text('\$${(c['transferencia'] as double).toStringAsFixed(2)}', style: const TextStyle(color: Colors.purpleAccent))),
+                Expanded(flex: 2, child: Text('\$${(c['didi'] as double).toStringAsFixed(2)}', style: const TextStyle(color: Colors.deepOrange))),
+                Expanded(flex: 2, child: Text('\$${(c['uber'] as double).toStringAsFixed(2)}', style: const TextStyle(color: Colors.black87))),
                 Expanded(
                   flex: 2,
                   child: Text(
@@ -1465,6 +1469,8 @@ class _ReportsViewState extends State<ReportsView> {
         'tarjeta': 0.0,
         'transferencia': 0.0,
         'credito': 0.0,
+        'didi': 0.0,
+        'uber': 0.0,
       });
       final amt = (o['total_amount'] as num?)?.toDouble() ?? 0.0;
       byDay[key]!['count'] = (byDay[key]!['count'] as int) + 1;
@@ -1476,6 +1482,8 @@ class _ReportsViewState extends State<ReportsView> {
         byDay[key]!['transferencia'] = (byDay[key]!['transferencia'] as double) + amt;
       } else if (pm == 'CREDITO') {
         byDay[key]!['credito'] = (byDay[key]!['credito'] as double) + amt;
+        final plat = (o['delivery_platform']?.toString() ?? '').toLowerCase() == 'uber' ? 'uber' : 'didi';
+        byDay[key]![plat] = (byDay[key]![plat] as double) + amt;
       } else {
         byDay[key]!['efectivo'] = (byDay[key]!['efectivo'] as double) + amt;
       }
