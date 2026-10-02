@@ -1264,6 +1264,9 @@ function isDeadChannelStatus(status) {
 }
 
 function subscribeRealtimeCorteRequests() {
+  // Evita el ciclo infinito: removeChannel() dispara otra vez 'CLOSED' en
+  // este mismo callback → Maximum call stack size exceeded.
+  let retrying = false;
   const channel = supabase
     .channel('corte-requests-worker')
     .on(
@@ -1281,8 +1284,10 @@ function subscribeRealtimeCorteRequests() {
       },
     )
     .subscribe((status) => {
+      if (retrying) return;
       console.log(`Realtime corte: ${status}`);
       if (isDeadChannelStatus(status)) {
+        retrying = true;
         console.warn('Realtime corte desconectado, reintentando en 3s...');
         supabase.removeChannel(channel);
         setTimeout(subscribeRealtimeCorteRequests, 3000);
@@ -1359,6 +1364,9 @@ function isReadyForReceipt(row) {
 }
 
 function subscribeRealtimeReceipts() {
+  // Evita el ciclo infinito: removeChannel() dispara otra vez 'CLOSED' en
+  // este mismo callback → Maximum call stack size exceeded.
+  let retrying = false;
   const channel = supabase
     .channel('orders-receipt-worker')
     .on(
@@ -1376,8 +1384,10 @@ function subscribeRealtimeReceipts() {
       },
     )
     .subscribe((status) => {
+      if (retrying) return;
       console.log(`Realtime: ${status}`);
       if (isDeadChannelStatus(status)) {
+        retrying = true;
         console.warn('Realtime recibo desconectado, reintentando en 3s...');
         supabase.removeChannel(channel);
         setTimeout(subscribeRealtimeReceipts, 3000);
@@ -1388,6 +1398,9 @@ function subscribeRealtimeReceipts() {
 
 // ── Realtime subscription ───────────────────────────────────────────
 function subscribeRealtime() {
+  // Evita el ciclo infinito: removeChannel() dispara otra vez 'CLOSED' en
+  // este mismo callback → Maximum call stack size exceeded.
+  let retrying = false;
   const channel = supabase
     .channel('orders-print-worker')
     // INSERT — cuando el mesero crea orden ya con sent_to_kitchen_at
@@ -1423,8 +1436,10 @@ function subscribeRealtime() {
       },
     )
     .subscribe((status) => {
+      if (retrying) return;
       console.log(`Realtime: ${status}`);
       if (isDeadChannelStatus(status)) {
+        retrying = true;
         console.warn('Realtime órdenes desconectado, reintentando en 3s...');
         supabase.removeChannel(channel);
         setTimeout(subscribeRealtime, 3000);
