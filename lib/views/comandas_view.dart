@@ -716,7 +716,7 @@ class _ComandasViewState extends State<ComandasView> {
           if (_selectedTableId != null) {
             final hasActiveOrder = orders.any((o) => 
               o['table_id'] == _selectedTableId && 
-              (o['status'] == 'pending' || o['status'] == 'ready')
+              (o['status'] == 'pending' || o['status'] == 'ready' || o['status'] == 'incomplete')
             );
             if (!hasActiveOrder && _selectedOrderType == 'dine_in') {
                setState(() {
@@ -992,7 +992,10 @@ class _ComandasViewState extends State<ComandasView> {
             .from('orders')
             .select()
             .eq('order_type', 'takeout')
-            .inFilter('status', ['pending', 'ready']);
+            // 'incomplete' = cocina ya marcó parte de los items como listos.
+            // Sin él, la orden desaparecía de esta lista en cuanto cocina
+            // empezaba a despacharla y el mesero creaba otra (cuenta doble).
+            .inFilter('status', ['pending', 'ready', 'incomplete']);
         toGoOrdersCache = List<Map<String, dynamic>>.from(rows);
       } catch (e) {
         debugPrint('Error refreshing to-go orders: $e');
@@ -1063,7 +1066,7 @@ class _ComandasViewState extends State<ComandasView> {
                                 stream: _supabase
                                     .from('orders')
                                     .stream(primaryKey: ['id'])
-                                    .inFilter('status', ['pending', 'ready']),
+                                    .inFilter('status', ['pending', 'ready', 'incomplete']),
                                 builder: (context, ordersSnapshot) {
                                   final occupiedTableIds = (ordersSnapshot.data ?? []).map((o) => o['table_id']).toSet();
 
@@ -1153,7 +1156,7 @@ class _ComandasViewState extends State<ComandasView> {
                                   .where((o) =>
                                       o['table_id'] == null &&
                                       Globals.matchesCurrentBranch(o['branch_name'] as String?)&&
-                                      ['pending', 'ready'].contains(o['status']))
+                                      ['pending', 'ready', 'incomplete'].contains(o['status']))
                                   .toList()
                                 ..sort((a, b) => (a['created_at'] as String? ?? '')
                                     .compareTo(b['created_at'] as String? ?? ''));

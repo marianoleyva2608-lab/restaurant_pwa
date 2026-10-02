@@ -107,7 +107,7 @@ class _PrintStatusViewState extends State<PrintStatusView> {
                   stream: _supabase
                       .from('orders')
                       .stream(primaryKey: ['id'])
-                      .inFilter('status', ['pending', 'ready']),
+                      .inFilter('status', ['pending', 'ready', 'incomplete']),
                   builder: (context, orderSnapshot) {
                     if (!orderSnapshot.hasData) {
                       return const Center(child: CircularProgressIndicator());

@@ -165,7 +165,7 @@ class _CashRegisterViewState extends State<CashRegisterView> {
           .from('orders')
           .select('id')
           .eq('branch_name', Globals.currentBranch)
-          .inFilter('status', ['pending', 'ready']);
+          .inFilter('status', ['pending', 'ready', 'incomplete']);
       pendingCount = (res as List).length;
     } catch (_) {}
 
@@ -342,7 +342,7 @@ class _CashRegisterViewState extends State<CashRegisterView> {
                               .from('orders')
                               .update({'status': 'completed'})
                               .eq('branch_name', Globals.currentBranch)
-                              .inFilter('status', ['pending', 'ready']);
+                              .inFilter('status', ['pending', 'ready', 'incomplete']);
                           await _supabase
                               .from('restaurant_tables')
                               .update({'status': 'available'})

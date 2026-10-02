@@ -1204,12 +1204,12 @@ class _OrderSummaryWidgetState extends State<OrderSummaryWidget> {
               .select('*, order_items(*, dishes(*))')
               .eq('table_id', widget.tableId as Object)
               .eq('branch_name', Globals.currentBranch)
-              .inFilter('status', ['pending', 'ready'])
+              .inFilter('status', ['pending', 'ready', 'incomplete'])
           : await supabase
               .from('orders')
               .select('*, order_items(*, dishes(*))')
               .eq('id', _activeOrderId as Object)
-              .inFilter('status', ['pending', 'ready']);
+              .inFilter('status', ['pending', 'ready', 'incomplete']);
 
       List<Map<String, dynamic>> items = [];
       for (var order in (response as List)) {
@@ -1266,7 +1266,7 @@ class _OrderSummaryWidgetState extends State<OrderSummaryWidget> {
             .select('id, total_amount')
             .eq('table_id', widget.tableId as Object)
             .eq('branch_name', Globals.currentBranch)
-            .inFilter('status', ['pending', 'ready'])
+            .inFilter('status', ['pending', 'ready', 'incomplete'])
             .maybeSingle();
 
         if (existingOrder != null) {
@@ -1312,7 +1312,7 @@ class _OrderSummaryWidgetState extends State<OrderSummaryWidget> {
               .from('orders')
               .select('id, total_amount')
               .eq('id', _activeOrderId as Object)
-              .inFilter('status', ['pending', 'ready'])
+              .inFilter('status', ['pending', 'ready', 'incomplete'])
               .maybeSingle();
         }
 
