@@ -1140,6 +1140,169 @@ class _TableDetailPanel extends StatefulWidget {
 
 class _TableDetailPanelState extends State<_TableDetailPanel> {
   double _discountPercent = 0.0;
+  String _discountReason = '';
+
+  static const List<String> _discountReasons = [
+    'Cliente frecuente',
+    'Cortesía',
+    'Queja / error en la orden',
+    'Empleado',
+  ];
+
+  @override
+  void didUpdateWidget(covariant _TableDetailPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // El panel se reutiliza al cambiar de mesa/orden: sin esto el descuento
+    // de una mesa se quedaba aplicado en la siguiente.
+    if (oldWidget.tableId != widget.tableId || oldWidget.orderId != widget.orderId) {
+      _discountPercent = 0.0;
+      _discountReason = '';
+    }
+  }
+
+  /// Descuentos de 20% o más requieren motivo.
+  bool get _discountNeedsReason => _discountPercent >= 20;
+
+  /// Diálogo para elegir/escribir el motivo del descuento. Devuelve null si
+  /// se canceló.
+  Future<String?> _askDiscountReason(BuildContext context) async {
+    final otherCtrl = TextEditingController();
+    String? selected = _discountReasons.contains(_discountReason) ? _discountReason : null;
+    if (selected == null && _discountReason.isNotEmpty) otherCtrl.text = _discountReason;
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setD) => AlertDialog(
+          backgroundColor: const Color(0xFFFAF1DE),
+          title: Text('Motivo del descuento (${_discountPercent.toInt()}%)',
+              style: const TextStyle(color: Color(0xFFFF6D00), fontWeight: FontWeight.bold)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final r in _discountReasons)
+                    ChoiceChip(
+                      label: Text(r),
+                      selected: selected == r,
+                      selectedColor: const Color(0xFFFF6D00).withValues(alpha: 0.25),
+                      onSelected: (_) => setD(() {
+                        selected = r;
+                        otherCtrl.clear();
+                      }),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: otherCtrl,
+                decoration: const InputDecoration(labelText: 'Otro motivo'),
+                onChanged: (_) => setD(() => selected = null),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancelar', style: TextStyle(color: Color(0xFFA08F70)))),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFF6D00)),
+              onPressed: () {
+                final v = (selected ?? otherCtrl.text).trim();
+                if (v.isEmpty) return;
+                Navigator.pop(ctx, v);
+              },
+              child: const Text('Aceptar', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      ),
+    );
+    otherCtrl.dispose();
+    return result;
+  }
+
+  Future<void> _selectDiscount(BuildContext context, double percent) async {
+    if (percent >= 20) {
+      final prev = _discountPercent;
+      setState(() => _discountPercent = percent);
+      final reason = await _askDiscountReason(context);
+      if (!mounted) return;
+      setState(() {
+        if (reason == null) {
+          _discountPercent = prev; // se canceló: no aplica el 20%
+        } else {
+          _discountReason = reason;
+        }
+      });
+    } else {
+      setState(() {
+        _discountPercent = percent;
+        if (percent == 0) _discountReason = '';
+      });
+    }
+  }
+
+  Future<void> _selectCustomDiscount(BuildContext context) async {
+    final ctrl = TextEditingController(
+        text: _discountPercent > 0 ? _discountPercent.toStringAsFixed(0) : '');
+    final v = await showDialog<double>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFFFAF1DE),
+        title: const Text('Otro descuento'),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(suffixText: '%'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, (double.tryParse(ctrl.text) ?? 0).clamp(0, 100).toDouble()),
+            child: const Text('Aplicar'),
+          ),
+        ],
+      ),
+    );
+    ctrl.dispose();
+    if (v != null && context.mounted) await _selectDiscount(context, v);
+  }
+
+  /// Guarda el descuento actual en las órdenes (para ticket y reportes).
+  /// Devuelve false si falta el motivo obligatorio y el usuario no lo dio.
+  Future<bool> _persistDiscount(BuildContext context, List<Map<String, dynamic>> items, List<String> orderIds) async {
+    if (_discountPercent > 0 && _discountNeedsReason && _discountReason.isEmpty) {
+      final reason = await _askDiscountReason(context);
+      if (reason == null) return false;
+      setState(() => _discountReason = reason);
+    }
+    final perOrder = <String, double>{for (final id in orderIds) id: 0.0};
+    for (final it in items) {
+      if (it['status'] == 'cancelled') continue;
+      final oid = it['order_id']?.toString();
+      if (oid == null || !perOrder.containsKey(oid)) continue;
+      perOrder[oid] = perOrder[oid]! + ((it['quantity'] as num) * (it['price_at_time'] as num)).toDouble();
+    }
+    try {
+      final supabase = Supabase.instance.client;
+      for (final e in perOrder.entries) {
+        await supabase.from('orders').update({
+          'discount_percent': _discountPercent,
+          'discount_amount': double.parse((e.value * _discountPercent / 100).toStringAsFixed(2)),
+          'discount_reason': _discountPercent > 0 && _discountReason.isNotEmpty ? _discountReason : null,
+        }).eq('id', e.key);
+      }
+    } catch (e) {
+      // Si la migración aún no se corrió, no bloquear el cobro.
+      debugPrint('No se pudo guardar el descuento: $e');
+    }
+    return true;
+  }
 
   Future<void> _showAddItemDialog(BuildContext context, String orderId) async {
     final supabase = Supabase.instance.client;
@@ -2131,8 +2294,24 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
 
                   if (pinController.text == correctPin) {
                     if (dialogContext.mounted) Navigator.pop(dialogContext);
-                    
-                    await supabase.from('orders').update({'status': 'cancelled'}).inFilter('id', orderIds);
+
+                    // Motivo obligatorio: la cuenta no se borra, queda como
+                    // 'cancelled' con motivo/usuario/hora para el reporte.
+                    if (!context.mounted) return;
+                    final reason = await _askCancelReason(context);
+                    if (reason == null) return;
+
+                    try {
+                      await supabase.from('orders').update({
+                        'status': 'cancelled',
+                        'cancel_reason': reason,
+                        'cancelled_by': Globals.currentUser,
+                        'cancelled_at': DateTime.now().toUtc().toIso8601String(),
+                      }).inFilter('id', orderIds);
+                    } catch (_) {
+                      // Migración pendiente: al menos cancelar la cuenta.
+                      await supabase.from('orders').update({'status': 'cancelled'}).inFilter('id', orderIds);
+                    }
                     if (tableId != null) {
                       await supabase.from('restaurant_tables').update({'status': 'available'}).eq('id', tableId);
                     }
@@ -2165,6 +2344,173 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
         );
       }
     );
+  }
+
+  /// Mueve la cuenta abierta de esta mesa a otra mesa. Si la mesa destino
+  /// ya tiene cuenta abierta, las cuentas se unen (pide confirmación).
+  Future<void> _changeTable(BuildContext context, List<String> orderIds) async {
+    final supabase = Supabase.instance.client;
+    final oldTableId = widget.tableId;
+    if (oldTableId == null || orderIds.isEmpty) return;
+    List<Map<String, dynamic>> tables = [];
+    Set<String> occupied = {};
+    try {
+      tables = List<Map<String, dynamic>>.from(await supabase
+          .from('restaurant_tables')
+          .select('id, table_number, status')
+          .eq('branch_name', Globals.currentBranch)
+          .order('table_number', ascending: true));
+      final active = await supabase
+          .from('orders')
+          .select('table_id')
+          .inFilter('status', ['pending', 'ready', 'incomplete']);
+      occupied = {
+        for (final o in active as List)
+          if (o['table_id'] != null) o['table_id'].toString()
+      };
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al cargar mesas: $e')));
+      }
+      return;
+    }
+    tables.removeWhere((t) => t['id'].toString() == oldTableId);
+    if (!context.mounted) return;
+
+    final target = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFFFAF1DE),
+        title: Text('Cambiar Mesa ${widget.tableNumber} a…',
+            style: const TextStyle(color: Color(0xFFFF6D00), fontWeight: FontWeight.bold)),
+        content: SizedBox(
+          width: 360,
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final t in tables)
+                ActionChip(
+                  avatar: Icon(
+                    occupied.contains(t['id'].toString()) ? Icons.people : Icons.event_seat,
+                    size: 18,
+                    color: occupied.contains(t['id'].toString()) ? Colors.redAccent : Colors.green,
+                  ),
+                  label: Text('Mesa ${t['table_number']}',
+                      style: const TextStyle(fontWeight: FontWeight.bold)),
+                  onPressed: () => Navigator.pop(ctx, t),
+                ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancelar', style: TextStyle(color: Color(0xFFA08F70)))),
+        ],
+      ),
+    );
+    if (target == null || !context.mounted) return;
+
+    final targetId = target['id'].toString();
+    if (occupied.contains(targetId)) {
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text('Mesa ${target['table_number']} está ocupada'),
+          content: Text('¿Unir la cuenta de la Mesa ${widget.tableNumber} con la de la Mesa ${target['table_number']}?'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('No')),
+            ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Unir cuentas')),
+          ],
+        ),
+      );
+      if (ok != true || !context.mounted) return;
+    }
+
+    try {
+      await supabase.from('orders').update({'table_id': targetId}).inFilter('id', orderIds);
+      await supabase.from('restaurant_tables').update({'status': 'available'}).eq('id', oldTableId);
+      await supabase.from('restaurant_tables').update({'status': 'occupied'}).eq('id', targetId);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Cuenta movida de Mesa ${widget.tableNumber} a Mesa ${target['table_number']}'),
+          backgroundColor: Colors.green,
+        ));
+        widget.onDeselect?.call();
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al cambiar de mesa: $e')));
+      }
+    }
+  }
+
+  static const List<String> _cancelReasons = [
+    'Error de captura',
+    'Cuenta duplicada',
+    'Cliente se fue',
+    'Cliente canceló el pedido',
+  ];
+
+  Future<String?> _askCancelReason(BuildContext context) async {
+    final otherCtrl = TextEditingController();
+    String? selected;
+    final result = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setD) => AlertDialog(
+          backgroundColor: const Color(0xFFFAF1DE),
+          title: const Text('¿Por qué se cancela la cuenta?',
+              style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final r in _cancelReasons)
+                    ChoiceChip(
+                      label: Text(r),
+                      selected: selected == r,
+                      selectedColor: Colors.redAccent.withValues(alpha: 0.25),
+                      onSelected: (_) => setD(() {
+                        selected = r;
+                        otherCtrl.clear();
+                      }),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: otherCtrl,
+                decoration: const InputDecoration(labelText: 'Otro motivo'),
+                onChanged: (_) => setD(() => selected = null),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Volver', style: TextStyle(color: Colors.grey))),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+              onPressed: () {
+                final v = (selected ?? otherCtrl.text).trim();
+                if (v.isEmpty) return;
+                Navigator.pop(ctx, v);
+              },
+              child: const Text('Cancelar cuenta', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      ),
+    );
+    otherCtrl.dispose();
+    return result;
   }
 
   /// Pide el PIN maestro para autorizar la reimpresión de una cuenta que
@@ -2981,63 +3327,39 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            // DISCOUNT UI
+                            // DISCOUNT UI: botones rápidos 10% / 20% (20% pide motivo)
                             Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text('Añadir descuento:',
+                                const Text('Descuento:',
                                     style: TextStyle(
                                         color: Colors.black,
                                         fontSize: 15,
                                         fontWeight: FontWeight.bold)),
-                                SizedBox(
-                                  width: 130,
-                                  height: 48,
-                                  child: TextFormField(
-                                    initialValue: _discountPercent > 0
-                                        ? _discountPercent.toStringAsFixed(0)
-                                        : '',
-                                    keyboardType: TextInputType.number,
-                                    textAlign: TextAlign.center,
-                                    style: const TextStyle(
-                                        color: Color(0xFFFF6D00),
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 20),
-                                    decoration: InputDecoration(
-                                      hintText: '0',
-                                      hintStyle: const TextStyle(
-                                          color: Color(0xFFA08F70),
-                                          fontSize: 20),
-                                      suffixText: '%',
-                                      suffixStyle: const TextStyle(
-                                          color: Color(0xFFFF6D00),
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 18),
-                                      contentPadding: EdgeInsets.zero,
-                                      filled: true,
-                                      fillColor: Colors.white,
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                        borderSide: const BorderSide(
-                                            color: Color(0xFFFF6D00), width: 2),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Wrap(
+                                    spacing: 6,
+                                    runSpacing: 6,
+                                    children: [
+                                      for (final p in const [0.0, 10.0, 20.0])
+                                        ChoiceChip(
+                                          label: Text(p == 0 ? 'Sin' : '${p.toInt()}%',
+                                              style: const TextStyle(fontWeight: FontWeight.bold)),
+                                          selected: _discountPercent == p,
+                                          selectedColor: const Color(0xFFFF6D00).withValues(alpha: 0.3),
+                                          onSelected: (_) => _selectDiscount(context, p),
+                                        ),
+                                      ChoiceChip(
+                                        label: Text(
+                                            ![0.0, 10.0, 20.0].contains(_discountPercent)
+                                                ? '${_discountPercent.toStringAsFixed(0)}%'
+                                                : 'Otro',
+                                            style: const TextStyle(fontWeight: FontWeight.bold)),
+                                        selected: ![0.0, 10.0, 20.0].contains(_discountPercent),
+                                        selectedColor: const Color(0xFFFF6D00).withValues(alpha: 0.3),
+                                        onSelected: (_) => _selectCustomDiscount(context),
                                       ),
-                                      enabledBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                        borderSide: const BorderSide(
-                                            color: Color(0xFFFF6D00), width: 2),
-                                      ),
-                                      focusedBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                        borderSide: const BorderSide(
-                                            color: Color(0xFFFF6D00), width: 3),
-                                      ),
-                                    ),
-                                    onChanged: (val) {
-                                      double? parsed = double.tryParse(val);
-                                      setState(() {
-                                        _discountPercent = parsed ?? 0.0;
-                                      });
-                                    },
+                                    ],
                                   ),
                                 ),
                               ],
@@ -3074,6 +3396,18 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
                                           fontWeight: FontWeight.bold)),
                                 ],
                               ),
+                              if (_discountReason.isNotEmpty)
+                                GestureDetector(
+                                  onTap: () async {
+                                    final r = await _askDiscountReason(context);
+                                    if (r != null && mounted) setState(() => _discountReason = r);
+                                  },
+                                  child: Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: Text('Motivo: $_discountReason',
+                                        style: const TextStyle(color: Colors.red, fontSize: 13)),
+                                  ),
+                                ),
                               const SizedBox(height: 8),
                             ],
                             Row(
@@ -3098,9 +3432,27 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                               ),
                             ),
+                            if (widget.tableId != null) ...[
+                              const SizedBox(height: 12),
+                              OutlinedButton.icon(
+                                onPressed: () => _changeTable(context, orderIds),
+                                icon: const Icon(Icons.swap_horiz, size: 22),
+                                label: const Text('Cambiar de mesa', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                                style: OutlinedButton.styleFrom(
+                                  minimumSize: const Size.fromHeight(52),
+                                  foregroundColor: const Color(0xFFFF6D00),
+                                  side: const BorderSide(color: Color(0xFFFF6D00), width: 2),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                ),
+                              ),
+                            ],
                             const SizedBox(height: 12),
                             OutlinedButton.icon(
-                              onPressed: () => _imprimirCuenta(context, orders, orderIds),
+                              onPressed: () async {
+                                if (!await _persistDiscount(context, items, orderIds)) return;
+                                if (!context.mounted) return;
+                                await _imprimirCuenta(context, orders, orderIds);
+                              },
                               icon: const Icon(Icons.receipt_long, size: 22),
                               label: const Text('Imprimir Cuenta', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                               style: OutlinedButton.styleFrom(
@@ -3113,6 +3465,8 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
                             const SizedBox(height: 12),
                             ElevatedButton.icon(
                               onPressed: () async {
+                                if (!await _persistDiscount(context, items, orderIds)) return;
+                                if (!context.mounted) return;
                                 final propinaResult = await _askPropina(context, totalToPay);
                                 if (propinaResult == null || !context.mounted) return;
                                 _showCashPaymentDialog(context, orderIds, propinaResult['total']!, widget.tableId,
@@ -3131,6 +3485,8 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
                             const SizedBox(height: 16),
                             ElevatedButton.icon(
                               onPressed: () async {
+                                if (!await _persistDiscount(context, items, orderIds)) return;
+                                if (!context.mounted) return;
                                 final propinaResult = await _askPropina(context, totalToPay);
                                 if (propinaResult == null || !context.mounted) return;
                                 _markCardPaymentNoTerminal(context, orderIds, propinaResult['total']!, widget.tableId,
@@ -3149,8 +3505,12 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
                             if (orderType == 'delivery' && deliveryPlatform != null) ...[
                               const SizedBox(height: 16),
                               ElevatedButton.icon(
-                                onPressed: () => _markCreditPayment(
-                                    context, orderIds, totalToPay, deliveryPlatform),
+                                onPressed: () async {
+                                  if (!await _persistDiscount(context, items, orderIds)) return;
+                                  if (!context.mounted) return;
+                                  await _markCreditPayment(
+                                      context, orderIds, totalToPay, deliveryPlatform);
+                                },
                                 icon: const Icon(Icons.receipt_long, size: 26),
                                 label: Text(
                                     'Crédito (${deliveryPlatform.toUpperCase()})',

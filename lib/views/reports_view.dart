@@ -1244,31 +1244,66 @@ class _ReportsViewState extends State<ReportsView> {
     }
   }
 
-  /// Diálogo de solo consulta con el total vendido HOY (efectivo + tarjeta),
-  /// independiente del filtro de fecha/sucursal seleccionado arriba —
-  /// respeta la sucursal filtrada si hay una elegida (no 'Todas').
+  /// Diálogo de solo consulta con el total vendido HOY (efectivo, tarjeta,
+  /// DiDi, Uber), más descuentos, cortesías y cuentas canceladas del día.
+  /// Independiente del filtro de fecha; respeta la sucursal filtrada si hay
+  /// una elegida (no 'Todas').
   Future<void> _showVentaHoyDialog() async {
     final now = DateTime.now();
-    final startOfDay = DateTime(now.year, now.month, now.day);
+    // Medianoche LOCAL convertida a UTC: sin .toUtc() Supabase interpretaba
+    // la hora como UTC y el "día" empezaba a las 6 pm del día anterior
+    // (por eso la pantalla y el corte daban números distintos).
+    final startOfDayUtc = DateTime(now.year, now.month, now.day).toUtc().toIso8601String();
 
-    double efectivo = 0, tarjeta = 0, credito = 0;
-    int ordenesHoy = 0;
+    double efectivo = 0, tarjeta = 0, didi = 0, uber = 0;
+    int ordenesHoy = 0, ordenesDidi = 0, ordenesUber = 0;
+    double descuentos = 0;
+    int descuentosCount = 0;
+    double cortesiasValor = 0;
+    int cortesiasCount = 0;
+    final canceladas = <Map<String, dynamic>>[];
     try {
       var query = _supabase
           .from('orders')
-          .select('total_amount, payment_method, amount_cash, amount_card')
+          .select('id, total_amount, payment_method, amount_cash, amount_card, delivery_platform')
           .eq('status', 'completed')
-          .gte('created_at', startOfDay.toIso8601String());
+          .gte('created_at', startOfDayUtc);
       if (_branchFilter != 'Todas') {
         query = query.eq('branch_name', _branchFilter);
       }
-      final orders = await query;
-      for (final o in (orders as List)) {
+      final orders = (await query) as List;
+
+      // Descuentos (columna nueva; si falta la migración se omite).
+      final discountById = <String, double>{};
+      try {
+        var dq = _supabase
+            .from('orders')
+            .select('id, discount_amount')
+            .eq('status', 'completed')
+            .gt('discount_amount', 0)
+            .gte('created_at', startOfDayUtc);
+        if (_branchFilter != 'Todas') dq = dq.eq('branch_name', _branchFilter);
+        for (final d in (await dq) as List) {
+          final amt = double.tryParse(d['discount_amount']?.toString() ?? '0') ?? 0.0;
+          discountById[d['id'].toString()] = amt;
+          descuentos += amt;
+          descuentosCount++;
+        }
+      } catch (_) {}
+
+      for (final o in orders) {
         ordenesHoy++;
         final pm = (o['payment_method']?.toString() ?? '').toLowerCase();
         final total = double.tryParse(o['total_amount']?.toString() ?? '0') ?? 0.0;
         if (pm.contains('credito')) {
-          credito += total;
+          final neto = total - (discountById[o['id'].toString()] ?? 0.0);
+          if ((o['delivery_platform']?.toString() ?? '').toLowerCase() == 'uber') {
+            uber += neto;
+            ordenesUber++;
+          } else {
+            didi += neto;
+            ordenesDidi++;
+          }
         } else if (pm.contains('mixed') || o['amount_cash'] != null || o['amount_card'] != null) {
           efectivo += double.tryParse(o['amount_cash']?.toString() ?? '0') ?? 0.0;
           tarjeta += double.tryParse(o['amount_card']?.toString() ?? '0') ?? 0.0;
@@ -1278,29 +1313,111 @@ class _ReportsViewState extends State<ReportsView> {
           tarjeta += total;
         }
       }
+
+      // Cortesías: artículos en $0 (o con nota "Cortesía") de las órdenes de hoy.
+      final ids = orders.map((o) => o['id'].toString()).toList();
+      if (ids.isNotEmpty) {
+        try {
+          final items = (await _supabase
+              .from('order_items')
+              .select('quantity, price_at_time, status, guisados_selected, dishes(name, price)')
+              .inFilter('order_id', ids)) as List;
+          for (final it in items) {
+            if (it['status'] == 'cancelled') continue;
+            final price = double.tryParse(it['price_at_time']?.toString() ?? '0') ?? 0.0;
+            final name = (it['dishes']?['name']?.toString() ?? '').toLowerCase();
+            final notes = (it['guisados_selected']?.toString() ?? '').toLowerCase();
+            final esCortesia = name.contains('cortes') || (price == 0 && notes.contains('cortes'));
+            if (!esCortesia) continue;
+            final qty = (it['quantity'] as num?)?.toInt() ?? 1;
+            cortesiasCount += qty;
+            // Valor de referencia: precio normal del platillo si lo tiene.
+            final ref = double.tryParse(it['dishes']?['price']?.toString() ?? '0') ?? 0.0;
+            cortesiasValor += ref * qty;
+          }
+        } catch (_) {}
+      }
+
+      // Cuentas canceladas del día.
+      try {
+        var cq = _supabase
+            .from('orders')
+            .select('total_amount, cancel_reason, cancelled_by, restaurant_tables(table_number)')
+            .eq('status', 'cancelled')
+            .gte('created_at', startOfDayUtc);
+        if (_branchFilter != 'Todas') cq = cq.eq('branch_name', _branchFilter);
+        canceladas.addAll(List<Map<String, dynamic>>.from(await cq));
+      } catch (_) {
+        var cq = _supabase
+            .from('orders')
+            .select('total_amount, restaurant_tables(table_number)')
+            .eq('status', 'cancelled')
+            .gte('created_at', startOfDayUtc);
+        if (_branchFilter != 'Todas') cq = cq.eq('branch_name', _branchFilter);
+        canceladas.addAll(List<Map<String, dynamic>>.from(await cq));
+      }
     } catch (_) {}
 
-    final total = efectivo + tarjeta + credito;
+    final total = efectivo + tarjeta + didi + uber;
+    final totalCanceladas = canceladas.fold<double>(
+        0, (a, c) => a + (double.tryParse(c['total_amount']?.toString() ?? '0') ?? 0.0));
     if (!mounted) return;
+
+    const gris = TextStyle(color: Color(0xFF7A6E5A));
+    Widget fila(String label, double v, {TextStyle style = gris}) => Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [Flexible(child: Text(label, style: style)), Text('\$${v.toStringAsFixed(2)}', style: style)],
+        );
+
     await showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFFFAF1DE),
         title: const Text('Venta de Hoy', style: TextStyle(color: Color(0xFFFF6D00), fontWeight: FontWeight.bold)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Órdenes completadas: $ordenesHoy', style: const TextStyle(color: Color(0xFF7A6E5A))),
-            const SizedBox(height: 8),
-            Text('Ventas en efectivo: \$${efectivo.toStringAsFixed(2)}', style: const TextStyle(color: Color(0xFF7A6E5A))),
-            Text('Ventas en tarjeta: \$${tarjeta.toStringAsFixed(2)}', style: const TextStyle(color: Color(0xFF7A6E5A))),
-            if (credito > 0)
-              Text('Ventas a crédito (Uber/Didi): \$${credito.toStringAsFixed(2)}', style: const TextStyle(color: Color(0xFF7A6E5A))),
-            const Divider(),
-            Text('Total del día: \$${total.toStringAsFixed(2)}',
-                style: const TextStyle(color: Color(0xFFFF6D00), fontWeight: FontWeight.bold, fontSize: 18)),
-          ],
+        content: SizedBox(
+          width: 380,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Órdenes completadas: $ordenesHoy', style: gris),
+                const SizedBox(height: 8),
+                fila('Ventas en efectivo:', efectivo),
+                fila('Ventas en tarjeta:', tarjeta),
+                fila('Ventas DiDi ($ordenesDidi):', didi),
+                fila('Ventas Uber ($ordenesUber):', uber),
+                const Divider(),
+                fila('Total del día:', total,
+                    style: const TextStyle(color: Color(0xFFFF6D00), fontWeight: FontWeight.bold, fontSize: 18)),
+                if (didi + uber > 0) ...[
+                  const SizedBox(height: 4),
+                  fila('Por cobrar (DiDi + Uber):', didi + uber),
+                ],
+                const SizedBox(height: 12),
+                if (descuentosCount > 0) fila('Descuentos ($descuentosCount):', -descuentos),
+                if (cortesiasCount > 0)
+                  fila('Cortesías ($cortesiasCount art.)${cortesiasValor > 0 ? ' valor ref.' : ''}:', cortesiasValor),
+                const SizedBox(height: 8),
+                fila('Cuentas canceladas (${canceladas.length}):', totalCanceladas,
+                    style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+                for (final c in canceladas)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 8, top: 2),
+                    child: Text(
+                      '${c['restaurant_tables']?['table_number'] != null ? 'Mesa ${c['restaurant_tables']['table_number']}' : 'Para llevar'}'
+                      '  \$${(double.tryParse(c['total_amount']?.toString() ?? '0') ?? 0).toStringAsFixed(2)}'
+                      '  ${c['cancel_reason'] ?? 'Sin motivo'}'
+                      '${(c['cancelled_by'] ?? '').toString().isNotEmpty ? '  (${c['cancelled_by']})' : ''}',
+                      style: const TextStyle(color: Color(0xFF7A6E5A), fontSize: 12),
+                    ),
+                  ),
+                const SizedBox(height: 4),
+                const Text('Las canceladas no suman al total.',
+                    style: TextStyle(color: Color(0xFFA08F70), fontSize: 11, fontStyle: FontStyle.italic)),
+              ],
+            ),
+          ),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cerrar', style: TextStyle(color: Color(0xFFFF6D00)))),

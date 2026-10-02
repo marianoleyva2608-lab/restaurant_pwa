@@ -485,7 +485,8 @@ function isDrink(item) {
   // puesta en el dish, "café"/"capuchino" en el nombre igual cuenta
   // como bebida — no debe depender de que el dato esté perfecto.
   const name = (item.dishes?.name || '').toString().toLowerCase();
-  return name.includes('café') || name.includes('cafe') || name.includes('capuchino');
+  return name.includes('café') || name.includes('cafe') || name.includes('capuchino') ||
+    /\bagua\b/.test(name); // ej. "Agua Cortesía" (categoría cortesias)
 }
 
 // Filtra los items que esta Pi debe imprimir según PRINT_AREA. Si el
@@ -854,13 +855,36 @@ async function fetchAllItemsForOrder(orderId) {
   const { data, error } = await supabase
     .from('order_items')
     .select(`
-      id, quantity, price_at_time, guisados_selected, client_label,
+      id, quantity, price_at_time, guisados_selected, client_label, status,
       dishes ( name, category )
     `)
     .eq('order_id', orderId)
     .order('id', { ascending: true });
   if (error) throw error;
-  return data || [];
+  // Los artículos cancelados no se cobran (igual que en la pantalla de Caja).
+  return (data || []).filter((it) => it.status !== 'cancelled');
+}
+
+// Descuento guardado por Caja (columnas discount_*). Consulta aparte para
+// que, si la migración aún no se corrió, la cuenta se siga imprimiendo.
+async function fetchOrderDiscount(orderId) {
+  try {
+    const { data, error } = await supabase
+      .from('orders')
+      .select('discount_percent, discount_amount, discount_reason')
+      .eq('id', orderId)
+      .maybeSingle();
+    if (error || !data) return null;
+    const amount = Number(data.discount_amount || 0);
+    if (amount <= 0) return null;
+    return {
+      percent: Number(data.discount_percent || 0),
+      amount,
+      reason: data.discount_reason || '',
+    };
+  } catch (_) {
+    return null;
+  }
 }
 
 // Imprime la CUENTA (recibo con precios) — formato distinto al ticket
@@ -934,6 +958,24 @@ function appendCuentaTicket(printer, order, items) {
   }
   printer.drawLine();
 
+  // ── Descuento (si Caja aplicó uno)
+  const disc = order.discount;
+  if (disc && disc.amount > 0) {
+    const row = (label, amt) => {
+      const amtStr = amt;
+      const width = paperWidth - amtStr.length - 1;
+      const l = label.length > width ? label.slice(0, width) : label.padEnd(width, ' ');
+      printer.println(`${l} ${amtStr}`);
+    };
+    printer.alignLeft();
+    row('Subtotal', `$${total.toFixed(2)}`);
+    const pct = disc.percent > 0 ? ` ${Number(disc.percent.toFixed(2))}%` : '';
+    row(`Descuento${pct}`, `-$${disc.amount.toFixed(2)}`);
+    if (disc.reason) printer.println(`  Motivo: ${disc.reason}`);
+    total = Math.max(0, total - disc.amount);
+    printer.drawLine();
+  }
+
   // ── Total
   printer.alignRight();
   printer.setTextDoubleHeight();
@@ -986,21 +1028,75 @@ async function fetchCorteSummary(branchName) {
 
   const { data: orders, error } = await supabase
     .from('orders')
-    .select('id, total_amount, payment_method, amount_cash, amount_card')
+    .select('id, total_amount, payment_method, amount_cash, amount_card, delivery_platform')
     .eq('branch_name', branchName)
     .eq('status', 'completed')
     .gte('created_at', startOfDay.toISOString());
   if (error) throw error;
 
+  // Descuentos y canceladas (columnas nuevas): consultas aparte para que el
+  // corte se siga imprimiendo aunque la migración no se haya corrido.
+  const discountById = new Map();
+  let descuentos = 0;
+  let descuentosCount = 0;
+  {
+    const { data: discRows, error: discErr } = await supabase
+      .from('orders')
+      .select('id, discount_amount')
+      .eq('branch_name', branchName)
+      .eq('status', 'completed')
+      .gt('discount_amount', 0)
+      .gte('created_at', startOfDay.toISOString());
+    if (!discErr) {
+      for (const d of discRows || []) {
+        const amt = Number(d.discount_amount || 0);
+        discountById.set(d.id, amt);
+        descuentos += amt;
+        descuentosCount++;
+      }
+    }
+  }
+  let canceladas = [];
+  {
+    const sel = 'id, total_amount, cancel_reason, cancelled_by, restaurant_tables ( table_number )';
+    let res = await supabase
+      .from('orders')
+      .select(sel)
+      .eq('branch_name', branchName)
+      .eq('status', 'cancelled')
+      .gte('created_at', startOfDay.toISOString());
+    if (res.error) {
+      res = await supabase
+        .from('orders')
+        .select('id, total_amount, restaurant_tables ( table_number )')
+        .eq('branch_name', branchName)
+        .eq('status', 'cancelled')
+        .gte('created_at', startOfDay.toISOString());
+    }
+    canceladas = (res.data || []).map((c) => ({
+      mesa: c.restaurant_tables?.table_number,
+      total: Number(c.total_amount || 0),
+      motivo: c.cancel_reason || '',
+      usuario: c.cancelled_by || '',
+    }));
+  }
+
   let efectivo = 0;
   let tarjeta = 0;
   let otros = 0;
+  let didi = 0;
+  let uber = 0;
   let count = 0;
   for (const o of orders || []) {
     count++;
     const total = Number(o.total_amount || 0);
     const pm = String(o.payment_method || '').toLowerCase();
-    if (pm.includes('mixed') || o.amount_cash != null || o.amount_card != null) {
+    if (pm.includes('credito')) {
+      // Uber/Didi: la plataforma paga después — NO es tarjeta ni efectivo.
+      const neto = Math.max(0, total - (discountById.get(o.id) || 0));
+      if (String(o.delivery_platform || '').toLowerCase() === 'uber') uber += neto;
+      else didi += neto;
+    } else if (pm.includes('mixed') || o.amount_cash != null || o.amount_card != null) {
       efectivo += Number(o.amount_cash || 0);
       tarjeta += Number(o.amount_card || 0);
     } else if (pm.includes('cash') || pm.includes('efectivo')) {
@@ -1033,9 +1129,13 @@ async function fetchCorteSummary(branchName) {
     }
   }
 
-  const total = efectivo + tarjeta + otros;
+  const total = efectivo + tarjeta + otros + didi + uber;
   const efectivoEsperado = fondoInicial + efectivo + entradas - salidas;
-  return { date: now, count, efectivo, tarjeta, otros, total, fondoInicial, entradas, salidas, efectivoEsperado };
+  return {
+    date: now, count, efectivo, tarjeta, otros, didi, uber, total,
+    fondoInicial, entradas, salidas, efectivoEsperado,
+    descuentos, descuentosCount, canceladas,
+  };
 }
 
 function appendCorteTicket(printer, summary, branchName) {
@@ -1064,11 +1164,26 @@ function appendCorteTicket(printer, summary, branchName) {
   row('Efectivo', summary.efectivo);
   row('Tarjeta', summary.tarjeta);
   if (summary.otros > 0) row('Otros (transf/openpay)', summary.otros);
+  if (summary.didi > 0) row('DiDi (credito)', summary.didi);
+  if (summary.uber > 0) row('Uber (credito)', summary.uber);
   printer.drawLine();
   printer.bold(true);
   row('TOTAL VENTAS', summary.total);
   printer.bold(false);
   printer.newLine();
+
+  if (summary.descuentosCount > 0) {
+    row(`Descuentos (${summary.descuentosCount})`, -summary.descuentos);
+  }
+  if (summary.canceladas.length > 0) {
+    const totCanc = summary.canceladas.reduce((a, c) => a + c.total, 0);
+    row(`Cuentas canceladas (${summary.canceladas.length})`, totCanc);
+    for (const c of summary.canceladas) {
+      const mesa = c.mesa != null ? `Mesa ${c.mesa}` : 'Llevar';
+      printer.println(`  ${mesa} $${c.total.toFixed(2)} ${c.motivo}${c.usuario ? ` (${c.usuario})` : ''}`);
+    }
+  }
+  if (summary.descuentosCount > 0 || summary.canceladas.length > 0) printer.newLine();
 
   row('Fondo inicial', summary.fondoInicial);
   if (summary.entradas > 0) row('Entradas extra', summary.entradas);
@@ -1199,6 +1314,7 @@ async function processReceipt(orderId, source = 'unknown') {
     if (order.caja_printed_at) return;
 
     const items = await fetchAllItemsForOrder(orderId);
+    order.discount = await fetchOrderDiscount(orderId);
     if (items.length === 0) {
       console.log(`⚠ ${orderId} no tiene items — se marca como impresa igual`);
       await markCajaPrinted(orderId);

@@ -112,7 +112,7 @@ class _CashRegisterViewState extends State<CashRegisterView> {
           .select('total_amount, payment_method, amount_cash, amount_card')
           .eq('branch_name', Globals.currentBranch)
           .eq('status', 'completed')
-          .gte('created_at', startOfDay.toIso8601String());
+          .gte('created_at', startOfDay.toUtc().toIso8601String());
       for (final o in (orders as List)) {
         final pm = (o['payment_method']?.toString() ?? '').toLowerCase();
         final total = double.tryParse(o['total_amount']?.toString() ?? '0') ?? 0.0;
@@ -762,8 +762,8 @@ class _CashRegisterViewState extends State<CashRegisterView> {
             .select()
             .eq('branch_name', Globals.currentBranch)
             .eq('category', 'propina')
-            .gte('created_at', start.toIso8601String())
-            .lt('created_at', endExclusive.toIso8601String())
+            .gte('created_at', start.toUtc().toIso8601String())
+            .lt('created_at', endExclusive.toUtc().toIso8601String())
             .order('created_at', ascending: false);
         return List<Map<String, dynamic>>.from(response);
       } catch (_) {
