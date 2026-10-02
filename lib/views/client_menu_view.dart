@@ -46,6 +46,9 @@ class _ClientMenuViewState extends State<ClientMenuView> {
       final dishes = (response as List)
           .map((data) => Dish.fromJson(data))
           .where((d) => d.isSale)
+          // Las cortesías ($0) son solo para uso interno de caja/mesero:
+          // nunca deben poder pedirse desde el menú para el cliente.
+          .where((d) => d.category != 'cortesias' && d.price > 0)
           .toList();
       if (mounted) {
         setState(() {
