@@ -6,7 +6,7 @@
 // Lee la configuración de la tabla `app_config`:
 //   key                  value
 //   ------------------   -------------------------------------------------
-//   clip_secret_key      eccc0d71-f36a-4c23-8c12-5876cae1999e
+//   clip_secret_key      <tu_secret_key>
 //   clip_api_url         https://api.payclip.com
 //   resend_api_key       re_xxxxxx
 //   ticket_from_email    tickets@misdominio.mx  (debe estar verificado en Resend)
@@ -62,6 +62,9 @@ async function procesarPagoClip(body: any) {
   if (!amount || amount <= 0) {
     return json({ ok: false, message: 'Monto inválido' }, 400);
   }
+  if (!email) {
+    return json({ ok: false, status: 'rejected', message: 'Falta el correo del cliente' }, 400);
+  }
   const clipApiKey = cfg.clip_api_key ?? '';
   const clipSecret = cfg.clip_secret_key ?? '';
   if (!clipApiKey || !clipSecret) {
@@ -82,13 +85,14 @@ async function procesarPagoClip(body: any) {
       'Content-Type': 'application/json',
       'Authorization': `Basic ${basic}`,
     },
+    // Formato actual de Clip POST /payments: payment_method.token y
+    // customer.email son obligatorios (source.token_id ya no se acepta).
     body: JSON.stringify({
       amount,
       currency: 'MXN',
-      source: { token_id: token },
-      capture: true,
       description: `Pedido ${restaurantName}`,
-      receipt_email: email || undefined,
+      payment_method: { token },
+      customer: { email },
     }),
   });
 

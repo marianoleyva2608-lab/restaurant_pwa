@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS public.app_config (
 );
 
 INSERT INTO public.app_config (key, value) VALUES
-  ('clip_secret_key',    'eccc0d71-f36a-4c23-8c12-5876cae1999e'),
+  ('clip_secret_key',    'TU_SECRET_KEY'),
   ('clip_api_url',       'https://api.payclip.com'),
   ('resend_api_key',     'TU_TOKEN_DE_RESEND'),
   ('ticket_from_email',  'tickets@TU-DOMINIO-VERIFICADO.com'),

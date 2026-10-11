@@ -5,7 +5,7 @@ import 'dart:js' as js;
 import 'dart:ui_web' as ui;
 import 'package:flutter/material.dart';
 
-const _clipApiKey = 'test_81e93889-cfde-414a-8cf4-16cdc37f39bc';
+const _clipApiKey = 'test_4b8e9032-d9f2-4d10-ab13-f0b9cfe4f289';
 
 class ClipBrickWidget extends StatefulWidget {
   final double amount;
