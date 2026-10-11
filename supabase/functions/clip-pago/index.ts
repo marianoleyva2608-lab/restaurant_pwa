@@ -103,12 +103,16 @@ async function procesarPagoClip(body: any) {
   } catch (_) { /* sin body */ }
 
   if (!resp.ok) {
+    const det = data.error_message ?? data.detail ?? `HTTP ${resp.status}`;
+    const detTxt = Array.isArray(det) ? det.join('; ') : String(det);
+    console.log('clip /payments rechazo', resp.status, JSON.stringify(data),
+      'token_len', token.length, 'amount', amount);
     return json({
       ok: false,
       status: 'rejected',
       payment_id: data.id ?? null,
-      status_detail: data.error_message ?? data.detail ?? `HTTP ${resp.status}`,
-      message: data.message ?? 'Pago rechazado por Clip',
+      status_detail: detTxt,
+      message: `${data.message ?? 'Pago rechazado por Clip'}: ${detTxt}`,
     });
   }
 
