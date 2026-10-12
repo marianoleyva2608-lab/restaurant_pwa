@@ -47,7 +47,7 @@ const _expectedPrintAreas = [
 /// Cuánto tiempo sin heartbeat antes de considerar una Pi "desconectada".
 /// El print-worker manda uno cada 20s — 45s da margen a que se le pase
 /// un ciclo sin marcarla como caída de inmediato.
-const _heartbeatStaleAfter = Duration(seconds: 45);
+const _heartbeatStaleAfter = Duration(seconds: 150);
 
 /// Pantalla de solo lectura: para cada orden activa, muestra si ya se
 /// imprimió en cada área física (Bebidas, y Cocina o Para Llevar según
@@ -469,7 +469,7 @@ class _PrintStatusChip extends StatelessWidget {
 
 /// Fila de LEDs (uno por Raspberry esperada) — verde si mandó heartbeat
 /// hace menos de _heartbeatStaleAfter, rojo si no. Se basa en
-/// print_worker_heartbeats, que cada print-worker escribe cada ~20s
+/// print_worker_heartbeats, que cada print-worker escribe cada ~60s
 /// (ver print-worker/index.js, sendHeartbeat).
 class PrinterLedsRow extends StatefulWidget {
   /// true → sin fondo/borde de tarjeta, para usarse pegada dentro de
@@ -494,20 +494,30 @@ class PrinterLedsRowState extends State<PrinterLedsRow> {
   // guardada cuando este widget arrancó — arranca en 'Sucursal
   // Maravillas' por default hasta que termina esa carga async), hay que
   // volver a crear el stream con la sucursal correcta.
-  String? _streamBranch;
-  Stream<List<Map<String, dynamic>>>? _heartbeatStream;
+  // Antes era un stream de Realtime: cada heartbeat de cada Raspberry
+  // (8 Pis cada 20s) se mandaba a TODAS las tablets abiertas, y eso
+  // gastaba la cuota de mensajes de Supabase. Ahora se consulta la tabla
+  // cada 30s (8 filas chiquitas) y no se usa Realtime.
+  List<Map<String, dynamic>> _rows = const [];
+
+  Future<void> _loadHeartbeats() async {
+    try {
+      final rows = await _supabase
+          .from('print_worker_heartbeats')
+          .select('id, print_area, last_seen_at')
+          .eq('branch_name', Globals.currentBranch);
+      if (mounted) setState(() => _rows = List<Map<String, dynamic>>.from(rows));
+    } catch (e) {
+      debugPrint('Error leyendo heartbeats: $e');
+    }
+  }
 
   @override
   void initState() {
     super.initState();
-    // El stream solo avisa cuando llega un heartbeat NUEVO — si una Pi se
-    // cae, no hay ningún evento nuevo que dispare un rebuild y notemos
-    // que ya pasaron los 45s. Revisamos cada 5s con la hora actual para
-    // detectar la desconexión aunque no llegue ningún dato nuevo. De paso,
-    // esto también hace que se reintente armar el stream con la sucursal
-    // correcta una vez que Globals.currentBranch ya cargó de verdad.
-    _pollTimer = Timer.periodic(const Duration(seconds: 5), (_) {
-      if (mounted) setState(() {});
+    _loadHeartbeats();
+    _pollTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      _loadHeartbeats();
     });
   }
 
@@ -552,18 +562,9 @@ class PrinterLedsRowState extends State<PrinterLedsRow> {
 
   @override
   Widget build(BuildContext context) {
-    if (_streamBranch != Globals.currentBranch) {
-      _streamBranch = Globals.currentBranch;
-      _heartbeatStream = _supabase
-          .from('print_worker_heartbeats')
-          .stream(primaryKey: ['id'])
-          .eq('branch_name', Globals.currentBranch);
-    }
-
-    return StreamBuilder<List<Map<String, dynamic>>>(
-      stream: _heartbeatStream,
-      builder: (context, snapshot) {
-        final rows = snapshot.data ?? const [];
+    return Builder(
+      builder: (context) {
+        final rows = _rows;
         final now = DateTime.now().toUtc();
 
         final ledRow = Wrap(

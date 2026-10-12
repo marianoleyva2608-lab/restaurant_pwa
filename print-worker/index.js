@@ -1505,7 +1505,7 @@ async function main() {
   );
 
   await sendHeartbeat();
-  setInterval(sendHeartbeat, 20_000);
+  setInterval(sendHeartbeat, 60_000); // 60s: la app considera caída una Pi tras 150s sin latido
 
   if (isReceiptMode) {
     // Modo caja/recibo: escucha `cuenta_requested_at` y no toca los
