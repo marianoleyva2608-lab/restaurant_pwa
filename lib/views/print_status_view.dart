@@ -47,7 +47,7 @@ const _expectedPrintAreas = [
 /// Cuánto tiempo sin heartbeat antes de considerar una Pi "desconectada".
 /// El print-worker manda uno cada 20s — 45s da margen a que se le pase
 /// un ciclo sin marcarla como caída de inmediato.
-const _heartbeatStaleAfter = Duration(seconds: 150);
+const _heartbeatStaleAfter = Duration(minutes: 5);
 
 /// Pantalla de solo lectura: para cada orden activa, muestra si ya se
 /// imprimió en cada área física (Bebidas, y Cocina o Para Llevar según
@@ -469,7 +469,7 @@ class _PrintStatusChip extends StatelessWidget {
 
 /// Fila de LEDs (uno por Raspberry esperada) — verde si mandó heartbeat
 /// hace menos de _heartbeatStaleAfter, rojo si no. Se basa en
-/// print_worker_heartbeats, que cada print-worker escribe cada ~60s
+/// print_worker_heartbeats, que cada print-worker escribe cada ~2 min
 /// (ver print-worker/index.js, sendHeartbeat).
 class PrinterLedsRow extends StatefulWidget {
   /// true → sin fondo/borde de tarjeta, para usarse pegada dentro de
@@ -497,7 +497,7 @@ class PrinterLedsRowState extends State<PrinterLedsRow> {
   // Antes era un stream de Realtime: cada heartbeat de cada Raspberry
   // (8 Pis cada 20s) se mandaba a TODAS las tablets abiertas, y eso
   // gastaba la cuota de mensajes de Supabase. Ahora se consulta la tabla
-  // cada 30s (8 filas chiquitas) y no se usa Realtime.
+  // cada 60s (8 filas chiquitas) y no se usa Realtime.
   List<Map<String, dynamic>> _rows = const [];
 
   Future<void> _loadHeartbeats() async {
@@ -516,7 +516,7 @@ class PrinterLedsRowState extends State<PrinterLedsRow> {
   void initState() {
     super.initState();
     _loadHeartbeats();
-    _pollTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+    _pollTimer = Timer.periodic(const Duration(seconds: 60), (_) {
       _loadHeartbeats();
     });
   }
