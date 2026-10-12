@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../globals.dart';
@@ -34,20 +35,6 @@ String _correctDrinkName(String rawName, List<String> guisados) {
   return rawName;
 }
 
-/// Áreas físicas esperadas (una Raspberry por cada una). 'kitchen' y
-/// 'line' son el mismo rol (cocina) con nombre distinto según sucursal
-/// — ver print-worker/README.md.
-const _expectedPrintAreas = [
-  (['drinks'], 'Bebidas', Icons.local_bar),
-  (['kitchen', 'line'], 'Cocina/Línea', Icons.soup_kitchen),
-  (['takeout'], 'Para Llevar', Icons.takeout_dining),
-  (['receipt'], 'Caja/Recibo', Icons.receipt_long),
-];
-
-/// Cuánto tiempo sin heartbeat antes de considerar una Pi "desconectada".
-/// El print-worker manda uno cada 20s — 45s da margen a que se le pase
-/// un ciclo sin marcarla como caída de inmediato.
-const _heartbeatStaleAfter = Duration(minutes: 5);
 
 /// Pantalla de solo lectura: para cada orden activa, muestra si ya se
 /// imprimió en cada área física (Bebidas, y Cocina o Para Llevar según
@@ -483,42 +470,42 @@ class PrinterLedsRow extends StatefulWidget {
 }
 
 class PrinterLedsRowState extends State<PrinterLedsRow> {
-  final _supabase = Supabase.instance.client;
+  // Estado de cada Raspberry según Tailscale, vía /ts-status del servidor
+  // de Easypanel (ver ts-status.js). No hace peticiones a Supabase.
+  static const _statusUrl =
+      'https://restaurant-pwa.c4o2yg.easypanel.host/ts-status';
   final _audioPlayer = AudioPlayer();
   Timer? _pollTimer;
   // null = todavía no sabemos (no avisar en la primera carga); true/false
   // = último estado conocido, para detectar CAMBIOS y avisar solo ahí.
   final Map<String, bool?> _lastKnownOnline = {};
-  // Se guarda la sucursal con la que se armó el stream actual — si
-  // Globals.currentBranch cambia (ej. todavía no había cargado la
-  // guardada cuando este widget arrancó — arranca en 'Sucursal
-  // Maravillas' por default hasta que termina esa carga async), hay que
-  // volver a crear el stream con la sucursal correcta.
-  // Antes era un stream de Realtime: cada heartbeat de cada Raspberry
-  // (8 Pis cada 20s) se mandaba a TODAS las tablets abiertas, y eso
-  // gastaba la cuota de mensajes de Supabase. Ahora se consulta la tabla
-  // cada 60s (8 filas chiquitas) y no se usa Realtime.
-  List<Map<String, dynamic>> _rows = const [];
+  List<Map<String, dynamic>> _devices = const [];
+  String? _error;
 
-  Future<void> _loadHeartbeats() async {
+  Future<void> _load() async {
     try {
-      final rows = await _supabase
-          .from('print_worker_heartbeats')
-          .select('id, print_area, last_seen_at')
-          .eq('branch_name', Globals.currentBranch);
-      if (mounted) setState(() => _rows = List<Map<String, dynamic>>.from(rows));
+      final r = await http
+          .get(Uri.parse(_statusUrl))
+          .timeout(const Duration(seconds: 15));
+      final j = jsonDecode(r.body) as Map<String, dynamic>;
+      if (j['ok'] != true) throw Exception(j['error'] ?? 'HTTP ${r.statusCode}');
+      if (mounted) {
+        setState(() {
+          _devices = List<Map<String, dynamic>>.from(j['devices'] as List);
+          _error = null;
+        });
+      }
     } catch (e) {
-      debugPrint('Error leyendo heartbeats: $e');
+      debugPrint('Error leyendo estado Tailscale: $e');
+      if (mounted) setState(() => _error = 'Sin datos de Tailscale');
     }
   }
 
   @override
   void initState() {
     super.initState();
-    _loadHeartbeats();
-    _pollTimer = Timer.periodic(const Duration(seconds: 60), (_) {
-      _loadHeartbeats();
-    });
+    _load();
+    _pollTimer = Timer.periodic(const Duration(seconds: 60), (_) => _load());
   }
 
   @override
@@ -526,18 +513,6 @@ class PrinterLedsRowState extends State<PrinterLedsRow> {
     _pollTimer?.cancel();
     _audioPlayer.dispose();
     super.dispose();
-  }
-
-  DateTime? _lastSeenFor(List<Map<String, dynamic>> rows, List<String> areas) {
-    DateTime? latest;
-    for (final row in rows) {
-      if (!areas.contains(row['print_area'])) continue;
-      final seen = DateTime.tryParse(row['last_seen_at'] as String? ?? '');
-      if (seen != null && (latest == null || seen.isAfter(latest))) {
-        latest = seen;
-      }
-    }
-    return latest;
   }
 
   void _announceChange(String label, bool isOnline) {
@@ -564,17 +539,17 @@ class PrinterLedsRowState extends State<PrinterLedsRow> {
   Widget build(BuildContext context) {
     return Builder(
       builder: (context) {
-        final rows = _rows;
-        final now = DateTime.now().toUtc();
-
+        if (_error != null && _devices.isEmpty) {
+          return Text(_error!,
+              style: const TextStyle(fontSize: 12, color: Color(0xFFA08F70)));
+        }
         final ledRow = Wrap(
           spacing: 20,
           runSpacing: 10,
-          children: _expectedPrintAreas.map((area) {
-            final (matchAreas, label, icon) = area;
-            final lastSeen = _lastSeenFor(rows, matchAreas);
-            final isOnline = lastSeen != null &&
-                now.difference(lastSeen) < _heartbeatStaleAfter;
+          children: _devices.map((d) {
+            final label = d['host']?.toString() ?? '?';
+            const icon = Icons.print;
+            final isOnline = d['online'] == true;
 
             final previous = _lastKnownOnline[label];
             if (previous != null && previous != isOnline) {

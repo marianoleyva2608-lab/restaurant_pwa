@@ -12,4 +12,11 @@ EOF
 echo "env-config.js generado:"
 cat /usr/share/nginx/html/env-config.js
 
+# Estado de Raspberry vía Tailscale (solo si hay credenciales).
+if [ -n "$TS_CLIENT_ID" ] || [ -n "$TS_API_KEY" ]; then
+  node /ts-status.js &
+else
+  echo "ts-status: sin TS_CLIENT_ID/TS_API_KEY, no se inicia"
+fi
+
 exec "$@"

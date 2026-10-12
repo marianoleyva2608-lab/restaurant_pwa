@@ -60,6 +60,9 @@ COPY nginx.conf /etc/nginx/conf.d/default.conf
 # env vars del container ANTES de iniciar nginx. Permite que EasyPanel
 # inyecte GOOGLE_MAPS_API_KEY en runtime sin re-buildear.
 COPY docker-entrypoint.sh /docker-entrypoint.sh
+# Node para el mini servicio de estado de Tailscale (ts-status.js).
+RUN apk add --no-cache nodejs
+COPY ts-status.js /ts-status.js
 RUN chmod +x /docker-entrypoint.sh
 
 EXPOSE 80

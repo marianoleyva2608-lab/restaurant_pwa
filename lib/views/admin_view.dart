@@ -618,11 +618,9 @@ class _AdminViewState extends State<AdminView> {
               ],
             ),
           ),
-          // Barra de LEDs de impresoras DESACTIVADA: consultaba Supabase
-          // cada minuto. La conexión de las Raspberry se revisa ahora en la
-          // app de Tailscale. Para reactivarla, cambia `false` por `true`
-          // (y reactiva el latido en print-worker/index.js).
-          if (false) InkWell(
+          // Barra fija con el estado de las Raspberry según Tailscale
+          // (no consulta Supabase). Tocar la barra lleva a Estado de Impresión.
+          InkWell(
             onTap: () => setState(() => _selectedIndex = 13),
             child: Container(
               width: double.infinity,
