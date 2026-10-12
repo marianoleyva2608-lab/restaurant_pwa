@@ -40,6 +40,21 @@ class _KitchenViewState extends State<KitchenView> {
   final _supabase = Supabase.instance.client;
   Timer? _refreshTimer;
 
+  // Streams creados UNA sola vez. Antes se creaban dentro de build(), así
+  // que cada setState (el refresco de 30s) volvía a suscribirse y a bajar
+  // la tabla 'orders' COMPLETA (todas las sucursales y todo el historial),
+  // en cada pantalla de cocina/barra. Eso disparaba el consumo de datos
+  // (egress) de Supabase. Ahora solo se piden las órdenes pendientes.
+  late final Stream<List<Map<String, dynamic>>> _settingsStream = _supabase
+      .from('admin_settings')
+      .stream(primaryKey: ['setting_key'])
+      .eq('setting_key', 'split_kitchen_mode');
+  late final Stream<List<Map<String, dynamic>>> _ordersStream = _supabase
+      .from('orders')
+      .stream(primaryKey: ['id'])
+      .eq('status', 'pending')
+      .order('created_at', ascending: true);
+
   @override
   void initState() {
     super.initState();
@@ -237,7 +252,7 @@ class _KitchenViewState extends State<KitchenView> {
         ],
       ),
       body: StreamBuilder<List<Map<String, dynamic>>>(
-        stream: _supabase.from('admin_settings').stream(primaryKey: ['setting_key']).eq('setting_key', 'split_kitchen_mode'),
+        stream: _settingsStream,
         builder: (context, settingsSnapshot) {
           // Actualizar valor por sucursal en tiempo real si el admin lo cambia
           if (settingsSnapshot.hasData && settingsSnapshot.data!.isNotEmpty) {
@@ -252,10 +267,7 @@ class _KitchenViewState extends State<KitchenView> {
           }
 
           return StreamBuilder<List<Map<String, dynamic>>>(
-            stream: _supabase
-                .from('orders')
-                .stream(primaryKey: ['id'])
-                .order('created_at', ascending: true),
+            stream: _ordersStream,
             builder: (context, orderSnapshot) {
               if (orderSnapshot.hasError) {
                 return Center(child: Text('Error: ${orderSnapshot.error}'));

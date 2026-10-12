@@ -981,6 +981,20 @@ class _ComandasViewState extends State<ComandasView> {
     // carga inicial de forma confiable.
     List<Map<String, dynamic>> toGoOrdersCache = [];
     Timer? toGoRefreshTimer;
+    // Streams del diálogo creados UNA vez: antes vivían dentro del builder
+    // y el refresco de 3s los volvía a crear (re-suscribirse y re-bajar
+    // mesas y órdenes cada 3 segundos en cada tablet).
+    final dialogTablesStream = _supabase
+        .from('restaurant_tables')
+        .stream(primaryKey: ['id'])
+        .eq('branch_name', Globals.currentBranch)
+        .order('table_number', ascending: true)
+        .asBroadcastStream();
+    final dialogOrdersStream = _supabase
+        .from('orders')
+        .stream(primaryKey: ['id'])
+        .inFilter('status', ['pending', 'ready', 'incomplete'])
+        .asBroadcastStream();
     Future<void> refreshToGoOrders() async {
       try {
         // Filtrar por status en el servidor es indispensable: sin esto,
@@ -1014,6 +1028,10 @@ class _ComandasViewState extends State<ComandasView> {
               });
               toGoRefreshTimer =
                   Timer.periodic(const Duration(seconds: 3), (_) async {
+                // En "Mesa" la lista To Go no se ve; si refrescáramos aquí,
+                // el setState re-crearía los streams de mesas/órdenes del
+                // builder cada 3s (re-bajando datos en cada tablet).
+                if (tempOrderType == 'dine_in') return;
                 await refreshToGoOrders();
                 if (context.mounted) setStateDialog(() {});
               });
@@ -1053,20 +1071,13 @@ class _ComandasViewState extends State<ComandasView> {
                     Expanded(
                       child: tempOrderType == 'dine_in' 
                         ? StreamBuilder<List<Map<String, dynamic>>>(
-                            stream: _supabase
-                                .from('restaurant_tables')
-                                .stream(primaryKey: ['id'])
-                                .eq('branch_name', Globals.currentBranch)
-                                .order('table_number', ascending: true),
+                            stream: dialogTablesStream,
                             builder: (context, tablesSnapshot) {
                               if (!tablesSnapshot.hasData) return const Center(child: CircularProgressIndicator());
                               final tables = tablesSnapshot.data!;
 
                               return StreamBuilder<List<Map<String, dynamic>>>(
-                                stream: _supabase
-                                    .from('orders')
-                                    .stream(primaryKey: ['id'])
-                                    .inFilter('status', ['pending', 'ready', 'incomplete']),
+                                stream: dialogOrdersStream,
                                 builder: (context, ordersSnapshot) {
                                   final occupiedTableIds = (ordersSnapshot.data ?? []).map((o) => o['table_id']).toSet();
 
