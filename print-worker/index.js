@@ -1504,8 +1504,11 @@ async function main() {
     `Print-worker iniciado | Sucursal: ${BRANCH_NAME}${areaLabel}${orderTypesLabel} | ${modeLabel}`,
   );
 
-  await sendHeartbeat();
-  setInterval(sendHeartbeat, 120_000); // 2 min: la app marca caída una Pi tras 5 min sin latido
+  // Latido a Supabase DESACTIVADO: la conexión de las Pis se revisa en la
+  // app de Tailscale, sin hacer peticiones a la base de datos.
+  // Para reactivarlo, descomenta estas dos líneas.
+  // await sendHeartbeat();
+  // setInterval(sendHeartbeat, 120_000);
 
   if (isReceiptMode) {
     // Modo caja/recibo: escucha `cuenta_requested_at` y no toca los
