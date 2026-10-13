@@ -246,6 +246,7 @@ class _ClientHomeViewState extends State<ClientHomeView> {
                 key: feeCalcKey,
                 destinationAddress: addressCtrl.text,
                 showGpsButton: false,
+                readOnly: true,
                 onChanged: (b) => deliveryFee = b,
                 onAddressDetected: (addr) {
                   addressCtrl.text = addr;

@@ -38,6 +38,11 @@ class DeliveryFeeCalculator extends StatefulWidget {
   /// sigue siendo accesible vía GlobalKey.
   final bool showGpsButton;
 
+  /// Modo cliente: oculta botones y campos de captura (Calcular km, Ver
+  /// ruta, km, carretera, lluvia, festivo). Solo muestra la distancia y
+  /// el desglose; lluvia y festivo se siguen detectando solos.
+  final bool readOnly;
+
   const DeliveryFeeCalculator({
     super.key,
     required this.onChanged,
@@ -48,6 +53,7 @@ class DeliveryFeeCalculator extends StatefulWidget {
     this.initialRain = false,
     this.initialHoliday = false,
     this.showGpsButton = true,
+    this.readOnly = false,
   });
 
   @override
@@ -329,7 +335,19 @@ class DeliveryFeeCalculatorState extends State<DeliveryFeeCalculator> {
         ),
         const SizedBox(height: 4),
         // Acciones centradas: Calcular km · Ver ruta (entre título y caja).
-        Row(
+        if (widget.readOnly && _autoCalcLoading)
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.all(6),
+              child: SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(
+                    strokeWidth: 2, color: Color(0xFFFF6D00)),
+              ),
+            ),
+          ),
+        if (!widget.readOnly) Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             if (_autoCalcLoading)
@@ -406,7 +424,9 @@ class DeliveryFeeCalculatorState extends State<DeliveryFeeCalculator> {
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
-                        'No se ubicó la dirección. Tap "Ver ruta" para abrir Google Maps y teclea los km manualmente.',
+                        widget.readOnly
+                            ? 'No pudimos ubicar tu dirección. Revísala; si es correcta, te confirmamos el costo de envío al llamarte.'
+                            : 'No se ubicó la dirección. Tap "Ver ruta" para abrir Google Maps y teclea los km manualmente.',
                         style: const TextStyle(
                             color: Color(0xFFB7472A),
                             fontSize: 11,
@@ -418,7 +438,13 @@ class DeliveryFeeCalculatorState extends State<DeliveryFeeCalculator> {
               ),
             ),
           const SizedBox(height: 8),
-          Row(
+          if (widget.readOnly)
+            Text(
+              'Distancia: ${_kmCtrl.text.isEmpty ? '—' : _kmCtrl.text} km',
+              style: const TextStyle(
+                  color: Color(0xFF3D2E1A), fontWeight: FontWeight.w600),
+            ),
+          if (!widget.readOnly) Row(
             children: [
               Expanded(
                 child: TextField(
@@ -463,7 +489,7 @@ class DeliveryFeeCalculatorState extends State<DeliveryFeeCalculator> {
             ],
           ),
           const SizedBox(height: 8),
-          Wrap(
+          if (!widget.readOnly) Wrap(
             spacing: 8,
             children: [
               FilterChip(
