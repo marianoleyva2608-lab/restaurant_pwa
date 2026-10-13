@@ -141,7 +141,10 @@
         ].join(';');
 
         try {
-          const sdk = new ClipSDK(apiKey, { env: 'sandbox' });
+          // Inicialización oficial: solo la API key. Con una llave test_ el SDK ya
+          // opera en pruebas; { env: 'sandbox' } generaba tokens que /payments
+          // rechazaba ("payment_method.token is not a valid UUID v4").
+          const sdk = new ClipSDK(apiKey);
           const card = sdk.element.create('Card', {
             locale: 'es',
             paymentAmount: parseFloat(amount),
@@ -197,7 +200,8 @@
             try {
               const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('Tiempo agotado')), 15000));
               const tokenResult = await Promise.race([_clipCard.cardToken(), timeout]);
-              const tokenId = tokenResult?.id ?? tokenResult;
+              const tokenId = (typeof tokenResult === 'string') ? tokenResult : (tokenResult?.id ?? tokenResult?.token?.id ?? tokenResult?.token);
+              console.log('[clip] cardToken ->', typeof tokenResult, tokenResult && Object.keys(tokenResult), String(tokenId).slice(0, 8));
               if (!tokenId) throw new Error('No se recibió token');
               if (window._clipOnSubmit) window._clipOnSubmit(JSON.stringify({ token_id: tokenId }));
             } catch(e) {
@@ -223,7 +227,8 @@
       try {
         const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('__TIMEOUT__')), 15000));
         const tokenResult = await Promise.race([_clipCard.cardToken(), timeout]);
-        const tokenId = tokenResult?.id ?? tokenResult;
+        const tokenId = (typeof tokenResult === 'string') ? tokenResult : (tokenResult?.id ?? tokenResult?.token?.id ?? tokenResult?.token);
+              console.log('[clip] cardToken ->', typeof tokenResult, tokenResult && Object.keys(tokenResult), String(tokenId).slice(0, 8));
         if (!tokenId) throw new Error('No se recibió token de la tarjeta');
         if (window._clipOnSubmit) window._clipOnSubmit(JSON.stringify({ token_id: tokenId }));
       } catch(e) {
