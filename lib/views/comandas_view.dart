@@ -2159,20 +2159,33 @@ class _EmptyCategorySlot extends StatelessWidget {
 /// del mesero (status='pending' AND sent_to_kitchen_at IS NULL). Al
 /// tap abre un diálogo con la lista y un botón "Mandar a cocina" por
 /// orden — al aprobar, el print-worker imprime los tickets.
-class _PendingClientOrdersBell extends StatelessWidget {
+class _PendingClientOrdersBell extends StatefulWidget {
   // ignore: unused_element
   const _PendingClientOrdersBell();
+
+  @override
+  State<_PendingClientOrdersBell> createState() =>
+      _PendingClientOrdersBellState();
+}
+
+class _PendingClientOrdersBellState extends State<_PendingClientOrdersBell> {
+  // Stream creado UNA vez y solo con órdenes pendientes. Antes se creaba en
+  // cada build y bajaba TODO el historial de la sucursal en cada tablet.
+  final Stream<List<Map<String, dynamic>>> _pendingStream = Supabase
+      .instance.client
+      .from('orders')
+      .stream(primaryKey: ['id'])
+      .eq('status', 'pending');
 
   @override
   Widget build(BuildContext context) {
     final supabase = Supabase.instance.client;
     return StreamBuilder<List<Map<String, dynamic>>>(
-      stream: supabase
-          .from('orders')
-          .stream(primaryKey: ['id'])
-          .eq('branch_name', Globals.currentBranch),
+      stream: _pendingStream,
       builder: (context, snapshot) {
-        final all = snapshot.data ?? const [];
+        final all = (snapshot.data ?? const <Map<String, dynamic>>[])
+            .where((o) => o['branch_name'] == Globals.currentBranch)
+            .toList();
         // Filtramos en memoria: el stream() de supabase-flutter solo
         // soporta .eq, así que la condición compuesta la hacemos aquí.
         final pending = all.where((o) =>
