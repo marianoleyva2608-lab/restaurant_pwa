@@ -5,6 +5,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import '../globals.dart';
+import 'print_status_view.dart' show PrinterLedsRow;
 
 class CashRegisterView extends StatefulWidget {
   const CashRegisterView({super.key});
@@ -2051,7 +2052,22 @@ class _CashRegisterViewState extends State<CashRegisterView> {
               ],
             ),
           ),
-      bottomNavigationBar: isMobile ? _buildMobileActionBar() : null,
+      bottomNavigationBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // LEDs de conexión de las Raspberry de esta sucursal (Tailscale).
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: const BoxDecoration(
+              color: Color(0xFFFAF1DE),
+              border: Border(top: BorderSide(color: Color(0xFFE5DCC4))),
+            ),
+            child: const PrinterLedsRow(compact: true),
+          ),
+          if (isMobile) _buildMobileActionBar(),
+        ],
+      ),
     );
   }
 
