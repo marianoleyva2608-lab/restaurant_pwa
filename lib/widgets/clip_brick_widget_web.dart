@@ -21,6 +21,16 @@ class ClipBrickWidget extends StatefulWidget {
     this.onReady,
   });
 
+  /// Muestra la verificación 3D Secure del banco (pantalla completa).
+  static void show3DS(String url) {
+    js.context.callMethod('clipShow3DS', [url]);
+  }
+
+  /// Cierra la verificación 3D Secure.
+  static void hide3DS() {
+    js.context.callMethod('clipHide3DS', []);
+  }
+
   @override
   State<ClipBrickWidget> createState() => _ClipBrickWidgetState();
 }

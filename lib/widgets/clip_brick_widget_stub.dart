@@ -18,6 +18,16 @@ class ClipBrickWidget extends StatelessWidget {
     this.onReady,
   });
 
+  /// Muestra la verificación 3D Secure del banco (pantalla completa).
+  static void show3DS(String url) {
+    
+  }
+
+  /// Cierra la verificación 3D Secure.
+  static void hide3DS() {
+    
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(

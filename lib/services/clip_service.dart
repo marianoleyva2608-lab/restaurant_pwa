@@ -49,7 +49,23 @@ class ClipService {
       paymentId: json['payment_id']?.toString(),
       detail: json['status_detail']?.toString() ?? json['detail']?.toString(),
       errorMessage: json['message']?.toString(),
+      status: status,
+      threeDsUrl: json['three_ds_url']?.toString(),
     );
+  }
+
+  /// Estado de un pago de /payments (para esperar el resultado de 3DS).
+  /// Devuelve 'approved', 'rejected', 'pending', etc., o null si falla.
+  static Future<String?> paymentStatus({required String paymentId}) async {
+    try {
+      final json = await _call({
+        'action': 'payment_status',
+        'payment_id': paymentId,
+      });
+      return json['status']?.toString().toLowerCase();
+    } catch (_) {
+      return null;
+    }
   }
 
   /// Crea un link de Checkout Redireccionado de Clip.
@@ -115,11 +131,15 @@ class ClipResult {
   final String? paymentId;
   final String? detail;
   final String? errorMessage;
+  final String? status;
+  final String? threeDsUrl;
 
   const ClipResult({
     required this.approved,
     this.paymentId,
     this.detail,
     this.errorMessage,
+    this.status,
+    this.threeDsUrl,
   });
 }

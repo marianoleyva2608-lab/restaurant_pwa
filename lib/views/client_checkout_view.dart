@@ -140,6 +140,36 @@ class _ClientCheckoutViewState extends State<ClientCheckoutView> {
                         result = ClipResult(
                             approved: false, errorMessage: e.toString());
                       }
+                      // 3D Secure: el banco pide verificar la compra.
+                      // Mostramos su página y esperamos el resultado final.
+                      final r = result;
+                      if (r != null &&
+                          r.status == 'pending' &&
+                          (r.threeDsUrl ?? '').isNotEmpty &&
+                          (r.paymentId ?? '').isNotEmpty) {
+                        setDialogState(() {
+                          errorMsg = 'Completa la verificación de tu banco…';
+                        });
+                        ClipBrickWidget.show3DS(r.threeDsUrl!);
+                        String? st = 'pending';
+                        for (var i = 0; i < 100 && st == 'pending'; i++) {
+                          await Future.delayed(const Duration(seconds: 3));
+                          st = await ClipService.paymentStatus(
+                                  paymentId: r.paymentId!) ??
+                              'pending';
+                        }
+                        ClipBrickWidget.hide3DS();
+                        result = ClipResult(
+                          approved: st == 'approved',
+                          paymentId: r.paymentId,
+                          status: st,
+                          errorMessage: st == 'approved'
+                              ? null
+                              : (st == 'pending'
+                                  ? 'No se completó la verificación del banco'
+                                  : 'Pago $st por el banco'),
+                        );
+                      }
                       if (ctx.mounted) Navigator.pop(ctx);
                     },
                     onError: (err) {

@@ -122,6 +122,33 @@ async function procesarPagoClip(body: any) {
     status: clipStatus || 'approved',
     payment_id: data.id ?? data.payment_id ?? null,
     status_detail: data.status_detail ?? null,
+    // 3D Secure: Clip responde status 'pending' + PE-3DS01 y la URL de
+    // verificación del banco en pending_action.url.
+    three_ds_url: data.pending_action?.url ?? null,
+  });
+}
+
+// Estado final de un pago de /payments (después de 3DS).
+async function paymentStatus(body: any) {
+  const cfg = await loadConfig();
+  const paymentId = String(body.payment_id ?? '').trim();
+  if (!paymentId) return json({ ok: false, message: 'Falta payment_id' }, 400);
+  const clipApiUrl = cfg.clip_api_url || 'https://api.payclip.com';
+  const basic = btoa(`${cfg.clip_api_key ?? ''}:${cfg.clip_secret_key ?? ''}`);
+  const resp = await fetch(`${clipApiUrl}/payments/${encodeURIComponent(paymentId)}`, {
+    headers: { 'Authorization': `Basic ${basic}` },
+  });
+  let data: any = {};
+  try { data = JSON.parse(await resp.text()); } catch (_) { /* vacío */ }
+  if (!resp.ok) {
+    return json({ ok: false, status: 'error', message: data.message ?? `HTTP ${resp.status}` });
+  }
+  const st = String(data.status ?? '').toLowerCase();
+  return json({
+    ok: st === 'approved',
+    status: st,
+    status_detail: data.status_detail ?? null,
+    payment_id: data.id ?? paymentId,
   });
 }
 
@@ -372,6 +399,7 @@ serve(async (req: Request) => {
     if (action === 'ticket') return await enviarTicket(body);
     if (action === 'create_link') return await crearLinkPago(body);
     if (action === 'check_status') return await checkStatus(body);
+    if (action === 'payment_status') return await paymentStatus(body);
     return json({ ok: false, message: `Acción desconocida: ${action}` }, 400);
   } catch (e: any) {
     return json(

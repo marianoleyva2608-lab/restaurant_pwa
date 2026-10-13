@@ -221,6 +221,37 @@
       tryMount(20);
     };
 
+    // 3D Secure de Clip: iframe a pantalla completa con la página del banco.
+    // Se cierra cuando Clip avisa por postMessage o cuando Flutter llama
+    // clipHide3DS() al obtener el estado final del pago.
+    window.clipShow3DS = function(url) {
+      window.clipHide3DS();
+      const wrap = document.createElement('div');
+      wrap.id = '__clip_3ds__';
+      wrap.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:20000;display:flex;align-items:center;justify-content:center;';
+      const frame = document.createElement('iframe');
+      frame.src = url;
+      frame.title = 'cybersource3Ds';
+      frame.style.cssText = 'width:min(96vw,600px);height:min(92vh,700px);border:none;border-radius:12px;background:white;';
+      wrap.appendChild(frame);
+      document.body.appendChild(wrap);
+      if (window._clipNativeBtn) window._clipNativeBtn.style.display = 'none';
+      let origin = null;
+      try { origin = new URL(url).origin; } catch (e) {}
+      window._clip3dsListener = function(ev) {
+        if (origin && ev.origin === origin) window.clipHide3DS();
+      };
+      window.addEventListener('message', window._clip3dsListener);
+    };
+    window.clipHide3DS = function() {
+      const old = document.getElementById('__clip_3ds__');
+      if (old) old.remove();
+      if (window._clip3dsListener) {
+        window.removeEventListener('message', window._clip3dsListener);
+        window._clip3dsListener = null;
+      }
+    };
+
     window.clipSubmitPago = async function() {
       if (!_clipCard) { if (window._clipOnError) window._clipOnError('SDK de Clip no inicializado'); return; }
       window._clipErrorHandled = false;
