@@ -144,12 +144,20 @@ class _ReportsViewState extends State<ReportsView> {
     }
     try {
       final orderIds = _filteredOrders.map((o) => o['id']).toList();
-      final items = await _supabase
-          .from('order_items')
-          .select('quantity, dishes(name)')
-          .inFilter('order_id', orderIds);
+      // Por bloques de 150 órdenes: mandar miles de IDs en una sola
+      // petición daba error de "solicitud muy grande".
+      final items = <dynamic>[];
+      for (var i = 0; i < orderIds.length; i += 150) {
+        final chunk = orderIds.sublist(
+            i, i + 150 > orderIds.length ? orderIds.length : i + 150);
+        final part = await _supabase
+            .from('order_items')
+            .select('quantity, dishes(name)')
+            .inFilter('order_id', chunk);
+        items.addAll(part as List);
+      }
       final Map<String, int> counts = {};
-      for (final it in (items as List)) {
+      for (final it in items) {
         final name = it['dishes']?['name'] as String?;
         if (name == null) continue;
         final qty = (it['quantity'] as num?)?.toInt() ?? 0;
@@ -179,85 +187,98 @@ class _ReportsViewState extends State<ReportsView> {
   Future<void> _fetchReports() async {
     setState(() => _isLoading = true);
     try {
-      var query = _supabase
-          .from('orders')
-          .select('*, restaurant_tables(table_number), waiters(name)')
-          .eq('status', 'completed');
+      // Se arma la consulta en una función para poder pedirla por páginas:
+      // Supabase regresa máximo 1000 filas por consulta, y con semana/mes/
+      // rango los totales salían cortados (y distintos según el día).
+      dynamic buildQuery() {
+        var query = _supabase
+            .from('orders')
+            .select('*, restaurant_tables(table_number), waiters(name)')
+            .eq('status', 'completed');
 
-      final now = DateTime.now();
-      if (_timeFilter == 'day') {
-        final startOfDay = DateTime(
-          now.year,
-          now.month,
-          now.day,
-        ).toUtc().toIso8601String();
-        query = query.gte('created_at', startOfDay);
-      } else if (_timeFilter == 'week') {
-        final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
-        final startOfWeekMidnight = DateTime(
-          startOfWeek.year,
-          startOfWeek.month,
-          startOfWeek.day,
-        ).toUtc().toIso8601String();
-        query = query.gte('created_at', startOfWeekMidnight);
-      } else if (_timeFilter == 'month') {
-        final startOfMonth = DateTime(
-          now.year,
-          now.month,
-          1,
-        ).toUtc().toIso8601String();
-        query = query.gte('created_at', startOfMonth);
-      } else if (_timeFilter == 'exact_date' && _selectedDate != null) {
-        final startOfDate = DateTime(
-          _selectedDate!.year,
-          _selectedDate!.month,
-          _selectedDate!.day,
-        ).toUtc().toIso8601String();
-        final endOfDate = DateTime(
-          _selectedDate!.year,
-          _selectedDate!.month,
-          _selectedDate!.day,
-          23,
-          59,
-          59,
-        ).toUtc().toIso8601String();
-        query = query
-            .gte('created_at', startOfDate)
-            .lte('created_at', endOfDate);
-      } else if (_timeFilter == 'range' &&
-          _rangeStart != null &&
-          _rangeEnd != null) {
-        final startOfRange = DateTime(
-          _rangeStart!.year,
-          _rangeStart!.month,
-          _rangeStart!.day,
-        ).toUtc().toIso8601String();
-        final endOfRange = DateTime(
-          _rangeEnd!.year,
-          _rangeEnd!.month,
-          _rangeEnd!.day,
-          23,
-          59,
-          59,
-        ).toUtc().toIso8601String();
-        query = query
-            .gte('created_at', startOfRange)
-            .lte('created_at', endOfRange);
+        final now = DateTime.now();
+        if (_timeFilter == 'day') {
+          final startOfDay = DateTime(
+            now.year,
+            now.month,
+            now.day,
+          ).toUtc().toIso8601String();
+          query = query.gte('created_at', startOfDay);
+        } else if (_timeFilter == 'week') {
+          final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
+          final startOfWeekMidnight = DateTime(
+            startOfWeek.year,
+            startOfWeek.month,
+            startOfWeek.day,
+          ).toUtc().toIso8601String();
+          query = query.gte('created_at', startOfWeekMidnight);
+        } else if (_timeFilter == 'month') {
+          final startOfMonth = DateTime(
+            now.year,
+            now.month,
+            1,
+          ).toUtc().toIso8601String();
+          query = query.gte('created_at', startOfMonth);
+        } else if (_timeFilter == 'exact_date' && _selectedDate != null) {
+          final startOfDate = DateTime(
+            _selectedDate!.year,
+            _selectedDate!.month,
+            _selectedDate!.day,
+          ).toUtc().toIso8601String();
+          final endOfDate = DateTime(
+            _selectedDate!.year,
+            _selectedDate!.month,
+            _selectedDate!.day,
+            23,
+            59,
+            59,
+          ).toUtc().toIso8601String();
+          query = query
+              .gte('created_at', startOfDate)
+              .lte('created_at', endOfDate);
+        } else if (_timeFilter == 'range' &&
+            _rangeStart != null &&
+            _rangeEnd != null) {
+          final startOfRange = DateTime(
+            _rangeStart!.year,
+            _rangeStart!.month,
+            _rangeStart!.day,
+          ).toUtc().toIso8601String();
+          final endOfRange = DateTime(
+            _rangeEnd!.year,
+            _rangeEnd!.month,
+            _rangeEnd!.day,
+            23,
+            59,
+            59,
+          ).toUtc().toIso8601String();
+          query = query
+              .gte('created_at', startOfRange)
+              .lte('created_at', endOfRange);
+        }
+
+        // El filtro de sucursal se aplica del lado del cliente (ver
+        // _applyFilter) con comparación tolerante (Globals.normalizeBranch),
+        // no aquí con .eq() exacto: ventas viejas guardadas con el nombre de
+        // sucursal escrito distinto (mayúsculas, sin el prefijo "Sucursal ",
+        // espacios, etc.) quedaban excluidas del historial con el .eq() literal.
+
+        if (_waiterFilter != 'Todos') {
+          query = query.eq('waiter_id', _waiterFilter);
+        }
+        return query;
       }
 
-      // El filtro de sucursal se aplica del lado del cliente (ver
-      // _applyFilter) con comparación tolerante (Globals.normalizeBranch),
-      // no aquí con .eq() exacto: ventas viejas guardadas con el nombre de
-      // sucursal escrito distinto (mayúsculas, sin el prefijo "Sucursal ",
-      // espacios, etc.) quedaban excluidas del historial con el .eq() literal.
-
-      if (_waiterFilter != 'Todos') {
-        query = query.eq('waiter_id', _waiterFilter);
+      final orders = <Map<String, dynamic>>[];
+      const pageSize = 1000;
+      for (var from = 0;; from += pageSize) {
+        final page = await buildQuery()
+            .order('created_at', ascending: false)
+            .range(from, from + pageSize - 1);
+        final rows = List<Map<String, dynamic>>.from(page as List);
+        orders.addAll(rows);
+        if (rows.length < pageSize) break;
       }
-
-      final response = await query.order('created_at', ascending: false);
-
-      final orders = List<Map<String, dynamic>>.from(response);
 
       for (var o in orders) {
         final pm = o['payment_method']?.toString().toUpperCase() ?? 'EFECTIVO';
