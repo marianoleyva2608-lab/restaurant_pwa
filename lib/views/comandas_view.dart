@@ -12,6 +12,7 @@ import '../widgets/delivery_fee_calculator.dart';
 import '../widgets/dish_card.dart';
 import '../widgets/order_summary.dart';
 import 'mesero_login_view.dart';
+import 'print_status_view.dart' show PrinterLedsRow;
 
 class ComandasView extends StatefulWidget {
   final String? waiterId;
@@ -1669,6 +1670,20 @@ class _ComandasViewState extends State<ComandasView> {
         ],
       ),
       body: _buildAdaptiveBody(context),
+      // Foquitos de conexión de las impresoras/Raspberry de esta sucursal
+      // (vía Tailscale, sin consultar Supabase).
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          decoration: const BoxDecoration(
+            color: Color(0xFFFAF1DE),
+            border: Border(top: BorderSide(color: Color(0xFFE5DCC4))),
+          ),
+          child: const PrinterLedsRow(compact: true),
+        ),
+      ),
     );
   }
 
