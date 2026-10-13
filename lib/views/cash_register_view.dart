@@ -87,6 +87,8 @@ class _CashRegisterViewState extends State<CashRegisterView> {
     final startOfDay = DateTime(now.year, now.month, now.day);
 
     double fondoInicial = 0, entradas = 0, salidas = 0;
+    // salidas = gastos + propinas pagadas en efectivo (se muestran aparte).
+    double gastos = 0, propinasPagadas = 0;
     for (final m in _movements) {
       final createdAt = DateTime.tryParse(m['created_at']?.toString() ?? '');
       if (createdAt == null || createdAt.isBefore(startOfDay)) continue;
@@ -98,6 +100,11 @@ class _CashRegisterViewState extends State<CashRegisterView> {
         entradas += amt;
       } else if (m['type'] == 'salida') {
         salidas += amt;
+        if (m['category'] == 'propina') {
+          propinasPagadas += amt;
+        } else {
+          gastos += amt;
+        }
       }
     }
 
@@ -164,6 +171,8 @@ class _CashRegisterViewState extends State<CashRegisterView> {
       'uberVentas': uberVentas,
       'entradas': entradas,
       'salidas': salidas,
+      'gastos': gastos,
+      'propinasPagadas': propinasPagadas,
       'expected': expected,
     };
   }
@@ -247,8 +256,11 @@ class _CashRegisterViewState extends State<CashRegisterView> {
                         if (breakdown['entradas']! > 0)
                           Text('Entradas extra: \$${breakdown['entradas']!.toStringAsFixed(2)}',
                               style: const TextStyle(color: Color(0xFF3D2E1A))),
-                        if (breakdown['salidas']! > 0)
-                          Text('Salidas/gastos: -\$${breakdown['salidas']!.toStringAsFixed(2)}',
+                        if ((breakdown['gastos'] ?? 0) > 0)
+                          Text('Gastos: -\$${breakdown['gastos']!.toStringAsFixed(2)}',
+                              style: const TextStyle(color: Color(0xFF3D2E1A))),
+                        if ((breakdown['propinasPagadas'] ?? 0) > 0)
+                          Text('Propinas pagadas a meseros: -\$${breakdown['propinasPagadas']!.toStringAsFixed(2)}',
                               style: const TextStyle(color: Color(0xFF3D2E1A))),
                         const Divider(color: Color(0xFFA08F70)),
                         Text('Efectivo esperado: \$${expected.toStringAsFixed(2)}',

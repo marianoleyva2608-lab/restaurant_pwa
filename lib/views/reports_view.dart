@@ -1387,6 +1387,7 @@ class _ReportsViewState extends State<ReportsView> {
 
     double efectivo = 0, tarjeta = 0, didi = 0, uber = 0;
     double propinasTarjeta = 0, propinasEfectivo = 0;
+    double gastosHoy = 0;
     int ordenesHoy = 0, ordenesDidi = 0, ordenesUber = 0;
     double descuentos = 0;
     int descuentosCount = 0;
@@ -1406,6 +1407,20 @@ class _ReportsViewState extends State<ReportsView> {
       bool deSucursal(dynamic o) =>
           wanted == null || Globals.normalizeBranch(o['branch_name']?.toString()) == wanted;
       final orders = ((await query) as List).where(deSucursal).toList();
+
+      // Gastos del día (salidas de caja que no son propinas ni apertura).
+      try {
+        final gq = _supabase
+            .from('cash_movements')
+            .select('amount, category, branch_name')
+            .eq('type', 'salida')
+            .gte('created_at', startOfDayUtc);
+        for (final g in ((await gq) as List).where(deSucursal)) {
+          final cat = g['category']?.toString() ?? '';
+          if (cat == 'propina' || cat == 'apertura') continue;
+          gastosHoy += double.tryParse(g['amount']?.toString() ?? '0') ?? 0.0;
+        }
+      } catch (_) {}
 
       // Descuentos (columna nueva; si falta la migración se omite).
       final discountById = <String, double>{};
@@ -1537,6 +1552,12 @@ class _ReportsViewState extends State<ReportsView> {
                 if (didi + uber > 0) ...[
                   const SizedBox(height: 4),
                   fila('Por cobrar (DiDi + Uber):', didi + uber),
+                ],
+                if (gastosHoy > 0) ...[
+                  const SizedBox(height: 4),
+                  fila('Gastos del día:', -gastosHoy),
+                  fila('Venta menos gastos:', total - gastosHoy,
+                      style: const TextStyle(color: Color(0xFF3D2E1A), fontWeight: FontWeight.bold)),
                 ],
                 const SizedBox(height: 12),
                 if (descuentosCount > 0) fila('Descuentos ($descuentosCount):', -descuentos),
