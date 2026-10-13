@@ -1386,6 +1386,7 @@ class _ReportsViewState extends State<ReportsView> {
     final startOfDayUtc = DateTime(now.year, now.month, now.day).toUtc().toIso8601String();
 
     double efectivo = 0, tarjeta = 0, didi = 0, uber = 0;
+    double propinasTarjeta = 0, propinasEfectivo = 0;
     int ordenesHoy = 0, ordenesDidi = 0, ordenesUber = 0;
     double descuentos = 0;
     int descuentosCount = 0;
@@ -1437,8 +1438,19 @@ class _ReportsViewState extends State<ReportsView> {
             ordenesDidi++;
           }
         } else if (pm.contains('mixed') || o['amount_cash'] != null || o['amount_card'] != null) {
-          efectivo += double.tryParse(o['amount_cash']?.toString() ?? '0') ?? 0.0;
-          tarjeta += double.tryParse(o['amount_card']?.toString() ?? '0') ?? 0.0;
+          // amount_* = lo cobrado (incluye propina); la venta es total_amount.
+          final c = double.tryParse(o['amount_cash']?.toString() ?? '0') ?? 0.0;
+          final k = double.tryParse(o['amount_card']?.toString() ?? '0') ?? 0.0;
+          final extra = (c + k) - total;
+          final tip = extra > 0.009 ? extra : 0.0;
+          if (k > 0) {
+            tarjeta += k - tip;
+            efectivo += c;
+            propinasTarjeta += tip;
+          } else {
+            efectivo += c - tip;
+            propinasEfectivo += tip;
+          }
         } else if (pm.contains('cash') || pm.contains('efectivo')) {
           efectivo += total;
         } else {
@@ -1515,6 +1527,8 @@ class _ReportsViewState extends State<ReportsView> {
                 const SizedBox(height: 8),
                 fila('Ventas en efectivo:', efectivo),
                 fila('Ventas en tarjeta:', tarjeta),
+                if (propinasTarjeta > 0) fila('Propinas con tarjeta:', propinasTarjeta),
+                if (propinasEfectivo > 0) fila('Propinas en efectivo:', propinasEfectivo),
                 fila('Ventas DiDi ($ordenesDidi):', didi),
                 fila('Ventas Uber ($ordenesUber):', uber),
                 const Divider(),

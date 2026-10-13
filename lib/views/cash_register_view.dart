@@ -103,6 +103,11 @@ class _CashRegisterViewState extends State<CashRegisterView> {
 
     double efectivoVentas = 0;
     double tarjetaVentas = 0;
+    // Propinas: amount_cash/amount_card guardan lo COBRADO (venta + propina).
+    // Las separamos para que "ventas" sea la venta real y aparte se vea la
+    // propina. El efectivo esperado sigue usando lo cobrado (la propina se
+    // registra como salida al pagársela al mesero).
+    double propinasTarjeta = 0, propinasEfectivo = 0, efectivoRecibido = 0;
     // Ventas a crédito (Uber/Didi): la plataforma paga después, no hoy —
     // no son efectivo ni tarjeta, se muestran aparte para no distorsionar
     // el efectivo esperado ni el corte de tarjeta.
@@ -125,21 +130,35 @@ class _CashRegisterViewState extends State<CashRegisterView> {
             didiVentas += total;
           }
         } else if (pm.contains('mixed') || o['amount_cash'] != null || o['amount_card'] != null) {
-          efectivoVentas += double.tryParse(o['amount_cash']?.toString() ?? '0') ?? 0.0;
-          tarjetaVentas += double.tryParse(o['amount_card']?.toString() ?? '0') ?? 0.0;
+          final c = double.tryParse(o['amount_cash']?.toString() ?? '0') ?? 0.0;
+          final k = double.tryParse(o['amount_card']?.toString() ?? '0') ?? 0.0;
+          final extra = (c + k) - total;
+          final tip = extra > 0.009 ? extra : 0.0;
+          efectivoRecibido += c;
+          if (k > 0) {
+            tarjetaVentas += k - tip;
+            propinasTarjeta += tip;
+            efectivoVentas += c;
+          } else {
+            efectivoVentas += c - tip;
+            propinasEfectivo += tip;
+          }
         } else if (pm.contains('cash') || pm.contains('efectivo')) {
           efectivoVentas += total;
+          efectivoRecibido += total;
         } else {
           tarjetaVentas += total;
         }
       }
     } catch (_) {}
 
-    final expected = fondoInicial + efectivoVentas + entradas - salidas;
+    final expected = fondoInicial + efectivoRecibido + entradas - salidas;
     return {
       'fondoInicial': fondoInicial,
       'efectivoVentas': efectivoVentas,
       'tarjetaVentas': tarjetaVentas,
+      'propinasTarjeta': propinasTarjeta,
+      'propinasEfectivo': propinasEfectivo,
       'creditoVentas': creditoVentas,
       'didiVentas': didiVentas,
       'uberVentas': uberVentas,
@@ -210,6 +229,15 @@ class _CashRegisterViewState extends State<CashRegisterView> {
                             style: const TextStyle(color: Color(0xFF3D2E1A))),
                         Text('Ventas en tarjeta: \$${breakdown['tarjetaVentas']!.toStringAsFixed(2)}',
                             style: const TextStyle(color: Color(0xFF3D2E1A))),
+                        if ((breakdown['propinasTarjeta'] ?? 0) > 0) ...[
+                          Text('Propinas con tarjeta: \$${breakdown['propinasTarjeta']!.toStringAsFixed(2)}',
+                              style: const TextStyle(color: Color(0xFF3D2E1A))),
+                          Text('Total terminal (tarjeta + propinas): \$${(breakdown['tarjetaVentas']! + breakdown['propinasTarjeta']!).toStringAsFixed(2)}',
+                              style: const TextStyle(color: Color(0xFF3D2E1A), fontWeight: FontWeight.w600)),
+                        ],
+                        if ((breakdown['propinasEfectivo'] ?? 0) > 0)
+                          Text('Propinas en efectivo: \$${breakdown['propinasEfectivo']!.toStringAsFixed(2)}',
+                              style: const TextStyle(color: Color(0xFF3D2E1A))),
                         if ((breakdown['didiVentas'] ?? 0) > 0)
                           Text('Ventas DiDi (crédito): \$${breakdown['didiVentas']!.toStringAsFixed(2)}',
                               style: const TextStyle(color: Color(0xFF3D2E1A))),
