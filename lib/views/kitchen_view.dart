@@ -1008,8 +1008,18 @@ class _OrderTicketState extends State<_OrderTicket> {
                   if (allDone) {
                     final anyIncomplete = allItemsList
                         .any((i) => i['status'] == 'cancelled');
+                    // Pedido en línea ya pagado con Clip por el cliente
+                    // (sin mesero): al quedar listo se cierra solo, sin
+                    // pasar por caja. Va al corte como 'clip'.
+                    final prepaidOnline =
+                        (widget.order['payment_method']?.toString() ?? '')
+                                .toLowerCase() ==
+                            'clip' &&
+                        widget.order['waiter_id'] == null;
                     await supabase.from('orders').update({
-                      'status': anyIncomplete ? 'incomplete' : 'ready'
+                      'status': anyIncomplete
+                          ? 'incomplete'
+                          : (prepaidOnline ? 'completed' : 'ready')
                     }).eq('id', orderId);
                   }
 
