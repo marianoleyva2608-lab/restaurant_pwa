@@ -546,8 +546,28 @@ class PrinterLedsRowState extends State<PrinterLedsRow> {
         final ledRow = Wrap(
           spacing: 20,
           runSpacing: 10,
-          children: _devices.map((d) {
-            final label = d['host']?.toString() ?? '?';
+          // Solo las Pis de esta sucursal: los hostnames de Tailscale son
+          // "raspN-<sucursal>-<área>" (ej. rasp6-maravillas-cocina).
+          children: _devices.where((d) {
+            final host = d['host']?.toString().toLowerCase() ?? '';
+            final branch = Globals.currentBranch
+                .toLowerCase()
+                .replaceFirst('sucursal', '')
+                .trim();
+            return branch.isNotEmpty && host.contains(branch);
+          }).map((d) {
+            final host = d['host']?.toString() ?? '?';
+            // "rasp6-maravillas-cocina" → "Cocina"
+            final parts = host.split('-');
+            final area = parts.length >= 3 ? parts.sublist(2).join(' ') : host;
+            const names = {
+              'bebidas': 'Bebidas',
+              'linea': 'Línea',
+              'cocina': 'Cocina',
+              'togo': 'Para Llevar',
+              'cuenta': 'Caja/Cuenta',
+            };
+            final label = names[area.toLowerCase()] ?? area;
             const icon = Icons.print;
             final isOnline = d['online'] == true;
 
