@@ -198,6 +198,33 @@ class _AdminViewState extends State<AdminView> {
                     backgroundColor: Colors.red));
                 return;
               }
+              // Evita abrir la caja dos veces el mismo día en la sucursal
+              // (se duplicaba el fondo inicial).
+              try {
+                final hoy = DateTime(DateTime.now().year, DateTime.now().month,
+                        DateTime.now().day)
+                    .toUtc()
+                    .toIso8601String();
+                final ya = await _supabase
+                    .from('cash_movements')
+                    .select('amount')
+                    .eq('branch_name', Globals.currentBranch)
+                    .eq('category', 'apertura')
+                    .gte('created_at', hoy)
+                    .limit(1);
+                if ((ya as List).isNotEmpty) {
+                  if (ctx.mounted) {
+                    final messenger = ScaffoldMessenger.of(ctx);
+                    Navigator.pop(ctx);
+                    messenger.showSnackBar(SnackBar(
+                      content: Text(
+                          'La caja ya se abrió hoy con \$${ya.first['amount']}. No se registró otra vez.'),
+                      backgroundColor: Colors.orange,
+                    ));
+                  }
+                  return;
+                }
+              } catch (_) {}
               try {
                 await _supabase.from('cash_movements').insert({
                   'type': 'entrada',
