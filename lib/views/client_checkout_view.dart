@@ -87,7 +87,12 @@ class _ClientCheckoutViewState extends State<ClientCheckoutView> {
     final double finalTotal = cart.totalAmount;
     final items = cart.items.values
         .map((it) => {
-              'nombre': it.dish.name,
+              // El envío (Envío FLASH) se incluye como un renglón más del
+              // ticket por correo; los platillos llevan su detalle.
+              'nombre': it.guisados.isEmpty ||
+                      it.dish.id == CartProvider.deliveryFeeId
+                  ? it.dish.name
+                  : '${it.dish.name} (${it.guisados.join(', ')})',
               'precio': it.dish.price,
               'cantidad': it.quantity,
             })
@@ -831,7 +836,12 @@ class _ClientCheckoutViewState extends State<ClientCheckoutView> {
     final double finalTotal = cart.totalAmount;
     final items = cart.items.values
         .map((it) => {
-              'nombre': it.dish.name,
+              // El envío (Envío FLASH) se incluye como un renglón más del
+              // ticket por correo; los platillos llevan su detalle.
+              'nombre': it.guisados.isEmpty ||
+                      it.dish.id == CartProvider.deliveryFeeId
+                  ? it.dish.name
+                  : '${it.dish.name} (${it.guisados.join(', ')})',
               'precio': it.dish.price,
               'cantidad': it.quantity,
             })

@@ -254,13 +254,20 @@ class _TicketViewState extends State<TicketView> {
   }
 
   Widget _buildItemRow(Map<String, dynamic> it) {
-    final rawName = (it['dishes']?['name'] as String?) ?? '(sin nombre)';
+    // El cargo de envío no es platillo (dish null): se muestra como
+    // "Envío FLASH" con su precio, sin renglón de guisados.
+    final guisadosRaw = _parseGuisados(it['guisados_selected']);
+    final isEnvio = it['dishes'] == null &&
+        guisadosRaw.any((g) => g.toLowerCase().contains('flash'));
+    final rawName = isEnvio
+        ? 'Envío FLASH'
+        : ((it['dishes']?['name'] as String?) ?? '(sin nombre)');
     final parsed = _parseSize(rawName);
     final qty = (it['quantity'] as num?)?.toInt() ?? 1;
     final line = parsed.fraction.isNotEmpty
         ? '${qty}x${parsed.fraction} ${parsed.cleanName}'
         : '${qty}x ${parsed.cleanName}';
-    final guisados = _parseGuisados(it['guisados_selected']);
+    final guisados = isEnvio ? const <String>[] : guisadosRaw;
     final price = (it['price_at_time'] as num?)?.toDouble() ?? 0;
     final subtotal = price * qty;
     return Padding(
