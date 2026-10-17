@@ -9,6 +9,12 @@ class Globals {
   /// true mientras un CLIENTE está pidiendo desde su celular (ClientMenuView).
   /// Oculta opciones internas: cortesías y refresco de vidrio.
   static bool isClientMode = false;
+
+  /// true cuando la página se abrió con el enlace de CLIENTE (/#/client o
+  /// /#/ticket/...). En ese caso nunca se muestran los paneles internos
+  /// (Mesero, Caja, Admin, Cocina): cualquier ruta interna lleva al panel
+  /// de pedidos del cliente, aunque presione "atrás".
+  static bool clientOnly = false;
   static List<String> branches = ['Sucursal Maravillas', 'Sucursal Pocitos'];
 
   /// Cocina Especializada por sucursal (map branch→bool). Antes era un solo

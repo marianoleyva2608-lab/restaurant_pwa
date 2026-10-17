@@ -25,6 +25,14 @@ const bool kKioskoMesero =
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Enlace de cliente: bloquear los paneles internos en esta sesión.
+  if (kIsWeb) {
+    final frag = Uri.base.fragment;
+    if (frag.startsWith('/client') || frag.startsWith('/ticket')) {
+      Globals.clientOnly = true;
+    }
+  }
+
   // En modo kiosko en Android: pantalla completa inmersiva y bloqueo de
   // rotación a horizontal/vertical natural del tablet.
   if (kKioskoMesero && !kIsWeb) {
@@ -104,20 +112,33 @@ class RestaurantApp extends StatelessWidget {
         iconTheme: const IconThemeData(color: Color(0xFFFF6D00)),
       ),
       initialRoute: '/',
+      // Si se entró con el enlace de cliente, toda ruta interna muestra el
+      // panel de pedidos del cliente (no se puede llegar a los demás paneles).
       routes: {
-        '/': (context) => SubscriptionGate(
-              child: kKioskoMesero
-                  ? const MeseroLoginView()
-                  : const RoleSelectionView(),
-            ),
+        '/': (context) => Globals.clientOnly
+            ? const ClientHomeView()
+            : SubscriptionGate(
+                child: kKioskoMesero
+                    ? const MeseroLoginView()
+                    : const RoleSelectionView(),
+              ),
         '/client': (context) => const ClientHomeView(),
-        '/admin': (context) => const AdminView(),
-        '/comandas': (context) => const ComandasView(),
-        '/cocina': (context) => const KitchenView(),
-        '/cocina-llevar': (context) => const KitchenView(isTakeoutOnly: true),
-        '/barra': (context) => const KitchenView(isDrinksOnly: true),
-        '/ventas': (context) => const ReportsView(),
-        '/mesero': (context) => const MeseroLoginView(),
+        '/admin': (context) =>
+            Globals.clientOnly ? const ClientHomeView() : const AdminView(),
+        '/comandas': (context) =>
+            Globals.clientOnly ? const ClientHomeView() : const ComandasView(),
+        '/cocina': (context) =>
+            Globals.clientOnly ? const ClientHomeView() : const KitchenView(),
+        '/cocina-llevar': (context) => Globals.clientOnly
+            ? const ClientHomeView()
+            : const KitchenView(isTakeoutOnly: true),
+        '/barra': (context) => Globals.clientOnly
+            ? const ClientHomeView()
+            : const KitchenView(isDrinksOnly: true),
+        '/ventas': (context) =>
+            Globals.clientOnly ? const ClientHomeView() : const ReportsView(),
+        '/mesero': (context) =>
+            Globals.clientOnly ? const ClientHomeView() : const MeseroLoginView(),
       },
       // Maneja rutas dinámicas tipo /{sucursal}/mesero y /ticket/{orderId}
       // Ejemplo: /#/Maravillas/mesero → branch "Sucursal Maravillas"
@@ -130,6 +151,12 @@ class RestaurantApp extends StatelessWidget {
           final orderId = Uri.decodeComponent(segments.last);
           return MaterialPageRoute(
             builder: (_) => TicketView(orderId: orderId),
+            settings: settings,
+          );
+        }
+        if (Globals.clientOnly) {
+          return MaterialPageRoute(
+            builder: (_) => const ClientHomeView(),
             settings: settings,
           );
         }
