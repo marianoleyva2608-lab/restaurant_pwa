@@ -103,7 +103,7 @@ class _ClientCheckoutViewState extends State<ClientCheckoutView> {
         return StatefulBuilder(
           builder: (ctx, setDialogState) => AlertDialog(
             backgroundColor: const Color(0xFFFAF1DE),
-            title: const Text('Pago con Clip',
+            title: const Text('Pago con tarjeta',
                 style: TextStyle(color: Color(0xFF3D2E1A))),
             content: SizedBox(
               width: 420,
@@ -660,7 +660,7 @@ class _ClientCheckoutViewState extends State<ClientCheckoutView> {
                             children: [
                               Icon(Icons.contactless, color: Color(0xFFFC4C02), size: 26),
                               SizedBox(width: 12),
-                              Text('Pago con Clip',
+                              Text('Pago con tarjeta',
                                   style: TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.bold,
@@ -686,27 +686,14 @@ class _ClientCheckoutViewState extends State<ClientCheckoutView> {
                                 ? const SizedBox(height: 22, width: 22, child: CircularProgressIndicator(color: Color(0xFFFAF1DE), strokeWidth: 2))
                                 : const Icon(Icons.contactless, color: Color(0xFFFAF1DE)),
                             label: Text(
-                              _isSubmitting ? 'Procesando...' : 'Pagar con Clip',
-                              style: TextStyle(fontSize: isMobile ? 16 : 18, fontWeight: FontWeight.bold, color: Color(0xFFFF6D00)),
+                              _isSubmitting ? 'Procesando...' : 'Pagar con tarjeta',
+                              style: TextStyle(fontSize: isMobile ? 16 : 18, fontWeight: FontWeight.bold, color: Color(0xFFFFFFFF)),
                             ),
                             style: ElevatedButton.styleFrom(
                               minimumSize: const Size.fromHeight(56),
                               backgroundColor: const Color(0xFFFC4C02),
                               foregroundColor: Color(0xFFFAF1DE),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          OutlinedButton.icon(
-                            onPressed: _isSubmitting ? null : () => _simularPagoDemo(cart),
-                            icon: const Icon(Icons.science_outlined, size: 18),
-                            label: const Text('Modo Demo (simular pago aprobado)',
-                                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                            style: OutlinedButton.styleFrom(
-                              minimumSize: const Size.fromHeight(44),
-                              foregroundColor: Colors.amber,
-                              side: const BorderSide(color: Colors.amber, width: 1.2),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                             ),
                           ),
                         ],
@@ -721,6 +708,7 @@ class _ClientCheckoutViewState extends State<ClientCheckoutView> {
 
   /// Simula un pago aprobado sin llamar a Clip — útil para probar el flujo
   /// de orden + cocina + ticket sin depender del SDK de pago.
+  // ignore: unused_element
   Future<void> _simularPagoDemo(CartProvider cart) async {
     if (cart.items.isEmpty) return;
     if (widget.orderType == 'delivery' &&
