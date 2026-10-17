@@ -327,9 +327,10 @@ function fmtDateTime(ts) {
 function parseCustomerName(raw) {
   if (!raw) return { name: '', pago: '', dir: '', tel: '' };
   const out = { name: '', pago: '', dir: '', tel: '' };
-  // name = todo antes del primer paréntesis o guion
-  const m = raw.match(/^([^()\-]+)/);
-  out.name = (m ? m[1] : raw).trim();
+  // name = todo antes de "(Pago: ...)", " - DIR:" o " - TEL:". Se permiten
+  // guiones dentro del nombre ("Uber - Luis", "Didi - 7").
+  const cut = raw.search(/\s*\(Pago:|\s+-\s*DIR:|\s+-\s*TEL:/i);
+  out.name = (cut >= 0 ? raw.slice(0, cut) : raw).trim();
   const pago = raw.match(/\(Pago:\s*([^)]+)\)/i);
   if (pago) out.pago = pago[1].trim();
   const dir = raw.match(/-\s*DIR:\s*([^-]+?)(?:\s*-\s*TEL:|$)/i);
@@ -586,6 +587,16 @@ function appendTicket(printer, kind, order, items) {
   // anteponemos "Sucursal " porque salía duplicado ("Sucursal Sucursal
   // Maravillas").
   if (order.branch_name) printer.println(order.branch_name);
+  // To Go / Domicilio: el NOMBRE del cliente en grande, para llamar al
+  // cliente o identificar la bolsa.
+  if (cust.name && orderTypeRaw && orderTypeRaw !== 'dine_in') {
+    printer.newLine();
+    printer.setTextDoubleHeight();
+    printer.bold(true);
+    printer.println(cust.name.toUpperCase());
+    printer.setTextNormal();
+    printer.bold(false);
+  }
   printer.drawLine();
 
   // ── Tipo + fecha + cliente
