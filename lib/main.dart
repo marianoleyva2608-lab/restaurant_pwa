@@ -28,7 +28,12 @@ void main() async {
   // Enlace de cliente: bloquear los paneles internos en esta sesión.
   if (kIsWeb) {
     final frag = Uri.base.fragment;
-    if (frag.startsWith('/client') || frag.startsWith('/ticket')) {
+    // Dirección exclusiva de clientes (p.ej. pedidos-gorditas.…): siempre
+    // es solo el panel de pedidos, aunque recarguen o cambien la ruta.
+    final host = Uri.base.host.toLowerCase();
+    if (host.contains('pedidos') ||
+        frag.startsWith('/client') ||
+        frag.startsWith('/ticket')) {
       Globals.clientOnly = true;
     }
   }
