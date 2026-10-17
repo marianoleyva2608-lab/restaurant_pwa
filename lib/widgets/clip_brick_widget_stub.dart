@@ -28,6 +28,10 @@ class ClipBrickWidget extends StatelessWidget {
     
   }
 
+  static void showLoading([String msg = 'Procesando pago…']) {}
+
+  static void hideLoading() {}
+
   @override
   Widget build(BuildContext context) {
     return Container(

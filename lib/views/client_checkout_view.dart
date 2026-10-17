@@ -130,6 +130,7 @@ class _ClientCheckoutViewState extends State<ClientCheckoutView> {
                     onSubmit: (data) async {
                       final token = data['token_id']?.toString() ?? '';
                       if (token.isEmpty) {
+                        ClipBrickWidget.hideLoading();
                         setDialogState(() {
                           errorMsg = 'No se recibió token de la tarjeta';
                         });
@@ -180,6 +181,7 @@ class _ClientCheckoutViewState extends State<ClientCheckoutView> {
                       if (ctx.mounted) Navigator.pop(ctx);
                     },
                     onError: (err) {
+                      ClipBrickWidget.hideLoading();
                       setDialogState(() {
                         errorMsg = err;
                       });
@@ -228,8 +230,12 @@ class _ClientCheckoutViewState extends State<ClientCheckoutView> {
 
     if (mounted) setState(() => _clipDialogOpen = false);
 
-    if (dismissed || result == null) return;
+    if (dismissed || result == null) {
+      ClipBrickWidget.hideLoading();
+      return;
+    }
     if (!result!.approved) {
+      ClipBrickWidget.hideLoading();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('Pago rechazado: ${result!.errorMessage ?? result!.detail ?? "Inténtalo de nuevo"}'),
@@ -454,27 +460,29 @@ class _ClientCheckoutViewState extends State<ClientCheckoutView> {
         cart.clearCart(keepDeliveryFee: false);
 
         final ticketUrl = _buildTicketUrl(orderId);
+        // ignore: unused_local_variable
         final subtitle = widget.orderType == 'dine_in'
             ? 'Tu orden para la mesa ${widget.tableNumber} ha sido enviada a producción.\n\nMétodo de pago: $_paymentMethod.'
             : widget.orderType == 'delivery'
                 ? 'Tu pedido a domicilio está en camino de preparación.\n\nTotal a pagar (con envío): \$${finalTotal.toStringAsFixed(2)}.'
                 : 'Tu pedido To Go está en producción.\n\nMétodo de pago: $_paymentMethod.\nTotal a pagar: \$${finalTotal.toStringAsFixed(2)}';
 
+        // Al terminar de cobrar: quitar el círculo de carga y mostrar solo
+        // el QR del ticket.
+        ClipBrickWidget.hideLoading();
         await showDialog(
           context: context,
           barrierDismissible: false,
           builder: (context) => AlertDialog(
-            title: const Text('¡Orden Enviada!', style: TextStyle(color: Colors.green)),
+            title: const Text('¡Pago aprobado!',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
             content: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(subtitle, style: const TextStyle(fontSize: 16)),
-                  const SizedBox(height: 16),
-                  const Divider(),
-                  const SizedBox(height: 8),
                   const Text(
-                    'Escanea para ver tu ticket',
+                    'Tu ticket',
                     style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 12),
@@ -488,7 +496,7 @@ class _ClientCheckoutViewState extends State<ClientCheckoutView> {
                     child: QrImageView(
                       data: ticketUrl,
                       version: QrVersions.auto,
-                      size: 180,
+                      size: 240,
                       backgroundColor: Colors.white,
                     ),
                   ),
@@ -513,6 +521,7 @@ class _ClientCheckoutViewState extends State<ClientCheckoutView> {
         );
       }
     } catch (e) {
+      ClipBrickWidget.hideLoading();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al procesar la orden: $e')));
       }

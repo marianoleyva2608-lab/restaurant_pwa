@@ -31,6 +31,15 @@ class ClipBrickWidget extends StatefulWidget {
     js.context.callMethod('clipHide3DS', []);
   }
 
+  /// Círculo de carga a pantalla completa mientras se cobra.
+  static void showLoading([String msg = 'Procesando pago…']) {
+    js.context.callMethod('clipShowLoading', [msg]);
+  }
+
+  static void hideLoading() {
+    js.context.callMethod('clipHideLoading', []);
+  }
+
   @override
   State<ClipBrickWidget> createState() => _ClipBrickWidgetState();
 }
