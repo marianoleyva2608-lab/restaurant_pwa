@@ -537,10 +537,25 @@ class _ClientCheckoutViewState extends State<ClientCheckoutView> {
       ),
       body: items.isEmpty
           ? const Center(child: Text('No hay artículos en tu pedido.', style: TextStyle(color: Colors.grey)))
-          : Column(
+          // Todo se desplaza junto: primero la lista COMPLETA de lo que el
+          // cliente se lleva (para revisarla) y abajo los datos y el pago.
+          : ListView(
               children: [
-                Expanded(
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                  child: Text(
+                    'Revisa tu pedido (${cart.itemCount} ${cart.itemCount == 1 ? 'producto' : 'productos'})',
+                    style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF3D2E1A)),
+                  ),
+                ),
+                Padding(
+                  padding: EdgeInsets.zero,
                   child: ListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
                     padding: const EdgeInsets.all(16),
                     itemCount: items.length,
                     itemBuilder: (context, index) {
