@@ -6,6 +6,12 @@ import 'admin_view.dart';
 import '../globals.dart';
 import '../utils/app_updater.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:qr_flutter/qr_flutter.dart';
+
+/// Enlace público para que los clientes hagan su pedido (To Go / Domicilio).
+/// Fijo para que funcione igual en la web y en las tablets (APK).
+const String kClientOrderUrl =
+    'https://restaurant-pwa.c4o2yg.easypanel.host/#/client';
 
 class RoleSelectionView extends StatefulWidget {
   const RoleSelectionView({super.key});
@@ -260,6 +266,106 @@ class _RoleSelectionViewState extends State<RoleSelectionView> {
     );
   }
 
+  void _openClientOrder(BuildContext context) {
+    Navigator.push(
+        context, MaterialPageRoute(builder: (_) => const ClientHomeView()));
+  }
+
+  void _showClientQr(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFFFAF1DE),
+        title: const Text('Escanea y haz tu pedido',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+                color: Color(0xFFFF6D00), fontWeight: FontWeight.w900)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              color: Colors.white,
+              padding: const EdgeInsets.all(12),
+              child: QrImageView(
+                data: kClientOrderUrl,
+                version: QrVersions.auto,
+                size: 260,
+                backgroundColor: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text('Para llevar  •  Servicio a domicilio',
+                style: TextStyle(fontWeight: FontWeight.w600)),
+            const SizedBox(height: 4),
+            const Text('Paga con tarjeta desde tu celular',
+                style: TextStyle(color: Color(0xFFFF6D00))),
+          ],
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cerrar')),
+        ],
+      ),
+    );
+  }
+
+  /// Bloque "Pide en línea": botón para hacer el pedido aquí mismo y botón
+  /// para mostrar el QR al cliente. Va en la página principal y en tablets.
+  Widget _clientOrderBlock(BuildContext context, bool isMobile) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFF6D00).withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFFF6D00).withValues(alpha: 0.35)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text('¿Quieres pedir?',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                  fontSize: isMobile ? 16 : 18,
+                  fontWeight: FontWeight.bold,
+                  color: const Color(0xFF3D2E1A))),
+          const SizedBox(height: 4),
+          const Text('Para llevar o a domicilio, paga con tarjeta',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 13, color: Color(0xFFA08F70))),
+          const SizedBox(height: 12),
+          ElevatedButton.icon(
+            onPressed: () => _openClientOrder(context),
+            icon: const Icon(Icons.shopping_bag),
+            label: Text('HAZ TU PEDIDO',
+                style: TextStyle(
+                    fontSize: isMobile ? 16 : 18, fontWeight: FontWeight.bold)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFFF6D00),
+              foregroundColor: Colors.white,
+              minimumSize: const Size(double.infinity, 56),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16)),
+            ),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: () => _showClientQr(context),
+            icon: const Icon(Icons.qr_code),
+            label: const Text('Mostrar QR para pedir desde el celular'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: const Color(0xFFFF6D00),
+              side: const BorderSide(color: Color(0xFFFF6D00)),
+              minimumSize: const Size(double.infinity, 48),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
@@ -287,6 +393,8 @@ class _RoleSelectionViewState extends State<RoleSelectionView> {
                 
                 // PHASE 1: SELECT BRANCH
                 if (!_entered) ...[
+                  _clientOrderBlock(context, isMobile),
+                  const SizedBox(height: 32),
                   Text('¿En qué sucursal te encuentras?', style: TextStyle(color: const Color(0xFFA08F70), fontSize: isMobile ? 14 : 16)),
                   const SizedBox(height: 16),
                   Container(
@@ -383,33 +491,8 @@ class _RoleSelectionViewState extends State<RoleSelectionView> {
                     },
                   ),
                   const SizedBox(height: 32),
-                  TextButton.icon(
-                    onPressed: () {
-                      final url = '${Uri.base.origin}/#/client';
-                      final encodedUrl = Uri.encodeComponent(url);
-                      showDialog(
-                        context: context,
-                        builder: (context) => AlertDialog(
-                          title: const Text('QR de la Sucursal', textAlign: TextAlign.center),
-                          content: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Container(
-                                color: Color(0xFFFAF1DE),
-                                padding: const EdgeInsets.all(16),
-                                child: Image.network('https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=$encodedUrl', width: 250, height: 250),
-                              ),
-                              const SizedBox(height: 16),
-                              Text(url, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10)),
-                            ],
-                          ),
-                          actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cerrar'))],
-                        ),
-                      );
-                    },
-                    icon: const Icon(Icons.qr_code, color: Color(0xFFA08F70)),
-                    label: const Text('Mostrar QR de la App', style: TextStyle(color: Color(0xFFA08F70))),
-                  ),
+                  _clientOrderBlock(context, isMobile),
+                  const SizedBox(height: 16),
                   const SizedBox(height: 8),
                   const UpdateAppButton(compact: true),
                 ],
