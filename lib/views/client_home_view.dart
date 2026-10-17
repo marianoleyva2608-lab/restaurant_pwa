@@ -1,4 +1,6 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -19,6 +21,150 @@ class _ClientHomeViewState extends State<ClientHomeView> {
   final nameController = TextEditingController();
   final _supabase = Supabase.instance.client;
 
+  // Sucursal elegida automáticamente por cercanía (ubicación del cliente).
+  // Si el cliente no da permiso, la elige él a mano.
+  String? _branch;
+  double? _branchKm;
+  bool _locating = true;
+  bool _manualPick = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _detectNearestBranch();
+  }
+
+  static double _haversineKm(double lat1, double lon1, double lat2, double lon2) {
+    const r = 6371.0;
+    double rad(double d) => d * math.pi / 180;
+    final dLat = rad(lat2 - lat1);
+    final dLon = rad(lon2 - lon1);
+    final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(rad(lat1)) * math.cos(rad(lat2)) *
+            math.sin(dLon / 2) * math.sin(dLon / 2);
+    return 2 * r * math.asin(math.sqrt(a));
+  }
+
+  Future<void> _detectNearestBranch() async {
+    setState(() => _locating = true);
+    try {
+      var perm = await Geolocator.checkPermission();
+      if (perm == LocationPermission.denied) {
+        perm = await Geolocator.requestPermission();
+      }
+      if (perm == LocationPermission.denied ||
+          perm == LocationPermission.deniedForever) {
+        throw 'sin permiso';
+      }
+      final pos = await Geolocator.getCurrentPosition(
+        locationSettings:
+            const LocationSettings(accuracy: LocationAccuracy.medium),
+      ).timeout(const Duration(seconds: 15));
+      String? best;
+      double bestKm = double.infinity;
+      kBranchCoords.forEach((name, c) {
+        final km = _haversineKm(pos.latitude, pos.longitude, c.lat, c.lon);
+        if (km < bestKm) {
+          bestKm = km;
+          best = name;
+        }
+      });
+      if (!mounted) return;
+      setState(() {
+        _branch = best;
+        _branchKm = bestKm;
+        _manualPick = false;
+        _locating = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _locating = false;
+        _manualPick = true; // que el cliente elija
+      });
+    }
+  }
+
+  /// Aplica la sucursal elegida antes de entrar al menú/checkout.
+  /// Solo en memoria: no toca la sucursal guardada de las tablets.
+  bool _applyBranch() {
+    if (_branch == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Elige la sucursal de la que quieres pedir')));
+      return false;
+    }
+    Globals.currentBranch = _branch!;
+    return true;
+  }
+
+  Widget _branchCard() {
+    final primary = Theme.of(context).colorScheme.primary;
+    if (_locating) {
+      return const Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2)),
+          SizedBox(width: 10),
+          Text('Buscando la sucursal más cercana…',
+              style: TextStyle(color: Colors.grey)),
+        ],
+      );
+    }
+    if (!_manualPick && _branch != null) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: primary.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: primary.withValues(alpha: 0.4)),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.store, color: primary),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                '${_branch!}${_branchKm != null ? ' · a ${_branchKm!.toStringAsFixed(1)} km' : ''}',
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+            TextButton(
+              onPressed: () => setState(() => _manualPick = true),
+              child: const Text('Cambiar'),
+            ),
+          ],
+        ),
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Text('¿De qué sucursal quieres pedir?',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.grey)),
+        const SizedBox(height: 8),
+        Wrap(
+          alignment: WrapAlignment.center,
+          spacing: 8,
+          children: kBranchCoords.keys
+              .map((b) => ChoiceChip(
+                    label: Text(b),
+                    selected: _branch == b,
+                    onSelected: (_) => setState(() {
+                      _branch = b;
+                      _branchKm = null;
+                      _manualPick = false;
+                    }),
+                  ))
+              .toList(),
+        ),
+      ],
+    );
+  }
+
   void _navigateToMenu({
     required String type,
     String? tableId,
@@ -31,6 +177,7 @@ class _ClientHomeViewState extends State<ClientHomeView> {
       );
       return;
     }
+    if (!_applyBranch()) return;
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -157,6 +304,7 @@ class _ClientHomeViewState extends State<ClientHomeView> {
   }
 
   Future<void> _onDeliveryTap() async {
+    if (!_applyBranch()) return;
     final prefs = await SharedPreferences.getInstance();
     final savedName = prefs.getString('delivery_name') ?? '';
     final savedAddress = prefs.getString('delivery_address') ?? '';
@@ -358,6 +506,8 @@ class _ClientHomeViewState extends State<ClientHomeView> {
                   ),
                   onSubmitted: (_) => _navigateToMenu(type: 'takeout'),
                 ),
+                const SizedBox(height: 16),
+                _branchCard(),
                 const SizedBox(height: 24),
                 ElevatedButton(
                   onPressed: () => _navigateToMenu(type: 'takeout'),
