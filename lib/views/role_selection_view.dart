@@ -393,8 +393,6 @@ class _RoleSelectionViewState extends State<RoleSelectionView> {
                 
                 // PHASE 1: SELECT BRANCH
                 if (!_entered) ...[
-                  _clientOrderBlock(context, isMobile),
-                  const SizedBox(height: 32),
                   Text('¿En qué sucursal te encuentras?', style: TextStyle(color: const Color(0xFFA08F70), fontSize: isMobile ? 14 : 16)),
                   const SizedBox(height: 16),
                   Container(
