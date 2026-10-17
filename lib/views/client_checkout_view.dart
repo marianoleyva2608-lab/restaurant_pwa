@@ -44,7 +44,7 @@ class _ClientCheckoutViewState extends State<ClientCheckoutView> {
   @override
   void initState() {
     super.initState();
-    if (widget.orderType == 'delivery') {
+    if (widget.orderType == 'delivery' || widget.orderType == 'takeout') {
       _loadSavedDeliveryInfo();
     }
   }
@@ -257,6 +257,12 @@ class _ClientCheckoutViewState extends State<ClientCheckoutView> {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Por favor, ingresa tu dirección de entrega')));
       return;
     }
+    if ((widget.orderType == 'takeout' || widget.orderType == 'delivery') &&
+        _phoneController.text.replaceAll(RegExp(r'\D'), '').length < 10) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Ingresa tu teléfono a 10 dígitos para avisarte de tu pedido')));
+      return;
+    }
     if (_paymentMethod == 'Clip') {
       await _payWithClip(cart);
       return;
@@ -309,6 +315,13 @@ class _ClientCheckoutViewState extends State<ClientCheckoutView> {
           prefs.setString('delivery_address', _addressController.text.trim());
           prefs.setString('delivery_phone', phone);
         });
+      } else if (widget.orderType == 'takeout') {
+        final phone = _phoneController.text.trim();
+        if (phone.isNotEmpty) {
+          combinedCustomerName += ' - TEL: $phone';
+        }
+        SharedPreferences.getInstance()
+            .then((prefs) => prefs.setString('delivery_phone', phone));
       }
 
       String orderId;
@@ -603,11 +616,14 @@ class _ClientCheckoutViewState extends State<ClientCheckoutView> {
                             ),
                           ),
                           const SizedBox(height: 12),
+                        ],
+                        if (widget.orderType == 'delivery' || widget.orderType == 'takeout') ...[
                           TextField(
                             controller: _phoneController,
                             keyboardType: TextInputType.phone,
                             decoration: InputDecoration(
-                              hintText: 'Teléfono (opcional)',
+                              labelText: 'Teléfono (obligatorio)',
+                              hintText: '10 dígitos',
                               prefixIcon: const Icon(Icons.phone),
                               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                             ),

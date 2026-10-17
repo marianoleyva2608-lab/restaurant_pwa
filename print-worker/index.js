@@ -618,7 +618,14 @@ function appendTicket(printer, kind, order, items) {
     printer.println('Direccion:');
     printer.println(`  ${cust.dir}`);
   }
-  if (cust.pago) printer.println(`Pago: ${cust.pago}`);
+  if (cust.pago) {
+    // Pedido del cliente pagado en línea con Clip → ya está cobrado.
+    const pagoLabel = /clip/i.test(cust.pago) ? 'TARJETA - YA PAGADO' : cust.pago;
+    printer.println(`Pago: ${pagoLabel}`);
+  }
+  if (orderTypeRaw && orderTypeRaw !== 'dine_in' && order.total_amount != null) {
+    printer.println(`Total: $${Number(order.total_amount).toFixed(2)}`);
+  }
   printer.drawLine();
 
   // ── Ítems (sin precios — esto es ticket de producción, no recibo)
