@@ -418,7 +418,7 @@ async function fetchOrder(orderId) {
     .select(`
       id, branch_name, order_type, customer_name, total_amount,
       table_id, waiter_id, created_at, payment_method, daily_folio,
-      sent_to_kitchen_at, printed_at,
+      sent_to_kitchen_at, printed_at, status, delivery_platform,
       cuenta_requested_at, caja_printed_at,
       restaurant_tables ( table_number ),
       waiters ( name )
@@ -553,6 +553,30 @@ function orderTypeLabel(raw) {
   return ORDER_TYPE_LABELS[key] || (raw || 'PEDIDO').toString().toUpperCase();
 }
 
+// ¿La orden ya está pagada? Usado en tickets To Go / Domicilio.
+//   - Cliente pagó en línea con Clip ("(Pago: Clip)")      → pagado
+//   - Pedido de Uber / DiDi (lo cobra la plataforma)        → pagado
+//   - Caja ya la cobró (status completed o payment_method)  → pagado
+//   - Cualquier otro caso                                   → POR COBRAR
+function paymentStatus(order, cust) {
+  const pago = String(cust?.pago || '').toLowerCase();
+  const pm = String(order?.payment_method || '').toLowerCase();
+  const plat = String(order?.delivery_platform || '').toLowerCase();
+  const name = String(order?.customer_name || '').toLowerCase();
+  if (pago.includes('clip') || pm === 'clip') {
+    return { pagado: true, metodo: 'Tarjeta en linea' };
+  }
+  if (plat === 'uber' || plat === 'didi' || /^(uber|didi)\b/.test(name)) {
+    const p = plat || (name.startsWith('uber') ? 'uber' : 'didi');
+    return { pagado: true, metodo: p === 'uber' ? 'Uber' : 'DiDi' };
+  }
+  const labels = { cash: 'Efectivo', card: 'Tarjeta', mixed: 'Efectivo y tarjeta', openpay: 'Transferencia', credito: 'Credito' };
+  if (order?.status === 'completed' || pm) {
+    return { pagado: true, metodo: labels[pm] || pm || 'Caja' };
+  }
+  return { pagado: false, metodo: cust?.pago || 'Al recoger / entregar' };
+}
+
 function appendTicket(printer, kind, order, items) {
   const cust = parseCustomerName(order.customer_name);
   const tipo = orderTypeLabel(order.order_type);
@@ -618,13 +642,23 @@ function appendTicket(printer, kind, order, items) {
     printer.println('Direccion:');
     printer.println(`  ${cust.dir}`);
   }
-  if (cust.pago) {
-    // Pedido del cliente pagado en línea con Clip → ya está cobrado.
-    const pagoLabel = /clip/i.test(cust.pago) ? 'TARJETA - YA PAGADO' : cust.pago;
-    printer.println(`Pago: ${pagoLabel}`);
-  }
-  if (orderTypeRaw && orderTypeRaw !== 'dine_in' && order.total_amount != null) {
-    printer.println(`Total: $${Number(order.total_amount).toFixed(2)}`);
+  if (orderTypeRaw && orderTypeRaw !== 'dine_in') {
+    // To Go / Domicilio: siempre decir si YA ESTÁ PAGADO o si hay que
+    // COBRAR al entregar, para que nadie cobre doble ni se vaya sin pagar.
+    const pay = paymentStatus(order, cust);
+    printer.println(`Pago: ${pay.metodo}`);
+    if (order.total_amount != null) {
+      printer.println(`Total: $${Number(order.total_amount).toFixed(2)}`);
+    }
+    printer.alignCenter();
+    printer.setTextDoubleHeight();
+    printer.bold(true);
+    printer.println(pay.pagado ? '*** YA PAGADO ***' : '*** POR COBRAR ***');
+    printer.setTextNormal();
+    printer.bold(false);
+    printer.alignLeft();
+  } else if (cust.pago) {
+    printer.println(`Pago: ${cust.pago}`);
   }
   printer.drawLine();
 
