@@ -388,6 +388,38 @@ class _ClientCheckoutViewState extends State<ClientCheckoutView> {
 
       await _supabase.from('order_items').insert(orderItems);
 
+      // Pedido ya PAGADO con Clip → se manda a cocina de una vez (sin esperar
+      // aprobación del mesero). El print-worker solo imprime órdenes con
+      // sent_to_kitchen_at; se marca DESPUÉS de insertar los items para que
+      // el realtime UPDATE ya los encuentre. También se asigna folio del día
+      // (mismo criterio que order_summary.dart).
+      if (paymentMethodForDb == 'clip') {
+        try {
+          final now = DateTime.now();
+          final todayStart =
+              DateTime(now.year, now.month, now.day).toIso8601String();
+          final ord = await _supabase
+              .from('orders')
+              .select('branch_name, daily_folio')
+              .eq('id', orderId)
+              .maybeSingle();
+          final branch =
+              (ord?['branch_name'] as String?) ?? Globals.currentBranch;
+          final countRes = await _supabase
+              .from('orders')
+              .select('id')
+              .eq('branch_name', branch)
+              .gte('created_at', todayStart);
+          await _supabase.from('orders').update({
+            if (ord?['daily_folio'] == null)
+              'daily_folio': (countRes as List).length,
+            'sent_to_kitchen_at': DateTime.now().toUtc().toIso8601String(),
+          }).eq('id', orderId);
+        } catch (e) {
+          debugPrint('No se pudo mandar a cocina la orden $orderId: $e');
+        }
+      }
+
       if (widget.tableId != null) {
         await _supabase.from('restaurant_tables').update({'status': 'occupied'}).eq('id', widget.tableId as Object);
       }
