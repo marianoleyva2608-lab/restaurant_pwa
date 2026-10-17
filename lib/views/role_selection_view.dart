@@ -11,7 +11,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 /// Enlace público para que los clientes hagan su pedido (To Go / Domicilio).
 /// Fijo para que funcione igual en la web y en las tablets (APK).
 const String kClientOrderUrl =
-    'https://pedidos-gorditas.c4o2yg.easypanel.host/';
+    'https://pedidos-gorditas.c4o2yg.easypanel.host/#/client';
 
 class RoleSelectionView extends StatefulWidget {
   const RoleSelectionView({super.key});
