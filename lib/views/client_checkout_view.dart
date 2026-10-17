@@ -33,6 +33,8 @@ class _ClientCheckoutViewState extends State<ClientCheckoutView> {
   final _supabase = Supabase.instance.client;
   bool _isSubmitting = false;
   bool _clipDialogOpen = false;
+  // Paso 1: revisar el carrito. Paso 2: datos y pago con tarjeta.
+  bool _showPayment = false;
   final String _paymentMethod = 'Clip'; // único método disponible
   final _addressController = TextEditingController();
   final _phoneController = TextEditingController();
@@ -525,7 +527,7 @@ class _ClientCheckoutViewState extends State<ClientCheckoutView> {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text('Resumen y Pago'),
+        title: Text(_showPayment ? 'Pago' : 'Tu carrito'),
         leading: null,
         automaticallyImplyLeading: false,
         actions: [
@@ -541,6 +543,7 @@ class _ClientCheckoutViewState extends State<ClientCheckoutView> {
           // cliente se lleva (para revisarla) y abajo los datos y el pago.
           : ListView(
               children: [
+                if (!_showPayment) ...[
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
                   child: Text(
@@ -625,6 +628,52 @@ class _ClientCheckoutViewState extends State<ClientCheckoutView> {
                     },
                   ),
                 ),
+                // Total + botón para pasar al pago
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Total:',
+                              style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFFFF6D00))),
+                          Text('\$${cart.totalAmount.toStringAsFixed(2)}',
+                              style: const TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFFFF6D00))),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      ElevatedButton.icon(
+                        onPressed: () => setState(() => _showPayment = true),
+                        icon: const Icon(Icons.arrow_forward),
+                        label: const Text('Continuar al pago',
+                            style: TextStyle(
+                                fontSize: 18, fontWeight: FontWeight.bold)),
+                        style: ElevatedButton.styleFrom(
+                          minimumSize: const Size.fromHeight(56),
+                          backgroundColor: const Color(0xFFFC4C02),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16)),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('Seguir agregando productos'),
+                      ),
+                    ],
+                  ),
+                ),
+                ],
+                if (_showPayment)
                 Container(
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
@@ -636,6 +685,15 @@ class _ClientCheckoutViewState extends State<ClientCheckoutView> {
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: TextButton.icon(
+                            onPressed: () => setState(() => _showPayment = false),
+                            icon: const Icon(Icons.arrow_back),
+                            label: Text('Regresar al carrito (${cart.itemCount})'),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
                         if (widget.orderType == 'delivery') ...[
                           const Text('Dirección de Envío:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                           const SizedBox(height: 12),
