@@ -131,7 +131,12 @@ class _ClientMenuViewState extends State<ClientMenuView> {
           ? const Center(child: CircularProgressIndicator())
           : _dishes.isEmpty
               ? const Center(child: Text('El menú está vacío', style: TextStyle(color: Colors.grey)))
-              : MenuBrowser(dishes: _dishes),
+              // Espacio abajo para que el botón "Ir al carrito" no tape la
+              // última fila del menú.
+              : Padding(
+                  padding: EdgeInsets.only(bottom: cart.itemCount > 0 ? 80 : 0),
+                  child: MenuBrowser(dishes: _dishes),
+                ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       floatingActionButton: cart.itemCount > 0
           ? LayoutBuilder(
@@ -143,12 +148,13 @@ class _ClientMenuViewState extends State<ClientMenuView> {
                     width: double.infinity,
                     child: FloatingActionButton.extended(
                       onPressed: _openCheckout,
-                      backgroundColor: Theme.of(context).colorScheme.primary,
+                      backgroundColor: const Color(0xFFFF6D00),
+                      foregroundColor: Colors.white,
                       label: Text(
                         isMobile
                             ? 'Ir al carrito (${cart.itemCount}) · \$${cart.totalAmount.toStringAsFixed(2)}'
                             : 'Ir al carrito (${cart.itemCount}) - \$${cart.totalAmount.toStringAsFixed(2)}',
-                        style: TextStyle(color: Color(0xFFFF6D00), fontWeight: FontWeight.bold, fontSize: isMobile ? 14 : 16),
+                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: isMobile ? 15 : 16),
                       ),
                       icon: const Icon(Icons.shopping_cart, color: Color(0xFFFAF1DE)),
                     ),

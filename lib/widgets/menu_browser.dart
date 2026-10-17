@@ -13,6 +13,9 @@ class MenuBrowser extends StatefulWidget {
 }
 
 class _MenuBrowserState extends State<MenuBrowser> {
+  /// Último diálogo de platillo abierto desde el menú (para saber cuándo
+  /// terminó y regresar al cliente a donde estaba).
+  Future<void>? _pendingAction;
   String _selectedCategory = 'Todos';
   String? _selectedDrinkSubcat;
   String _searchQuery = '';
@@ -179,7 +182,7 @@ class _MenuBrowserState extends State<MenuBrowser> {
                 (n.startsWith('agua') && !n.contains('natural'));
           }, orElse: () => items.first);
         }
-        addDishToCart(context, rep);
+        _pendingAction = addDishToCart(context, rep);
         return true;
       }
       // Cafés, Alcohol y demás: diálogo consolidado para elegir el tipo.
@@ -213,7 +216,7 @@ class _MenuBrowserState extends State<MenuBrowser> {
         }
       }
       canonica ??= items.first;
-      addDishToCart(context, canonica.copyWith(name: 'Gordita'));
+      _pendingAction = addDishToCart(context, canonica.copyWith(name: 'Gordita'));
       return true;
     }
 
@@ -252,7 +255,7 @@ class _MenuBrowserState extends State<MenuBrowser> {
       if (orden != null && media != null) {
         addOrdenVariantToCart(context, orden, media);
       } else {
-        addDishToCart(context, orden ?? media!);
+        _pendingAction = addDishToCart(context, orden ?? media!);
       }
       return true;
     }
@@ -327,9 +330,19 @@ class _MenuBrowserState extends State<MenuBrowser> {
               const SizedBox(height: 2),
               for (final s in subcats) ...[
                 InkWell(
-                  onTap: () {
+                  onTap: () async {
                     Navigator.pop(sheetCtx);
+                    _pendingAction = null;
                     _triggerSingleCardAction(context, s.$1);
+                    // Cliente en su celular: al terminar de elegir la bebida,
+                    // regresar a la lista de Bebidas (no hasta el inicio).
+                    final pending = _pendingAction;
+                    if (Globals.isClientMode && pending != null) {
+                      await pending;
+                      if (mounted && context.mounted) {
+                        _showDrinkPickerSheet(context);
+                      }
+                    }
                   },
                   borderRadius: BorderRadius.circular(14),
                   child: Container(
