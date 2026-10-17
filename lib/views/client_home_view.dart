@@ -304,7 +304,11 @@ class _ClientHomeViewState extends State<ClientHomeView> {
   }
 
   Future<void> _onDeliveryTap() async {
-    if (!_applyBranch()) return;
+    // Domicilio: la sucursal se elige por la DIRECCIÓN DE ENTREGA (dentro
+    // del diálogo), no por dónde está el celular.
+    if (_branch != null) Globals.currentBranch = _branch!;
+    String? deliveryBranch;
+    double? deliveryBranchKm;
     final prefs = await SharedPreferences.getInstance();
     final savedName = prefs.getString('delivery_name') ?? '';
     final savedAddress = prefs.getString('delivery_address') ?? '';
@@ -385,16 +389,46 @@ class _ClientHomeViewState extends State<ClientHomeView> {
                 controller: phoneCtrl,
                 keyboardType: TextInputType.phone,
                 decoration: const InputDecoration(
-                  labelText: 'Teléfono (opcional)',
+                  labelText: 'Teléfono (obligatorio)',
+                  hintText: '10 dígitos',
                   prefixIcon: Icon(Icons.phone),
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFF6D00).withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.store, color: Color(0xFFFF6D00), size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        deliveryBranch == null
+                            ? 'Escribe tu dirección para elegir la sucursal más cercana'
+                            : 'Te lo enviamos desde $deliveryBranch'
+                                '${deliveryBranchKm != null ? ' (a ${deliveryBranchKm!.toStringAsFixed(1)} km)' : ''}',
+                        style: const TextStyle(
+                            fontSize: 13, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
               DeliveryFeeCalculator(
                 key: feeCalcKey,
                 destinationAddress: addressCtrl.text,
                 showGpsButton: false,
                 readOnly: true,
+                autoBranch: true,
+                onBranchChosen: (b, km) => setS(() {
+                  deliveryBranch = b;
+                  deliveryBranchKm = km;
+                }),
                 onChanged: (b) => deliveryFee = b,
                 onAddressDetected: (addr) {
                   addressCtrl.text = addr;
@@ -421,6 +455,32 @@ class _ClientHomeViewState extends State<ClientHomeView> {
                   ),
                 );
                 return;
+              }
+              if (phone.replaceAll(RegExp(r'\D'), '').length < 10) {
+                ScaffoldMessenger.of(ctx).showSnackBar(
+                  const SnackBar(
+                    content: Text('Ingresa tu teléfono a 10 dígitos'),
+                  ),
+                );
+                return;
+              }
+              if (deliveryBranch == null) {
+                ScaffoldMessenger.of(ctx).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                        'No pudimos ubicar tu dirección. Revísala o toca "Compartir ubicación".'),
+                  ),
+                );
+                return;
+              }
+              // La orden se manda a la sucursal más cercana a la entrega.
+              Globals.currentBranch = deliveryBranch!;
+              if (mounted) {
+                setState(() {
+                  _branch = deliveryBranch;
+                  _branchKm = deliveryBranchKm;
+                  _manualPick = false;
+                });
               }
               await prefs.setString('delivery_name', name);
               await prefs.setString('delivery_address', address);

@@ -43,6 +43,12 @@ class DeliveryFeeCalculator extends StatefulWidget {
   /// el desglose; lluvia y festivo se siguen detectando solos.
   final bool readOnly;
 
+  /// Pedido a domicilio del cliente: elegir sola la sucursal MÁS CERCANA a
+  /// la dirección de entrega (o a la ubicación compartida) y calcular el
+  /// envío desde ahí. Actualiza Globals.currentBranch y avisa al parent.
+  final bool autoBranch;
+  final void Function(String branch, double km)? onBranchChosen;
+
   const DeliveryFeeCalculator({
     super.key,
     required this.onChanged,
@@ -54,6 +60,8 @@ class DeliveryFeeCalculator extends StatefulWidget {
     this.initialHoliday = false,
     this.showGpsButton = true,
     this.readOnly = false,
+    this.autoBranch = false,
+    this.onBranchChosen,
   });
 
   @override
@@ -132,14 +140,45 @@ class DeliveryFeeCalculatorState extends State<DeliveryFeeCalculator> {
     });
   }
 
+  /// Elige la sucursal más cercana (línea recta) a unas coordenadas y la
+  /// deja como Globals.currentBranch. Devuelve sus coordenadas.
+  ({double lat, double lon})? _pickNearestBranch(double lat, double lon) {
+    String? best;
+    double bestKm = double.infinity;
+    kBranchCoords.forEach((name, c) {
+      final km = haversineKm(lat, lon, c.lat, c.lon);
+      if (km < bestKm) {
+        bestKm = km;
+        best = name;
+      }
+    });
+    if (best == null) return null;
+    Globals.currentBranch = best!;
+    widget.onBranchChosen?.call(best!, bestKm);
+    return kBranchCoords[best!];
+  }
+
   Future<void> _autoCalcKm(String address) async {
-    final coords = kBranchCoords[Globals.currentBranch];
+    var coords = kBranchCoords[Globals.currentBranch];
     if (coords == null) return; // sucursal sin coords precalculadas
     if (mounted) {
       setState(() {
         _autoCalcLoading = true;
         _autoCalcError = null;
       });
+    }
+
+    // 0) Domicilio del cliente: sucursal más cercana a la dirección.
+    bool branchPicked = false;
+    if (widget.autoBranch) {
+      final geo = await geocodeAddress(address);
+      if (geo != null) {
+        final picked = _pickNearestBranch(geo.lat, geo.lon);
+        if (picked != null) {
+          coords = picked;
+          branchPicked = true;
+        }
+      }
     }
 
     // 1) Intentar Google Distance Matrix (distancia REAL por carretera)
@@ -155,6 +194,12 @@ class DeliveryFeeCalculatorState extends State<DeliveryFeeCalculator> {
       branchLon: coords.lon,
       destinationAddress: address,
     );
+
+    // Respaldo: no se pudo ubicar la dirección en el mapa pero sí se calculó
+    // la distancia → se queda la sucursal actual.
+    if (widget.autoBranch && !branchPicked && km != null) {
+      widget.onBranchChosen?.call(Globals.currentBranch, km);
+    }
 
     if (!mounted) return;
     setState(() {
@@ -189,7 +234,7 @@ class DeliveryFeeCalculatorState extends State<DeliveryFeeCalculator> {
   Future<void> useMyLocation() => _useMyLocation();
 
   Future<void> _useMyLocation() async {
-    final coords = kBranchCoords[Globals.currentBranch];
+    var coords = kBranchCoords[Globals.currentBranch];
     if (coords == null) return;
     if (mounted) {
       setState(() {
@@ -217,6 +262,11 @@ class DeliveryFeeCalculatorState extends State<DeliveryFeeCalculator> {
         locationSettings:
             const LocationSettings(accuracy: LocationAccuracy.high),
       ).timeout(const Duration(seconds: 15));
+
+      // Domicilio del cliente: sucursal más cercana a donde está.
+      if (widget.autoBranch) {
+        coords = _pickNearestBranch(pos.latitude, pos.longitude) ?? coords;
+      }
 
       // 4) Distancia real por carretera desde la sucursal a estas coords
       final km = await googleDrivingDistanceKmCoords(
