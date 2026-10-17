@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../globals.dart';
 import '../models/dish.dart';
 import '../providers/cart_provider.dart';
 import '../widgets/menu_browser.dart';
@@ -33,11 +34,18 @@ class _ClientMenuViewState extends State<ClientMenuView> {
   @override
   void initState() {
     super.initState();
+    Globals.isClientMode = true;
     _fetchDishes();
     // Clear cart when starting a new client session to avoid old items
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<CartProvider>().clearCart();
     });
+  }
+
+  @override
+  void dispose() {
+    Globals.isClientMode = false;
+    super.dispose();
   }
 
   Future<void> _fetchDishes() async {
@@ -49,6 +57,12 @@ class _ClientMenuViewState extends State<ClientMenuView> {
           // Las cortesías ($0) son solo para uso interno de caja/mesero:
           // nunca deben poder pedirse desde el menú para el cliente.
           .where((d) => d.category != 'cortesias' && d.price > 0)
+          // Refresco de vidrio (355 ml): no se vende en pedidos para llevar.
+          .where((d) {
+            final n = d.name.toLowerCase();
+            return !(n.contains('vidrio') ||
+                (n.contains('refresco') && n.contains('355')));
+          })
           .toList();
       if (mounted) {
         setState(() {
@@ -97,10 +111,20 @@ class _ClientMenuViewState extends State<ClientMenuView> {
             ? 'Mesa ${widget.tableNumber}' 
             : 'Menú (${widget.customerName})'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.shopping_cart),
-            onPressed: _openCheckout,
-          )
+          // Botón visible con texto: "Carrito" + número de productos.
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: TextButton.icon(
+              onPressed: _openCheckout,
+              icon: Badge(
+                isLabelVisible: cart.itemCount > 0,
+                label: Text('${cart.itemCount}'),
+                child: const Icon(Icons.shopping_cart),
+              ),
+              label: const Text('Carrito',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ),
         ],
       ),
       body: _isLoading
@@ -122,8 +146,8 @@ class _ClientMenuViewState extends State<ClientMenuView> {
                       backgroundColor: Theme.of(context).colorScheme.primary,
                       label: Text(
                         isMobile
-                            ? 'Carrito (${cart.itemCount}) · \$${cart.totalAmount.toStringAsFixed(2)}'
-                            : 'Ver Carrito (${cart.itemCount}) - \$${cart.totalAmount.toStringAsFixed(2)}',
+                            ? 'Ir al carrito (${cart.itemCount}) · \$${cart.totalAmount.toStringAsFixed(2)}'
+                            : 'Ir al carrito (${cart.itemCount}) - \$${cart.totalAmount.toStringAsFixed(2)}',
                         style: TextStyle(color: Color(0xFFFF6D00), fontWeight: FontWeight.bold, fontSize: isMobile ? 14 : 16),
                       ),
                       icon: const Icon(Icons.shopping_cart, color: Color(0xFFFAF1DE)),

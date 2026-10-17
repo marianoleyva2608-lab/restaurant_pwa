@@ -5,6 +5,10 @@ import 'dart:convert';
 
 class Globals {
   static String currentBranch = 'Sucursal Maravillas';
+
+  /// true mientras un CLIENTE está pidiendo desde su celular (ClientMenuView).
+  /// Oculta opciones internas: cortesías y refresco de vidrio.
+  static bool isClientMode = false;
   static List<String> branches = ['Sucursal Maravillas', 'Sucursal Pocitos'];
 
   /// Cocina Especializada por sucursal (map branch→bool). Antes era un solo

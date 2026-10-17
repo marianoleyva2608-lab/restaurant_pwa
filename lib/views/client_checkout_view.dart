@@ -569,9 +569,26 @@ class _ClientCheckoutViewState extends State<ClientCheckoutView> {
                                       width: 50, height: 50, fit: BoxFit.cover),
                                 ),
                           title: Text(item.dish.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                          subtitle: Text(isDeliveryFee
-                              ? '\$${item.dish.price.toStringAsFixed(2)}'
-                              : '\$${item.dish.price.toStringAsFixed(2)} c/u'),
+                          // Detalle de lo que se lleva: guisados, sabor,
+                          // tamaño, extras… para que el cliente lo revise.
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (!isDeliveryFee && item.guisados.isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 2, bottom: 2),
+                                  child: Text(
+                                    item.guisados.join(' · '),
+                                    style: const TextStyle(
+                                        fontSize: 13, color: Color(0xFF3D2E1A)),
+                                  ),
+                                ),
+                              Text(isDeliveryFee
+                                  ? '\$${item.dish.price.toStringAsFixed(2)}'
+                                  : '\$${item.dish.price.toStringAsFixed(2)} c/u · Subtotal \$${(item.dish.price * item.quantity).toStringAsFixed(2)}'),
+                            ],
+                          ),
                           trailing: isDeliveryFee
                               ? null
                               : Row(

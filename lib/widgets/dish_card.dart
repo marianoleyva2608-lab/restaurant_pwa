@@ -377,7 +377,7 @@ Future<void> _addPreparedDishWithComment(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (allowCourtesy) ...[
+                if (allowCourtesy && !Globals.isClientMode) ...[
                   _ToggleOption(
                     icon: Icons.card_giftcard,
                     label: 'Cortesía',
@@ -957,6 +957,9 @@ Future<void> addDishToCart(BuildContext context, Dish dish, {String? replaceKey}
       final rows = await supabase.from('drink_type_prices').select('type, price').order('price', ascending: true);
       drinkSizes = (rows as List).cast<Map<String, dynamic>>()
           .where((r) => (r['type'] as String).startsWith(categoryPrefix))
+          // Cliente desde su celular: no se ofrece refresco de vidrio (355).
+          .where((r) => !(Globals.isClientMode &&
+              (r['type'] as String) == 'refresco_355'))
           .toList();
     } catch (_) {}
 
@@ -1288,7 +1291,7 @@ Future<void> addDishToCart(BuildContext context, Dish dish, {String? replaceKey}
   final bool isCafe = nameLower.contains('café') || nameLower.contains('cafe');
   final bool isCourtesyDay = const {DateTime.wednesday, DateTime.thursday}
       .contains(DateTime.now().weekday);
-  if (isBebidaSimple && isCafe && isCourtesyDay) {
+  if (isBebidaSimple && isCafe && isCourtesyDay && !Globals.isClientMode) {
     await _addPreparedDishWithComment(context, dish,
         replaceKey: replaceKey, allowCourtesy: true);
     return;
@@ -1505,12 +1508,19 @@ Future<void> addDishToCart(BuildContext context, Dish dish, {String? replaceKey}
                   // espacio de los guisados. BASE (Maíz/Harina) a la
                   // izquierda; Opciones (Queso/Frita) a la derecha.
                   if (showBaseSelector || showOptions) ...[
-                    Row(
+                    // En celular angosto, BASE arriba y Opciones abajo para que
+                    // no se salgan de la pantalla.
+                    Flex(
+                      direction: MediaQuery.sizeOf(context).width < 500
+                          ? Axis.vertical
+                          : Axis.horizontal,
+                      mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         if (showBaseSelector)
-                          Expanded(
-                            child: Column(
+                          _respSection(
+                            context,
+                            Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               mainAxisSize: MainAxisSize.min,
                               children: [
@@ -1549,10 +1559,11 @@ Future<void> addDishToCart(BuildContext context, Dish dish, {String? replaceKey}
                             ),
                           ),
                         if (showBaseSelector && showOptions)
-                          const SizedBox(width: 10),
+                          const SizedBox(width: 10, height: 10),
                         if (showOptions)
-                          Expanded(
-                            child: Column(
+                          _respSection(
+                            context,
+                            Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               mainAxisSize: MainAxisSize.min,
                               children: [
@@ -1565,7 +1576,9 @@ Future<void> addDishToCart(BuildContext context, Dish dish, {String? replaceKey}
                                       letterSpacing: 1),
                                 ),
                                 const SizedBox(height: 4),
-                                Row(
+                                Wrap(
+                                  spacing: 6,
+                                  runSpacing: 6,
                                   children: [
                                     if (isChilaquil)
                                       _ToggleOption(
@@ -1815,7 +1828,7 @@ Future<void> addDishToCart(BuildContext context, Dish dish, {String? replaceKey}
                                     Text(
                                       '${meatEmoji(g['meat_type'] as String?)} $name'.trim(),
                                       textAlign: TextAlign.center,
-                                      maxLines: 2,
+                                      maxLines: 3,
                                       overflow: TextOverflow.ellipsis,
                                       style: TextStyle(
                                         color: const Color(0xFFFF6D00),
@@ -2027,7 +2040,7 @@ Future<void> addDishToCart(BuildContext context, Dish dish, {String? replaceKey}
                                     Text(
                                       '${meatEmoji(g['meat_type'] as String?)} $name'.trim(),
                                       textAlign: TextAlign.center,
-                                      maxLines: 2,
+                                      maxLines: 3,
                                       overflow: TextOverflow.ellipsis,
                                       style: TextStyle(
                                         color: const Color(0xFFFF6D00),
@@ -3231,7 +3244,7 @@ Future<void> addMultiFlavorVariantToCart(BuildContext context,
                   ],
                   // Cortesía: botón para marcar Hot Cakes como regalo de
                   // la casa (precio $0 en el ticket).
-                  if (isHotCakesGroup) ...[
+                  if (isHotCakesGroup && !Globals.isClientMode) ...[
                     const SizedBox(height: 12),
                     const Divider(color: Color(0xFFE5DCC4)),
                     const SizedBox(height: 8),
@@ -4315,4 +4328,11 @@ class _BaseChip extends StatelessWidget {
       ),
     );
   }
+}
+
+/// En pantallas anchas ocupa su parte de la fila (Expanded); en celular
+/// angosto (dirección vertical) va a lo ancho sin flex.
+Widget _respSection(BuildContext context, Widget child) {
+  if (MediaQuery.sizeOf(context).width < 500) return child;
+  return Expanded(child: child);
 }
