@@ -478,6 +478,13 @@ async function markItemsPrinted(orderId, itemIds) {
 // la misma regla de category que `kitchen_view.dart`. El Envío FLASH
 // (categoría 'Envío') se considera comida para que el cocinero vea
 // que es delivery.
+// Renglón del cargo de envío (no es platillo: dish_id null / "Envío FLASH").
+function isEnvioItem(item) {
+  if (!item?.dishes) return true;
+  const g = parseGuisados(item.guisados_selected).join(' ').toLowerCase();
+  return g.includes('envío flash') || g.includes('envio flash');
+}
+
 const DRINK_CATEGORIES = ['drink', 'alcohol', 'bebidas', 'drinks', 'aguas', 'jugos', 'cafes', 'refrescos'];
 function isDrink(item) {
   const cat = (item.dishes?.category || '').toString().toLowerCase().trim();
@@ -826,8 +833,18 @@ async function processOrder(orderId, source = 'unknown') {
     // orden no matchea el whitelist de esta Pi, la ignoramos completa.
     if (!orderTypeMatches(order)) return;
 
-    const allUnprinted = await fetchUnprintedItems(orderId);
+    let allUnprinted = await fetchUnprintedItems(orderId);
     if (allUnprinted.length === 0) return; // todo ya impreso, nada que hacer
+
+    // El "Envío FLASH" no se prepara: no va en tickets de producción (sí en
+    // la cuenta). Se marca como impreso para que la orden no se quede
+    // pendiente para siempre.
+    const envio = allUnprinted.filter(isEnvioItem);
+    if (envio.length) {
+      await markItemsPrinted(orderId, envio.map((it) => it.id));
+      allUnprinted = allUnprinted.filter((it) => !isEnvioItem(it));
+      if (allUnprinted.length === 0) return;
+    }
 
     // Si esta Pi tiene PRINT_AREA, se queda solo con los items de su
     // área. Los items de OTRAS áreas quedan intactos (printed_at=null)
