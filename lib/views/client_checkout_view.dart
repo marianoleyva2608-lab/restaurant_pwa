@@ -394,10 +394,13 @@ class _ClientCheckoutViewState extends State<ClientCheckoutView> {
           'price_at_time': item.dish.price,
           // El envío se marca como listo: la cocina no lo prepara.
           'status': isDeliveryFee ? 'ready' : 'pending',
-          // Reusamos guisados_selected para guardar la etiqueta "Envío FLASH"
-          // y que se muestre en el detalle del pedido / ticket.
-          if (isDeliveryFee)
-            'guisados_selected': jsonEncode(['Envío FLASH']),
+          // Guisados / sabor / opciones (con queso, tamaño, etc.) igual que
+          // en la tablet del mesero, para que salgan en la comanda y en el
+          // ticket. El envío guarda la etiqueta "Envío FLASH".
+          'guisados_selected': isDeliveryFee
+              ? jsonEncode(['Envío FLASH'])
+              : (item.guisados.isNotEmpty ? jsonEncode(item.guisados) : null),
+          'client_label': item.clientLabel,
         };
       }).toList();
 
