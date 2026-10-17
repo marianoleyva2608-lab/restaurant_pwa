@@ -991,6 +991,11 @@ Future<void> addDishToCart(BuildContext context, Dish dish, {String? replaceKey}
     }
 
     String? selectedSizeType; // e.g. 'refresco_600', 'agua_500ml'
+    // Si solo hay un tamaño (p.ej. refresco para el cliente: solo 600 ml),
+    // se elige solo y no se muestra la sección TAMAÑO.
+    if (drinkSizes.length == 1) {
+      selectedSizeType = drinkSizes.first['type'] as String;
+    }
     String? selectedSabor;
     int dialogQty = 1;
 
@@ -1040,7 +1045,7 @@ Future<void> addDishToCart(BuildContext context, Dish dish, {String? replaceKey}
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      if (drinkSizes.isNotEmpty && !isNaturalSelected) ...[
+                      if (drinkSizes.length > 1 && !isNaturalSelected) ...[
                         const Text('TAMAÑO',
                             style: TextStyle(color: const Color(0xFF7A6E5A), fontSize: 11,
                                 fontWeight: FontWeight.w600, letterSpacing: 1)),
