@@ -138,7 +138,16 @@
           'min-height:' + rect.height + 'px',
           'background:white',
           'z-index:9999',
+          'max-height:calc(100vh - ' + Math.max(0, rect.top) + 'px - 8px)',
+          'overflow-y:auto',
+          'padding-bottom:12px',
+          'box-sizing:border-box',
         ].join(';');
+        // El formulario de la tarjeta va en su propio contenedor y el botón
+        // "Pagar con tarjeta" justo debajo, dentro del mismo recuadro.
+        const cardMount = document.createElement('div');
+        cardMount.id = '__clip_card_mount__';
+        portal.appendChild(cardMount);
 
         try {
           // Inicialización oficial: solo la API key. Con una llave test_ el SDK ya
@@ -151,7 +160,7 @@
             terms: { enabled: false },
           });
           _clipCard = card;
-          card.mount(_CLIP_PORTAL_ID);
+          card.mount('__clip_card_mount__');
 
           function _disableFlutterInput() {
             document.querySelectorAll('flt-glass-pane').forEach(function(el) {
@@ -186,12 +195,12 @@
 
           const nativeBtn = document.createElement('button');
           nativeBtn.id = '__clip_native_btn__';
-          nativeBtn.textContent = 'Pagar con Clip';
+          nativeBtn.textContent = 'Pagar con tarjeta';
           nativeBtn.style.cssText = [
-            'position:fixed', 'bottom:28px', 'left:50%', 'transform:translateX(-50%)',
+            'display:block', 'margin:12px auto 0', 'font-family:inherit',
             'background:#FC4C02', 'color:white', 'border:none', 'border-radius:28px',
             'padding:16px 0', 'font-size:16px', 'font-weight:bold', 'cursor:pointer',
-            'z-index:10001', 'width:72%', 'max-width:420px', 'box-shadow:0 4px 16px rgba(0,0,0,0.3)'
+            'width:92%', 'max-width:420px', 'box-shadow:0 4px 12px rgba(0,0,0,0.2)'
           ].join(';');
           nativeBtn.addEventListener('click', async function() {
             if (!_clipCard) return;
@@ -206,11 +215,11 @@
               if (window._clipOnSubmit) window._clipOnSubmit(JSON.stringify({ token_id: tokenId }));
             } catch(e) {
               nativeBtn.disabled = false;
-              nativeBtn.textContent = 'Pagar con Clip';
+              nativeBtn.textContent = 'Pagar con tarjeta';
               if (window._clipOnError) window._clipOnError(e.message || 'Error al procesar');
             }
           });
-          document.body.appendChild(nativeBtn);
+          portal.appendChild(nativeBtn);
           window._clipNativeBtn = nativeBtn;
 
           setTimeout(() => { if (window._clipOnReady) window._clipOnReady(); }, 2000);

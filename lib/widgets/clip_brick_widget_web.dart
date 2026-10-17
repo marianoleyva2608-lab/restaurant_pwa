@@ -90,8 +90,10 @@ class _ClipBrickWidgetState extends State<ClipBrickWidget> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // Incluye el espacio del botón "Pagar con tarjeta", que va dentro
+        // del mismo recuadro, justo debajo de los datos de la tarjeta.
         SizedBox(
-          height: 360,
+          height: 440,
           child: HtmlElementView(viewType: _viewId),
         ),
         const SizedBox(height: 8),
@@ -99,32 +101,10 @@ class _ClipBrickWidgetState extends State<ClipBrickWidget> {
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 12),
             child: Center(
-              child: Text('Cargando Clip…',
+              child: Text('Cargando pago con tarjeta…',
                   style: TextStyle(color: Color(0xFFA08F70), fontSize: 13)),
             ),
           )
-        else
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: const Color(0xFFFC4C02).withValues(alpha: 0.10),
-              borderRadius: BorderRadius.circular(8),
-              border:
-                  Border.all(color: const Color(0xFFFC4C02).withValues(alpha: 0.4)),
-            ),
-            child: const Row(
-              children: [
-                Icon(Icons.arrow_downward, color: Color(0xFFFC4C02), size: 18),
-                SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Pulsa el botón naranja "Pagar con Clip" al pie de la pantalla',
-                    style: TextStyle(fontSize: 12.5, color: Color(0xFFFC4C02), fontWeight: FontWeight.w600),
-                  ),
-                ),
-              ],
-            ),
-          ),
       ],
     );
   }
