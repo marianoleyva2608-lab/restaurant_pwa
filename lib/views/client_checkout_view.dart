@@ -306,7 +306,7 @@ class _ClientCheckoutViewState extends State<ClientCheckoutView> {
       combinedCustomerName += ' (Pago: $_paymentMethod)';
       if (widget.orderType == 'delivery') {
         combinedCustomerName += ' - DIR: ${_addressController.text.trim()}';
-        final phone = _phoneController.text.trim();
+        final phone = _phoneController.text.replaceAll(RegExp(r'\D'), '');
         if (phone.isNotEmpty) {
           combinedCustomerName += ' - TEL: $phone';
         }
@@ -316,7 +316,7 @@ class _ClientCheckoutViewState extends State<ClientCheckoutView> {
           prefs.setString('delivery_phone', phone);
         });
       } else if (widget.orderType == 'takeout') {
-        final phone = _phoneController.text.trim();
+        final phone = _phoneController.text.replaceAll(RegExp(r'\D'), '');
         if (phone.isNotEmpty) {
           combinedCustomerName += ' - TEL: $phone';
         }

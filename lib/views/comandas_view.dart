@@ -1,3 +1,4 @@
+import '../widgets/customer_history.dart';
 import 'dart:async';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
@@ -1227,7 +1228,25 @@ class _ComandasViewState extends State<ComandasView> {
                                                 crossAxisAlignment: CrossAxisAlignment.start,
                                                 mainAxisAlignment: MainAxisAlignment.center,
                                                 children: [
-                                                  const Icon(Icons.takeout_dining, color: Color(0xFFE07A30), size: 20),
+                                                  Row(
+                                                    children: [
+                                                      const Icon(Icons.takeout_dining, color: Color(0xFFE07A30), size: 20),
+                                                      const Spacer(),
+                                                      // Historial de compras del cliente
+                                                      InkWell(
+                                                        borderRadius: BorderRadius.circular(12),
+                                                        onTap: () => showCustomerHistory(
+                                                          context,
+                                                          customerName: o['customer_name'] as String?,
+                                                          excludeOrderId: o['id'] as String?,
+                                                        ),
+                                                        child: const Padding(
+                                                          padding: EdgeInsets.all(2),
+                                                          child: Icon(Icons.history, color: Color(0xFFE07A30), size: 20),
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
                                                   const SizedBox(height: 6),
                                                   Text(
                                                     (name != null && name.isNotEmpty) ? name : 'Cliente',
@@ -1284,6 +1303,17 @@ class _ComandasViewState extends State<ComandasView> {
                                   onChanged: (value) {
                                     tempCustomerName = value;
                                   },
+                                ),
+                                Align(
+                                  alignment: Alignment.centerRight,
+                                  child: TextButton.icon(
+                                    onPressed: () => showCustomerHistory(
+                                      context,
+                                      customerName: nameController.text,
+                                    ),
+                                    icon: const Icon(Icons.history, size: 18),
+                                    label: const Text('Ver historial de este cliente'),
+                                  ),
                                 ),
                                 if (tempOrderType == 'delivery') ...[
                                   const SizedBox(height: 16),
