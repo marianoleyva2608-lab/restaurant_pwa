@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 
 // Llave PÚBLICA de producción de Clip (la secreta vive en Supabase,
 // tabla app_config → clip_secret_key; nunca en la app).
-const _clipApiKey = '25bc972c-6cea-4fb6-940d-53c5a8f0a5b1';
+const _clipApiKey = 'aa983f5a-b132-4bf8-b071-e6515357363f';
 
 class ClipBrickWidget extends StatefulWidget {
   final double amount;
