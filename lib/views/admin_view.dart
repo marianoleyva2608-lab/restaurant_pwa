@@ -21,6 +21,7 @@ import 'payroll_view.dart';
 import 'print_status_view.dart';
 import '../utils/app_updater.dart';
 import '../utils/url_opener.dart';
+import '../widgets/qr_scanner_dialog.dart';
 
 /// Dispara un "tick" cada [interval], empezando inmediatamente (a
 /// diferencia de Stream.periodic, que espera un intervalo antes del
@@ -1167,6 +1168,10 @@ class _TableDetailPanel extends StatefulWidget {
 class _TableDetailPanelState extends State<_TableDetailPanel> {
   double _discountPercent = 0.0;
   String _discountReason = '';
+  // Descuento por QR: código y teléfono del cliente (se registra al cobrar
+  // para que cada teléfono lo use una sola vez).
+  String? _promoCode;
+  String? _promoPhone;
 
   static const List<String> _discountReasons = [
     'Cliente frecuente',
@@ -1183,6 +1188,8 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
     if (oldWidget.tableId != widget.tableId || oldWidget.orderId != widget.orderId) {
       _discountPercent = 0.0;
       _discountReason = '';
+      _promoCode = null;
+      _promoPhone = null;
     }
   }
 
@@ -1251,7 +1258,103 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
     return result;
   }
 
+  /// Lee un QR de descuento con la cámara, pide el teléfono del cliente y,
+  /// si ese teléfono no lo ha usado, aplica el % del código.
+  Future<void> _scanPromo(BuildContext context) async {
+    final raw = await scanQrCode(context);
+    if (raw == null || !context.mounted) return;
+    // Formato del QR: "GMH-PROMO:CODIGO" (también acepta solo "CODIGO").
+    final code = (raw.contains(':') ? raw.split(':').last : raw).trim().toUpperCase();
+    void aviso(String msg, [Color color = Colors.red]) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(msg), backgroundColor: color));
+      }
+    }
+
+    final supabase = Supabase.instance.client;
+    Map<String, dynamic>? promo;
+    try {
+      promo = await supabase
+          .from('promo_codes')
+          .select('code, percent, active, expires_at')
+          .eq('code', code)
+          .maybeSingle();
+    } catch (e) {
+      aviso('No se pudo validar el QR: $e');
+      return;
+    }
+    if (promo == null) {
+      aviso('Este QR no es un descuento válido');
+      return;
+    }
+    final exp = DateTime.tryParse(promo['expires_at']?.toString() ?? '');
+    if (promo['active'] != true || (exp != null && exp.isBefore(DateTime.now()))) {
+      aviso('Este descuento ya no está vigente');
+      return;
+    }
+    if (!context.mounted) return;
+
+    final phoneCtrl = TextEditingController();
+    final phone = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFFFAF1DE),
+        title: Text('Descuento ${(promo!['percent'] as num).toInt()}% con QR',
+            style: const TextStyle(color: Color(0xFFFF6D00), fontWeight: FontWeight.bold)),
+        content: TextField(
+          controller: phoneCtrl,
+          autofocus: true,
+          keyboardType: TextInputType.phone,
+          maxLength: 10,
+          decoration: const InputDecoration(
+              labelText: 'Teléfono del cliente (10 dígitos)'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+          ElevatedButton(
+            onPressed: () {
+              final t = phoneCtrl.text.replaceAll(RegExp(r'\D'), '');
+              if (t.length != 10) return;
+              Navigator.pop(ctx, t);
+            },
+            child: const Text('Aplicar'),
+          ),
+        ],
+      ),
+    );
+    phoneCtrl.dispose();
+    if (phone == null || !context.mounted) return;
+
+    try {
+      final used = await supabase
+          .from('promo_redemptions')
+          .select('redeemed_at, branch_name')
+          .eq('code', code)
+          .eq('phone', phone)
+          .maybeSingle();
+      if (used != null) {
+        aviso('El teléfono $phone ya usó este descuento');
+        return;
+      }
+    } catch (e) {
+      aviso('No se pudo revisar el teléfono: $e');
+      return;
+    }
+    if (!mounted) return;
+    setState(() {
+      _discountPercent = (promo!['percent'] as num).toDouble();
+      _discountReason = 'Promo QR $code · tel $phone';
+      _promoCode = code;
+      _promoPhone = phone;
+    });
+    aviso('Descuento ${_discountPercent.toInt()}% aplicado', Colors.green);
+  }
+
   Future<void> _selectDiscount(BuildContext context, double percent) async {
+    // Elegir otro descuento a mano quita el del QR.
+    _promoCode = null;
+    _promoPhone = null;
     if (percent >= 20) {
       final prev = _discountPercent;
       setState(() => _discountPercent = percent);
@@ -1326,6 +1429,24 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
     } catch (e) {
       // Si la migración aún no se corrió, no bloquear el cobro.
       debugPrint('No se pudo guardar el descuento: $e');
+    }
+    // Registrar el uso del QR (un teléfono = una vez).
+    if (_promoCode != null && _promoPhone != null && _discountPercent > 0) {
+      try {
+        await Supabase.instance.client.from('promo_redemptions').insert({
+          'code': _promoCode,
+          'phone': _promoPhone,
+          'order_id': orderIds.isNotEmpty ? orderIds.first : null,
+          'branch_name': Globals.currentBranch,
+        });
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              content: Text('Ese teléfono ya usó el descuento QR. Quita el descuento para cobrar.'),
+              backgroundColor: Colors.red));
+        }
+        return false;
+      }
     }
     return true;
   }
@@ -3375,6 +3496,12 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
                                           selectedColor: const Color(0xFFFF6D00).withValues(alpha: 0.3),
                                           onSelected: (_) => _selectDiscount(context, p),
                                         ),
+                                      ActionChip(
+                                        avatar: const Icon(Icons.qr_code_scanner, size: 18),
+                                        label: Text(_promoCode != null ? 'QR ✓' : 'QR',
+                                            style: const TextStyle(fontWeight: FontWeight.bold)),
+                                        onPressed: () => _scanPromo(context),
+                                      ),
                                       ChoiceChip(
                                         label: Text(
                                             ![0.0, 10.0, 20.0].contains(_discountPercent)
