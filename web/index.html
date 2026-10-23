@@ -209,6 +209,7 @@
             if (!_clipCard) return;
             nativeBtn.disabled = true;
             nativeBtn.textContent = 'Procesando...';
+            window.clipResetZoom();
             window.clipShowLoading('Procesando pago…');
             try {
               const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('Tiempo agotado')), 15000));
@@ -258,6 +259,7 @@
       window.addEventListener('message', window._clip3dsListener);
     };
     window.clipHide3DS = function() {
+      try { window.clipResetZoom(); } catch (e) {}
       const old = document.getElementById('__clip_3ds__');
       if (old) old.remove();
       if (window._clip3dsListener) {
@@ -308,7 +310,28 @@
       }
       document.getElementById('__clip_loading_text__').textContent = msg || 'Procesando pago…';
     };
+    // iPhone acerca la pantalla al escribir en los campos de la tarjeta
+    // (vienen en un iframe de Clip y el meta viewport no siempre lo evita).
+    // Al terminar de escribir, quitamos el foco y forzamos a Safari a volver
+    // a la escala normal reescribiendo el meta viewport.
+    let __zoomToggle = false;
+    window.clipResetZoom = function() {
+      try { if (document.activeElement) document.activeElement.blur(); } catch (e) {}
+      __zoomToggle = !__zoomToggle;
+      const content = __zoomToggle
+        ? 'width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no'
+        : 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no';
+      document.querySelectorAll('meta[name="viewport"]').forEach(function(m) {
+        m.setAttribute('content', content);
+      });
+      try { window.scrollTo(0, 0); } catch (e) {}
+    };
+    // Cuando el cliente toca fuera del iframe de la tarjeta (el foco regresa
+    // a la página), también se regresa la escala.
+    window.addEventListener('focus', function() { setTimeout(window.clipResetZoom, 50); });
+
     window.clipHideLoading = function() {
+      try { window.clipResetZoom(); } catch (e) {}
       const ov = document.getElementById('__clip_loading__');
       if (ov) ov.remove();
     };
