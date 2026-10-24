@@ -1,9 +1,9 @@
 {
     "name": "Gorditas Mis Hermanas",
-    "short_name": "Mis Hermanas",
+    "short_name": "Gorditas Mis Hermanas",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#FF6D00",
+    "background_color": "#FAF1DE",
     "theme_color": "#FF6D00",
     "description": "Gorditas Mis Hermanas PWA",
     "orientation": "any",
