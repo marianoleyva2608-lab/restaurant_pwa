@@ -1261,7 +1261,51 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
   /// Lee un QR de descuento con la cámara, pide el teléfono del cliente y,
   /// si ese teléfono no lo ha usado, aplica el % del código.
   Future<void> _scanPromo(BuildContext context) async {
-    final raw = await scanQrCode(context);
+    // Se puede escribir la palabra del cupón o escanear el QR.
+    final codeCtrl = TextEditingController();
+    final choice = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFFFAF1DE),
+        title: const Text('Cupón de descuento',
+            style: TextStyle(color: Color(0xFFFF6D00), fontWeight: FontWeight.bold)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: codeCtrl,
+              autofocus: true,
+              textCapitalization: TextCapitalization.characters,
+              decoration: const InputDecoration(
+                  labelText: 'Escribe la palabra del cupón'),
+              onSubmitted: (v) {
+                if (v.trim().isNotEmpty) Navigator.pop(ctx, v.trim());
+              },
+            ),
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              onPressed: () => Navigator.pop(ctx, '__SCAN__'),
+              icon: const Icon(Icons.qr_code_scanner),
+              label: const Text('Escanear QR con la cámara'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+          ElevatedButton(
+            onPressed: () {
+              if (codeCtrl.text.trim().isNotEmpty) {
+                Navigator.pop(ctx, codeCtrl.text.trim());
+              }
+            },
+            child: const Text('Validar'),
+          ),
+        ],
+      ),
+    );
+    codeCtrl.dispose();
+    if (choice == null || !context.mounted) return;
+    final raw = choice == '__SCAN__' ? await scanQrCode(context) : choice;
     if (raw == null || !context.mounted) return;
     // Formato del QR: "GMH-PROMO:CODIGO" (también acepta solo "CODIGO").
     final code = (raw.contains(':') ? raw.split(':').last : raw).trim().toUpperCase();
@@ -3498,7 +3542,7 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
                                         ),
                                       ActionChip(
                                         avatar: const Icon(Icons.qr_code_scanner, size: 18),
-                                        label: Text(_promoCode != null ? 'QR ✓' : 'QR',
+                                        label: Text(_promoCode != null ? 'Cupón ✓' : 'Cupón / QR',
                                             style: const TextStyle(fontWeight: FontWeight.bold)),
                                         onPressed: () => _scanPromo(context),
                                       ),
