@@ -19,6 +19,7 @@ import 'billing_view.dart';
 import 'clients_view.dart';
 import 'payroll_view.dart';
 import 'print_status_view.dart';
+import 'promo_codes_view.dart';
 import '../utils/app_updater.dart';
 import '../utils/url_opener.dart';
 
@@ -465,6 +466,16 @@ class _AdminViewState extends State<AdminView> {
                       if (isDrawer) Navigator.pop(context);
                     },
                   ),
+                  ListTile(
+                    leading: Icon(Icons.local_offer, color: _selectedIndex == 14 ? const Color(0xFFFF6D00) : const Color(0xFFA08F70)),
+                    title: Text('Cupones', style: TextStyle(color: _selectedIndex == 14 ? const Color(0xFFFF6D00) : const Color(0xFFA08F70), fontWeight: _selectedIndex == 14 ? FontWeight.bold : FontWeight.normal)),
+                    selected: _selectedIndex == 14,
+                    selectedTileColor: const Color(0xFFFF6D00).withValues(alpha: 0.1),
+                    onTap: () {
+                      setState(() => _selectedIndex = 14);
+                      if (isDrawer) Navigator.pop(context);
+                    },
+                  ),
                   const Divider(color: Color(0xFFE5DCC4)),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -598,6 +609,7 @@ class _AdminViewState extends State<AdminView> {
       11: 'Sabores de Bebidas',
       12: 'Vigencia de Pago',
       13: 'Estado de Impresión',
+      14: 'Cupones de Descuento',
     };
     return titles[_selectedIndex] ?? 'Administrador';
   }
@@ -726,6 +738,7 @@ class _AdminViewState extends State<AdminView> {
       case 11: return const DrinkFlavorsManagementView();
       case 12: return const SubscriptionsManagementView();
       case 13: return const PrintStatusView();
+      case 14: return const PromoCodesView();
       default: return _buildTablesDashboard();
     }
   }
