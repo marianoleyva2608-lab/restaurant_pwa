@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../providers/cart_provider.dart';
 import '../globals.dart';
+import '../services/business_hours.dart';
 import '../services/clip_service.dart';
 import '../widgets/clip_brick_widget.dart';
 
@@ -339,6 +340,12 @@ class _ClientCheckoutViewState extends State<ClientCheckoutView> {
 
   Future<void> _submitOrder(CartProvider cart) async {
     if (cart.items.isEmpty) return;
+    if (!isOpenNow()) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Ya cerramos. Recibimos pedidos $kHorarioTexto.'),
+          backgroundColor: Colors.red));
+      return;
+    }
     if (widget.orderType == 'delivery' && _addressController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Por favor, ingresa tu dirección de entrega')));
       return;

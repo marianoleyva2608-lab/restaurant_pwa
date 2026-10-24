@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../globals.dart';
 import '../providers/cart_provider.dart';
 import '../services/delivery_fee.dart';
+import '../services/business_hours.dart';
 import '../widgets/delivery_fee_calculator.dart';
 import 'client_menu_view.dart';
 
@@ -525,6 +526,42 @@ class _ClientHomeViewState extends State<ClientHomeView> {
 
   @override
   Widget build(BuildContext context) {
+    // Fuera de horario no se reciben pedidos en línea.
+    if (!isOpenNow()) {
+      return Scaffold(
+        backgroundColor: const Color(0xFFFAF1DE),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Image.asset('assets/images/logo.png', height: 140,
+                    errorBuilder: (_, __, ___) => const SizedBox.shrink()),
+                const SizedBox(height: 24),
+                const Text('Por ahora estamos cerrados',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFFFF6D00))),
+                const SizedBox(height: 12),
+                const Text('Recibimos pedidos\n$kHorarioTexto',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 17, color: Color(0xFF3D2E1A))),
+                const SizedBox(height: 24),
+                OutlinedButton.icon(
+                  onPressed: () => setState(() {}),
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Volver a revisar'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFFFF6D00),
+                    side: const BorderSide(color: Color(0xFFFF6D00)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
     return PopScope(
       canPop: false,
       child: Scaffold(
