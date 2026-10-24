@@ -39,6 +39,79 @@ class _ClientCheckoutViewState extends State<ClientCheckoutView> {
   final _addressController = TextEditingController();
   final _phoneController = TextEditingController();
   final _emailController = TextEditingController();
+  // Cupón de descuento (una vez por teléfono). Aplica solo a los platillos,
+  // no al Envío FLASH.
+  final _couponController = TextEditingController();
+  String? _couponCode;
+  double _couponPct = 0;
+  String? _couponPhone;
+  bool _couponChecking = false;
+
+  double _couponDiscount(CartProvider cart) {
+    if (_couponCode == null || _couponPct <= 0) return 0;
+    final food = cart.totalAmount - cart.deliveryFee;
+    return double.parse((food * _couponPct / 100).toStringAsFixed(2));
+  }
+
+  double _totalConCupon(CartProvider cart) =>
+      cart.totalAmount - _couponDiscount(cart);
+
+  void _snack(String t, [Color c = Colors.red]) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(t), backgroundColor: c));
+  }
+
+  Future<void> _applyCoupon() async {
+    final code = _couponController.text.trim().toUpperCase().replaceAll(RegExp(r'\s+'), '');
+    final phone = _phoneController.text.replaceAll(RegExp(r'\D'), '');
+    if (code.isEmpty) return;
+    if (phone.length != 10) {
+      _snack('Primero escribe tu teléfono a 10 dígitos');
+      return;
+    }
+    setState(() => _couponChecking = true);
+    try {
+      final promo = await _supabase
+          .from('promo_codes')
+          .select('code, percent, active, expires_at')
+          .eq('code', code)
+          .maybeSingle();
+      final exp = DateTime.tryParse(promo?['expires_at']?.toString() ?? '');
+      if (promo == null) {
+        _snack('Ese cupón no existe');
+      } else if (promo['active'] != true || (exp != null && exp.isBefore(DateTime.now()))) {
+        _snack('Ese cupón ya no está vigente');
+      } else {
+        final used = await _supabase
+            .from('promo_redemptions')
+            .select('id')
+            .eq('code', code)
+            .eq('phone', phone)
+            .maybeSingle();
+        if (used != null) {
+          _snack('Este teléfono ya usó el cupón $code');
+        } else if (mounted) {
+          setState(() {
+            _couponCode = code;
+            _couponPct = (promo['percent'] as num).toDouble();
+            _couponPhone = phone;
+          });
+          _snack('Cupón aplicado: ${_couponPct.toStringAsFixed(0)}% de descuento', Colors.green);
+        }
+      }
+    } catch (e) {
+      _snack('No se pudo validar el cupón');
+    } finally {
+      if (mounted) setState(() => _couponChecking = false);
+    }
+  }
+
+  void _removeCoupon() => setState(() {
+        _couponCode = null;
+        _couponPct = 0;
+        _couponPhone = null;
+      });
   // La cuota de envío ahora vive como CartItem dentro del CartProvider
   // (id = CartProvider.deliveryFeeId), por lo que el subtotal/total ya
   // la incluyen automáticamente. No se suma aparte.
@@ -84,7 +157,7 @@ class _ClientCheckoutViewState extends State<ClientCheckoutView> {
       return;
     }
     // El envío ya viene incluido como CartItem (si aplica) — el total es el subtotal del cart.
-    final double finalTotal = cart.totalAmount;
+    final double finalTotal = _totalConCupon(cart);
     final items = cart.items.values
         .map((it) => {
               // El envío (Envío FLASH) se incluye como un renglón más del
@@ -276,13 +349,19 @@ class _ClientCheckoutViewState extends State<ClientCheckoutView> {
           content: Text('Ingresa tu teléfono a 10 dígitos para avisarte de tu pedido')));
       return;
     }
+    if (_couponCode != null &&
+        _phoneController.text.replaceAll(RegExp(r'\D'), '') != _couponPhone) {
+      _removeCoupon();
+      _snack('Cambiaste el teléfono: vuelve a aplicar el cupón');
+      return;
+    }
     if (_paymentMethod == 'Clip') {
       await _payWithClip(cart);
       return;
     }
 
     // El envío ya viene incluido como CartItem (si aplica) — el total es el subtotal del cart.
-    final double finalTotal = cart.totalAmount;
+    final double finalTotal = _totalConCupon(cart);
     final String? paymentMethodForDb =
         _paymentMethod == 'Tarjeta' ? 'card' : null;
     await _createOrderAndNotify(
@@ -393,6 +472,29 @@ class _ClientCheckoutViewState extends State<ClientCheckoutView> {
           if (paymentMethodForDb != null) 'payment_method': paymentMethodForDb,
         }).select().single();
         orderId = orderResponse['id'] as String;
+      }
+
+      // Cupón: total_amount queda con el precio completo (como en caja) y el
+      // descuento aparte; lo cobrado con Clip va en amount_card.
+      if (_couponCode != null && _couponPct > 0) {
+        final desc = _couponDiscount(cart);
+        try {
+          await _supabase.from('orders').update({
+            'total_amount': cart.totalAmount,
+            'discount_percent': _couponPct,
+            'discount_amount': desc,
+            'discount_reason': 'Cupón $_couponCode · tel $_couponPhone',
+            if (paymentMethodForDb == 'clip') 'amount_card': finalTotal,
+          }).eq('id', orderId);
+          await _supabase.from('promo_redemptions').insert({
+            'code': _couponCode,
+            'phone': _couponPhone,
+            'order_id': orderId,
+            'branch_name': Globals.currentBranch,
+          });
+        } catch (e) {
+          debugPrint('No se pudo registrar el cupón: $e');
+        }
       }
 
       final orderItems = cart.items.values.map((item) {
@@ -537,7 +639,7 @@ class _ClientCheckoutViewState extends State<ClientCheckoutView> {
     // El envío ya es un CartItem dentro del cart — no se suma aparte.
     final double deliveryFee = cart.deliveryFee;
     final double subtotalSinEnvio = cart.totalAmount - deliveryFee;
-    final double finalTotal = cart.totalAmount;
+    final double finalTotal = _totalConCupon(cart);
     final screenWidth = MediaQuery.of(context).size.width;
     final isMobile = screenWidth < 600;
 
@@ -735,6 +837,61 @@ class _ClientCheckoutViewState extends State<ClientCheckoutView> {
                               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                             ),
                           ),
+                          const SizedBox(height: 12),
+                          if (_couponCode == null)
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: TextField(
+                                    controller: _couponController,
+                                    textCapitalization: TextCapitalization.characters,
+                                    decoration: InputDecoration(
+                                      labelText: '¿Tienes un cupón?',
+                                      hintText: 'Escribe la palabra',
+                                      prefixIcon: const Icon(Icons.local_offer),
+                                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                    ),
+                                    onSubmitted: (_) => _applyCoupon(),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                ElevatedButton(
+                                  onPressed: _couponChecking ? null : _applyCoupon,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFFFF6D00),
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                                  ),
+                                  child: _couponChecking
+                                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                      : const Text('Aplicar'),
+                                ),
+                              ],
+                            )
+                          else
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: Colors.green.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.green.withValues(alpha: 0.5)),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.check_circle, color: Colors.green),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text('Cupón $_couponCode: ${_couponPct.toStringAsFixed(0)}% de descuento',
+                                        style: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF3D2E1A))),
+                                  ),
+                                  IconButton(
+                                    tooltip: 'Quitar cupón',
+                                    icon: const Icon(Icons.close, color: Colors.grey),
+                                    onPressed: _removeCoupon,
+                                  ),
+                                ],
+                              ),
+                            ),
                           const SizedBox(height: 24),
                         ],
                         Row(
@@ -751,6 +908,16 @@ class _ClientCheckoutViewState extends State<ClientCheckoutView> {
                             children: [
                               const Text('Envío FLASH:', style: TextStyle(color: Colors.grey)),
                               Text('\$${deliveryFee.toStringAsFixed(2)}', style: const TextStyle(color: Color(0xFFFF6D00), fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                        ],
+                        if (_couponCode != null) ...[
+                          const SizedBox(height: 4),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text('Descuento ($_couponCode ${_couponPct.toStringAsFixed(0)}%):', style: const TextStyle(color: Colors.green)),
+                              Text('-\$${_couponDiscount(cart).toStringAsFixed(2)}', style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
                             ],
                           ),
                         ],
@@ -842,7 +1009,7 @@ class _ClientCheckoutViewState extends State<ClientCheckoutView> {
     }
     final email = _emailController.text.trim();
     // El envío ya viene incluido como CartItem (si aplica) — el total es el subtotal del cart.
-    final double finalTotal = cart.totalAmount;
+    final double finalTotal = _totalConCupon(cart);
     final items = cart.items.values
         .map((it) => {
               // El envío (Envío FLASH) se incluye como un renglón más del
