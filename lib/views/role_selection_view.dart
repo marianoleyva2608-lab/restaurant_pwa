@@ -330,25 +330,10 @@ class _RoleSelectionViewState extends State<RoleSelectionView> {
                   fontWeight: FontWeight.bold,
                   color: const Color(0xFF3D2E1A))),
           const SizedBox(height: 4),
-          const Text('Para llevar o a domicilio, paga con tarjeta',
+          const Text('Escanea el QR para pedir desde tu celular',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 13, color: Color(0xFFA08F70))),
           const SizedBox(height: 12),
-          ElevatedButton.icon(
-            onPressed: () => _openClientOrder(context),
-            icon: const Icon(Icons.shopping_bag),
-            label: Text('HAZ TU PEDIDO',
-                style: TextStyle(
-                    fontSize: isMobile ? 16 : 18, fontWeight: FontWeight.bold)),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFFF6D00),
-              foregroundColor: Colors.white,
-              minimumSize: const Size(double.infinity, 56),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16)),
-            ),
-          ),
-          const SizedBox(height: 8),
           OutlinedButton.icon(
             onPressed: () => _showClientQr(context),
             icon: const Icon(Icons.qr_code),
