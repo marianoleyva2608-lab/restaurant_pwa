@@ -1,8 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- INTERNET es requerido por Supabase / red. -->
     <uses-permission android:name="android.permission.INTERNET"/>
-    <!-- Cámara para leer los QR de descuento en caja. -->
-    <uses-permission android:name="android.permission.CAMERA"/>
     <!-- Para recibir el broadcast BOOT_COMPLETED y abrir la app al arrancar el tablet. -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <!-- Mantener la pantalla encendida durante la sesión del mesero (modo kiosko). -->

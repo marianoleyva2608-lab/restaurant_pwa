@@ -21,7 +21,6 @@ import 'payroll_view.dart';
 import 'print_status_view.dart';
 import '../utils/app_updater.dart';
 import '../utils/url_opener.dart';
-import '../widgets/qr_scanner_dialog.dart';
 
 /// Dispara un "tick" cada [interval], empezando inmediatamente (a
 /// diferencia de Stream.periodic, que espera un intervalo antes del
@@ -1258,10 +1257,10 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
     return result;
   }
 
-  /// Lee un QR de descuento con la cámara, pide el teléfono del cliente y,
+  /// Pide la palabra del cupón y el teléfono del cliente y,
   /// si ese teléfono no lo ha usado, aplica el % del código.
   Future<void> _scanPromo(BuildContext context) async {
-    // Se puede escribir la palabra del cupón o escanear el QR.
+    // La cajera escribe la palabra del cupón.
     final codeCtrl = TextEditingController();
     final choice = await showDialog<String>(
       context: context,
@@ -1282,12 +1281,6 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
                 if (v.trim().isNotEmpty) Navigator.pop(ctx, v.trim());
               },
             ),
-            const SizedBox(height: 16),
-            OutlinedButton.icon(
-              onPressed: () => Navigator.pop(ctx, '__SCAN__'),
-              icon: const Icon(Icons.qr_code_scanner),
-              label: const Text('Escanear QR con la cámara'),
-            ),
           ],
         ),
         actions: [
@@ -1305,9 +1298,8 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
     );
     codeCtrl.dispose();
     if (choice == null || !context.mounted) return;
-    final raw = choice == '__SCAN__' ? await scanQrCode(context) : choice;
-    if (raw == null || !context.mounted) return;
-    // Formato del QR: "GMH-PROMO:CODIGO" (también acepta solo "CODIGO").
+    final raw = choice;
+    // Acepta "CODIGO" (o "GMH-PROMO:CODIGO").
     final code = (raw.contains(':') ? raw.split(':').last : raw).trim().toUpperCase();
     void aviso(String msg, [Color color = Colors.red]) {
       if (context.mounted) {
@@ -1325,11 +1317,11 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
           .eq('code', code)
           .maybeSingle();
     } catch (e) {
-      aviso('No se pudo validar el QR: $e');
+      aviso('No se pudo validar el cupón: $e');
       return;
     }
     if (promo == null) {
-      aviso('Este QR no es un descuento válido');
+      aviso('Ese cupón no existe');
       return;
     }
     final exp = DateTime.tryParse(promo['expires_at']?.toString() ?? '');
@@ -1344,7 +1336,7 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFFFAF1DE),
-        title: Text('Descuento ${(promo!['percent'] as num).toInt()}% con QR',
+        title: Text('Cupón ${(promo!['percent'] as num).toInt()}% de descuento',
             style: const TextStyle(color: Color(0xFFFF6D00), fontWeight: FontWeight.bold)),
         content: TextField(
           controller: phoneCtrl,
@@ -1388,7 +1380,7 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
     if (!mounted) return;
     setState(() {
       _discountPercent = (promo!['percent'] as num).toDouble();
-      _discountReason = 'Promo QR $code · tel $phone';
+      _discountReason = 'Cupón $code · tel $phone';
       _promoCode = code;
       _promoPhone = phone;
     });
@@ -1486,7 +1478,7 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
       } catch (e) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-              content: Text('Ese teléfono ya usó el descuento QR. Quita el descuento para cobrar.'),
+              content: Text('Ese teléfono ya usó el cupón. Quita el descuento para cobrar.'),
               backgroundColor: Colors.red));
         }
         return false;
@@ -3541,8 +3533,8 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
                                           onSelected: (_) => _selectDiscount(context, p),
                                         ),
                                       ActionChip(
-                                        avatar: const Icon(Icons.qr_code_scanner, size: 18),
-                                        label: Text(_promoCode != null ? 'Cupón ✓' : 'Cupón / QR',
+                                        avatar: const Icon(Icons.local_offer, size: 18),
+                                        label: Text(_promoCode != null ? 'Cupón ✓' : 'Cupón',
                                             style: const TextStyle(fontWeight: FontWeight.bold)),
                                         onPressed: () => _scanPromo(context),
                                       ),
