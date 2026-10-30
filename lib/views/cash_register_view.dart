@@ -89,10 +89,17 @@ class _CashRegisterViewState extends State<CashRegisterView> {
     double fondoInicial = 0, entradas = 0, salidas = 0;
     // salidas = gastos + propinas pagadas en efectivo (se muestran aparte).
     double gastos = 0, propinasPagadas = 0;
+    double propinasTarjetaPorPagar = 0;
     for (final m in _movements) {
       final createdAt = DateTime.tryParse(m['created_at']?.toString() ?? '');
       if (createdAt == null || createdAt.isBefore(startOfDay)) continue;
       final amt = double.tryParse(m['amount']?.toString() ?? '0') ?? 0.0;
+      // Propinas cobradas con tarjeta: ese dinero no entró a la caja, pero
+      // se les paga a los meseros en efectivo DE la caja al cerrar.
+      if (m['payment_method'] == 'TARJETA' && m['type'] == 'salida' && m['category'] == 'propina') {
+        propinasTarjetaPorPagar += amt;
+        continue;
+      }
       if (m['payment_method'] != 'EFECTIVO') continue;
       if (m['category'] == 'apertura') {
         fondoInicial += amt;
@@ -159,8 +166,11 @@ class _CashRegisterViewState extends State<CashRegisterView> {
       }
     } catch (_) {}
 
-    final expected = fondoInicial + efectivoRecibido + entradas - salidas;
+    final antesPropinas = fondoInicial + efectivoRecibido + entradas - salidas;
+    final expected = antesPropinas - propinasTarjetaPorPagar;
     return {
+      'antesPropinas': antesPropinas,
+      'propinasTarjetaPorPagar': propinasTarjetaPorPagar,
       'fondoInicial': fondoInicial,
       'efectivoVentas': efectivoVentas,
       'tarjetaVentas': tarjetaVentas,
@@ -262,6 +272,13 @@ class _CashRegisterViewState extends State<CashRegisterView> {
                         if ((breakdown['propinasPagadas'] ?? 0) > 0)
                           Text('Propinas pagadas a meseros: -\$${breakdown['propinasPagadas']!.toStringAsFixed(2)}',
                               style: const TextStyle(color: Color(0xFF3D2E1A))),
+                        if ((breakdown['propinasTarjetaPorPagar'] ?? 0) > 0) ...[
+                          const Divider(color: Color(0xFFA08F70)),
+                          Text('Efectivo antes de pagar propinas: \$${breakdown['antesPropinas']!.toStringAsFixed(2)}',
+                              style: const TextStyle(color: Color(0xFF3D2E1A))),
+                          Text('Pagar a meseros (propinas tarjeta): -\$${breakdown['propinasTarjetaPorPagar']!.toStringAsFixed(2)}',
+                              style: const TextStyle(color: Color(0xFF00796B), fontWeight: FontWeight.bold)),
+                        ],
                         const Divider(color: Color(0xFFA08F70)),
                         Text('Efectivo esperado: \$${expected.toStringAsFixed(2)}',
                             style: const TextStyle(color: Color(0xFFFF6D00), fontWeight: FontWeight.bold, fontSize: 16)),

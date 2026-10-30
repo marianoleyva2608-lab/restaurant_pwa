@@ -1179,7 +1179,7 @@ async function fetchCorteSummary(branchName) {
 
   const { data: movs, error: movsError } = await supabase
     .from('cash_movements')
-    .select('type, category, amount')
+    .select('type, category, amount, payment_method')
     .eq('branch_name', branchName)
     .gte('created_at', startOfDay.toISOString());
   if (movsError) throw movsError;
@@ -1187,9 +1187,16 @@ async function fetchCorteSummary(branchName) {
   let fondoInicial = 0;
   let entradas = 0;
   let salidas = 0;
+  let propinasTarjeta = 0;
   for (const m of movs || []) {
     const amt = Number(m.amount || 0);
-    if (m.category === 'apertura') {
+    const pm = String(m.payment_method || 'EFECTIVO').toUpperCase();
+    if (m.type === 'salida' && m.category === 'propina' && pm === 'TARJETA') {
+      // Propina cobrada con tarjeta: se le paga al mesero en efectivo de la caja.
+      propinasTarjeta += amt;
+    } else if (pm !== 'EFECTIVO') {
+      // Movimientos con tarjeta no tocan el efectivo de la caja.
+    } else if (m.category === 'apertura') {
       fondoInicial += amt;
     } else if (m.type === 'entrada') {
       entradas += amt;
@@ -1199,10 +1206,11 @@ async function fetchCorteSummary(branchName) {
   }
 
   const total = efectivo + tarjeta + otros + didi + uber;
-  const efectivoEsperado = fondoInicial + efectivo + entradas - salidas;
+  const antesPropinas = fondoInicial + efectivo + entradas - salidas;
+  const efectivoEsperado = antesPropinas - propinasTarjeta;
   return {
     date: now, count, efectivo, tarjeta, otros, didi, uber, total,
-    fondoInicial, entradas, salidas, efectivoEsperado,
+    fondoInicial, entradas, salidas, antesPropinas, propinasTarjeta, efectivoEsperado,
     descuentos, descuentosCount, canceladas,
   };
 }
@@ -1257,6 +1265,13 @@ function appendCorteTicket(printer, summary, branchName) {
   row('Fondo inicial', summary.fondoInicial);
   if (summary.entradas > 0) row('Entradas extra', summary.entradas);
   if (summary.salidas > 0) row('Salidas/gastos', -summary.salidas);
+  if (summary.propinasTarjeta > 0) {
+    printer.drawLine();
+    row('Efectivo antes propinas', summary.antesPropinas);
+    printer.bold(true);
+    row('PAGAR PROPINAS TARJETA', -summary.propinasTarjeta);
+    printer.bold(false);
+  }
   printer.drawLine();
   printer.bold(true);
   row('EFECTIVO ESPERADO', summary.efectivoEsperado);
