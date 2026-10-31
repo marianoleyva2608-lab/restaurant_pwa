@@ -1280,6 +1280,8 @@ function appendCorteTicket(printer, summary, branchName) {
   printer.bold(true);
   row('EFECTIVO ESPERADO', summary.efectivoEsperado);
   printer.bold(false);
+  // Lo que queda de la venta del día si se separa el fondo inicial.
+  row('Venta hoy sin fondo', summary.efectivoEsperado - summary.fondoInicial);
 
   printer.alignCenter();
   printer.newLine();
