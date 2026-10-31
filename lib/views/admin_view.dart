@@ -835,6 +835,8 @@ class _AdminViewState extends State<AdminView> {
                                               final platform = order['delivery_platform'] as String?;
                                               final orderTypeStr = orderType == 'takeout'
                                                   ? 'To Go'
+                                                  : orderType == 'dine_in'
+                                                      ? 'Cuenta separada'
                                                   : platform != null
                                                       ? platform[0].toUpperCase() + platform.substring(1)
                                                       : 'Delivery';
@@ -886,8 +888,16 @@ class _AdminViewState extends State<AdminView> {
                                                 child: _TableCard(
                                                   title: orderTypeStr,
                                                   subtitle: cleanName ?? 'Cliente',
-                                                  icon: orderType == 'takeout' ? Icons.takeout_dining : Icons.delivery_dining,
-                                                  color: orderType == 'takeout' ? const Color(0xFFE07A30) : const Color(0xFFB7472A),
+                                                  icon: orderType == 'takeout'
+                                                      ? Icons.takeout_dining
+                                                      : orderType == 'dine_in'
+                                                          ? Icons.call_split
+                                                          : Icons.delivery_dining,
+                                                  color: orderType == 'takeout'
+                                                      ? const Color(0xFFE07A30)
+                                                      : orderType == 'dine_in'
+                                                          ? const Color(0xFF00796B)
+                                                          : const Color(0xFFB7472A),
                                                   waiterName: waiterName,
                                                   isOccupied: true, // It's an active order
                                                   isSelected: isSelected,
@@ -978,6 +988,11 @@ class _AdminViewState extends State<AdminView> {
                           _selectedTableId = null;
                           _selectedOrderId = null;
                         }),
+                        onSelectOrder: (id) => setState(() {
+                          _selectedOrderId = id;
+                          _selectedTableId = null;
+                          _selectedTableNumber = null;
+                        }),
                       ),
               ),
           ],
@@ -1009,6 +1024,11 @@ class _AdminViewState extends State<AdminView> {
                           onDeselect: () => setState(() {
                             _selectedTableId = null;
                             _selectedOrderId = null;
+                          }),
+                          onSelectOrder: (id) => setState(() {
+                            _selectedOrderId = id;
+                            _selectedTableId = null;
+                            _selectedTableNumber = null;
                           }),
                         ),
                         Positioned(
@@ -1173,6 +1193,8 @@ class _TableDetailPanel extends StatefulWidget {
   final String? orderId;
   final List<Map<String, dynamic>> waitersList;
   final VoidCallback? onDeselect;
+  /// Al separar una cuenta, selecciona la orden nueva para cobrarla.
+  final void Function(String orderId)? onSelectOrder;
 
   const _TableDetailPanel({
     this.tableId, 
@@ -1180,6 +1202,7 @@ class _TableDetailPanel extends StatefulWidget {
     this.orderId, 
     this.waitersList = const [],
     this.onDeselect,
+    this.onSelectOrder,
   });
 
   @override
@@ -2553,6 +2576,206 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
 
   /// Mueve la cuenta abierta de esta mesa a otra mesa. Si la mesa destino
   /// ya tiene cuenta abierta, las cuentas se unen (pide confirmación).
+  /// Cobrar por separado: el cajero elige qué platillos (y cuántos) paga
+  /// una persona. Esos platillos se pasan a una cuenta nueva (sin mesa,
+  /// tipo "Cuenta separada") que se cobra con los botones de siempre; lo
+  /// demás se queda en la mesa. Los platillos ya impresos no se vuelven a
+  /// mandar a cocina (se conserva printed_at).
+  Future<void> _splitBill(BuildContext context, List<Map<String, dynamic>> orders) async {
+    final supabase = Supabase.instance.client;
+    final orderIds = orders.map((o) => o['id'].toString()).toList();
+    List<Map<String, dynamic>> items;
+    try {
+      items = List<Map<String, dynamic>>.from(await supabase
+          .from('order_items')
+          .select('*, dishes (name)')
+          .inFilter('order_id', orderIds)
+          .order('id'));
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al cargar la cuenta: $e')));
+      }
+      return;
+    }
+    if (items.isEmpty) return;
+    if (!context.mounted) return;
+
+    double priceOf(Map<String, dynamic> it) =>
+        double.tryParse(it['price_at_time']?.toString() ?? '0') ?? 0.0;
+    int qtyOf(Map<String, dynamic> it) =>
+        int.tryParse(it['quantity']?.toString() ?? '0') ?? 0;
+    String nameOf(Map<String, dynamic> it) =>
+        _correctDrinkName(it['dishes']?['name']?.toString() ?? 'Platillo', it['guisados_selected']);
+
+    // Cuántos de cada renglón se pagan por separado.
+    final selected = <int, int>{for (var i = 0; i < items.length; i++) i: 0};
+    final labels = <String>{
+      for (final it in items)
+        if ((it['client_label']?.toString() ?? '').trim().isNotEmpty) it['client_label'].toString()
+    }.toList()
+      ..sort();
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(builder: (ctx, setD) {
+        final total = [
+          for (var i = 0; i < items.length; i++) priceOf(items[i]) * selected[i]!
+        ].fold<double>(0, (a, b) => a + b);
+        final count = selected.values.fold<int>(0, (a, b) => a + b);
+        final allCount = items.fold<int>(0, (a, it) => a + qtyOf(it));
+        return AlertDialog(
+          title: Text('Cobrar por separado · Mesa ${widget.tableNumber ?? ''}'),
+          content: SizedBox(
+            width: 420,
+            height: MediaQuery.of(ctx).size.height * 0.6,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Elige lo que paga esta persona:', style: TextStyle(color: Color(0xFFA08F70))),
+                if (labels.length > 1) ...[
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    children: [
+                      for (final l in labels)
+                        ActionChip(
+                          label: Text(l),
+                          onPressed: () => setD(() {
+                            for (var i = 0; i < items.length; i++) {
+                              selected[i] = items[i]['client_label']?.toString() == l ? qtyOf(items[i]) : 0;
+                            }
+                          }),
+                        ),
+                    ],
+                  ),
+                ],
+                const SizedBox(height: 8),
+                Expanded(
+                  child: ListView.separated(
+                    itemCount: items.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1, color: Color(0xFFE5DCC4)),
+                    itemBuilder: (_, i) {
+                      final it = items[i];
+                      final q = qtyOf(it);
+                      final label = it['client_label']?.toString() ?? '';
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('${q}x ${nameOf(it)}', style: const TextStyle(fontWeight: FontWeight.w600)),
+                                  Text(
+                                    '\$${priceOf(it).toStringAsFixed(2)} c/u${labels.length > 1 && label.isNotEmpty ? ' · $label' : ''}',
+                                    style: const TextStyle(color: Color(0xFFA08F70), fontSize: 12),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.remove_circle_outline),
+                              onPressed: selected[i]! > 0 ? () => setD(() => selected[i] = selected[i]! - 1) : null,
+                            ),
+                            SizedBox(
+                              width: 24,
+                              child: Text('${selected[i]}', textAlign: TextAlign.center,
+                                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.add_circle_outline, color: Color(0xFF00796B)),
+                              onPressed: selected[i]! < q ? () => setD(() => selected[i] = selected[i]! + 1) : null,
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const Divider(color: Color(0xFFA08F70)),
+                Text('A cobrar: \$${total.toStringAsFixed(2)}',
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF00796B))),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF00796B), foregroundColor: Colors.white),
+              onPressed: (count == 0 || count == allCount) ? null : () => Navigator.pop(ctx, true),
+              child: const Text('Separar y cobrar'),
+            ),
+          ],
+        );
+      }),
+    );
+    if (confirmed != true) return;
+
+    try {
+      final base = orders.first;
+      final movedTotal = [
+        for (var i = 0; i < items.length; i++) priceOf(items[i]) * selected[i]!
+      ].fold<double>(0, (a, b) => a + b);
+      final nowIso = DateTime.now().toUtc().toIso8601String();
+      final newOrder = await supabase.from('orders').insert({
+        'table_id': null,
+        'waiter_id': base['waiter_id'],
+        'status': base['status'] ?? 'pending',
+        'total_amount': movedTotal,
+        'order_type': 'dine_in',
+        'customer_name': 'Mesa ${widget.tableNumber ?? ''} · separada',
+        'branch_name': base['branch_name'] ?? Globals.currentBranch,
+        'daily_folio': base['daily_folio'],
+        'sent_to_kitchen_at': base['sent_to_kitchen_at'] ?? nowIso,
+        // Sus platillos ya se imprimieron en la orden original.
+        'printed_at': nowIso,
+      }).select('id').single();
+      final newId = newOrder['id'].toString();
+
+      final movedByOrder = <String, double>{};
+      for (var i = 0; i < items.length; i++) {
+        final n = selected[i]!;
+        if (n == 0) continue;
+        final it = items[i];
+        final q = qtyOf(it);
+        final src = it['order_id'].toString();
+        movedByOrder[src] = (movedByOrder[src] ?? 0) + priceOf(it) * n;
+        if (n >= q) {
+          await supabase.from('order_items').update({'order_id': newId}).eq('id', it['id']);
+        } else {
+          final copy = Map<String, dynamic>.from(it)
+            ..remove('id')
+            ..remove('created_at')
+            ..remove('dishes');
+          copy['order_id'] = newId;
+          copy['quantity'] = n;
+          await supabase.from('order_items').insert(copy);
+          await supabase.from('order_items').update({'quantity': q - n}).eq('id', it['id']);
+        }
+      }
+      for (final e in movedByOrder.entries) {
+        final row = await supabase.from('orders').select('total_amount').eq('id', e.key).maybeSingle();
+        final current = double.tryParse(row?['total_amount']?.toString() ?? '0') ?? 0.0;
+        final nt = current - e.value;
+        await supabase.from('orders').update({'total_amount': nt < 0 ? 0 : nt}).eq('id', e.key);
+      }
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Cuenta separada: \$${movedTotal.toStringAsFixed(2)}. Ya puedes cobrarla.'),
+          backgroundColor: const Color(0xFF00796B),
+        ));
+      }
+      widget.onSelectOrder?.call(newId);
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al separar la cuenta: $e')));
+      }
+    }
+  }
+
   Future<void> _changeTable(BuildContext context, List<String> orderIds) async {
     final supabase = Supabase.instance.client;
     final oldTableId = widget.tableId;
@@ -3674,6 +3897,18 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
                               ),
                             ),
                             if (widget.tableId != null) ...[
+                              const SizedBox(height: 12),
+                              OutlinedButton.icon(
+                                onPressed: () => _splitBill(context, orders),
+                                icon: const Icon(Icons.call_split, size: 22),
+                                label: const Text('Cobrar por separado', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                                style: OutlinedButton.styleFrom(
+                                  minimumSize: const Size.fromHeight(52),
+                                  foregroundColor: const Color(0xFF00796B),
+                                  side: const BorderSide(color: Color(0xFF00796B), width: 2),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                ),
+                              ),
                               const SizedBox(height: 12),
                               OutlinedButton.icon(
                                 onPressed: () => _changeTable(context, orderIds),
