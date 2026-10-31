@@ -1238,8 +1238,11 @@ function appendCorteTicket(printer, summary, branchName) {
   printer.println(`Ordenes cobradas: ${summary.count}`);
   printer.drawLine();
 
-  row('Efectivo', summary.efectivo);
-  row('Tarjeta', summary.tarjeta);
+  printer.bold(true);
+  printer.println('VENTAS DE HOY');
+  printer.bold(false);
+  row('Ventas efectivo', summary.efectivo);
+  row('Ventas tarjeta', summary.tarjeta);
   if (summary.otros > 0) row('Otros (transf/openpay)', summary.otros);
   if (summary.didi > 0) row('DiDi (credito)', summary.didi);
   if (summary.uber > 0) row('Uber (credito)', summary.uber);
@@ -1265,7 +1268,8 @@ function appendCorteTicket(printer, summary, branchName) {
   row('Fondo inicial', summary.fondoInicial);
   if (summary.entradas > 0) row('Entradas extra', summary.entradas);
   if (summary.salidas > 0) row('Salidas/gastos', -summary.salidas);
-  if (summary.propinasTarjeta > 0) {
+  {
+    // Siempre visible (aunque sea $0), igual que en la pantalla de caja.
     printer.drawLine();
     row('Efectivo antes propinas', summary.antesPropinas);
     printer.bold(true);
