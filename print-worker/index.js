@@ -1265,7 +1265,8 @@ function appendCorteTicket(printer, summary, branchName) {
   row('Fondo inicial', summary.fondoInicial);
   if (summary.entradas > 0) row('Entradas extra', summary.entradas);
   if (summary.salidas > 0) row('Salidas/gastos', -summary.salidas);
-  if (summary.propinasTarjeta > 0) {
+  {
+    // Siempre visible (aunque sea $0), igual que en la pantalla de caja.
     printer.drawLine();
     row('Efectivo antes propinas', summary.antesPropinas);
     printer.bold(true);

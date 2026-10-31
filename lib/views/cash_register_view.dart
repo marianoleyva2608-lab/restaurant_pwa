@@ -272,7 +272,9 @@ class _CashRegisterViewState extends State<CashRegisterView> {
                         if ((breakdown['propinasPagadas'] ?? 0) > 0)
                           Text('Propinas pagadas a meseros: -\$${breakdown['propinasPagadas']!.toStringAsFixed(2)}',
                               style: const TextStyle(color: Color(0xFF3D2E1A))),
-                        if ((breakdown['propinasTarjetaPorPagar'] ?? 0) > 0) ...[
+                        // Siempre visible (aunque sea $0): el cajero debe ver
+                        // cuánto pagar a meseros antes de contar la caja.
+                        ...[
                           const Divider(color: Color(0xFFA08F70)),
                           Text('Efectivo antes de pagar propinas: \$${breakdown['antesPropinas']!.toStringAsFixed(2)}',
                               style: const TextStyle(color: Color(0xFF3D2E1A))),
