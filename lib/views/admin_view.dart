@@ -745,6 +745,28 @@ class _AdminViewState extends State<AdminView> {
 
   Widget _buildTablesDashboard() {
     final screenWidth = MediaQuery.of(context).size.width;
+    // Streams creados aquí (una vez por build) y no dentro del builder del
+    // StreamBuilder de afuera: antes cada tick de mesas volvía a crear el de
+    // órdenes y lo consultaba de nuevo (doble consulta cada ciclo). Además se
+    // filtra la sucursal en el servidor para no bajar las órdenes de la otra.
+    final branchCore = Globals.normalizeBranch(Globals.currentBranch);
+    final branchFilter = 'branch_name.is.null,branch_name.ilike.*$branchCore*';
+    final tablesStream = _ticker(const Duration(seconds: 8)).asyncMap((_) async {
+      final rows = await _supabase
+          .from('restaurant_tables')
+          .select()
+          .or(branchFilter)
+          .order('table_number', ascending: true);
+      return List<Map<String, dynamic>>.from(rows);
+    });
+    final ordersStream = _ticker(const Duration(seconds: 8)).asyncMap((_) async {
+      final rows = await _supabase
+          .from('orders')
+          .select()
+          .inFilter('status', ['pending', 'ready', 'incomplete'])
+          .or(branchFilter);
+      return List<Map<String, dynamic>>.from(rows);
+    });
     final isMobile = screenWidth < 1200; // Un poco más ancho para dar espacio al mapa y panel
 
     return Stack(
@@ -765,14 +787,7 @@ class _AdminViewState extends State<AdminView> {
                   ),
                   Expanded(
                     child: StreamBuilder<List<Map<String, dynamic>>>(
-                      stream: _ticker().asyncMap((_) async {
-                        final rows = await _supabase
-                            .from('restaurant_tables')
-                            .select()
-                            .eq('branch_name', Globals.currentBranch)
-                            .order('table_number', ascending: true);
-                        return List<Map<String, dynamic>>.from(rows);
-                      }),
+                      stream: tablesStream,
                       builder: (context, tablesSnapshot) {
                         return StreamBuilder<List<Map<String, dynamic>>>(
                           // Antes pedía TODAS las órdenes sin filtro
@@ -781,13 +796,7 @@ class _AdminViewState extends State<AdminView> {
                           // las órdenes activas más recientes podían quedar
                           // fuera de esas 1000. Filtramos por status en el
                           // servidor para traer solo lo que importa aquí.
-                          stream: _ticker().asyncMap((_) async {
-                            final rows = await _supabase
-                                .from('orders')
-                                .select()
-                                .inFilter('status', ['pending', 'ready', 'incomplete']);
-                            return List<Map<String, dynamic>>.from(rows);
-                          }),
+                          stream: ordersStream,
                           builder: (context, ordersSnapshot) {
                             if (!tablesSnapshot.hasData || !ordersSnapshot.hasData) {
                               return const Center(child: CircularProgressIndicator());
@@ -3286,16 +3295,53 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
     }
   }
 
+  // Stream de platillos cacheado: antes se recreaba en cada tick del stream
+  // de órdenes (doble consulta cada 4s). Se recrea solo si cambia la lista
+  // de órdenes o si la pantalla se redibuja (setState), igual que antes.
+  int _buildGen = 0;
+  String? _itemsKey;
+  Stream<List<Map<String, dynamic>>>? _itemsStream;
+
+  Stream<List<Map<String, dynamic>>> _itemsStreamFor(List<String> orderIds) {
+    final key = '$_buildGen|${orderIds.join(',')}';
+    if (_itemsStream == null || _itemsKey != key) {
+      _itemsKey = key;
+      final supabase = Supabase.instance.client;
+      // Stream.multi: cada suscriptor tiene su propio ticker y al cancelar se
+      // detiene (no deja polling huérfano corriendo).
+      _itemsStream = Stream<List<Map<String, dynamic>>>.multi((c) {
+        final sub = _ticker().asyncMap((_) async {
+          final items = await supabase.from('order_items').select('''
+            id, order_id, quantity, status, price_at_time,
+            guisados_selected, dishes (name)
+          ''').inFilter('order_id', orderIds).order('id');
+          return List<Map<String, dynamic>>.from(items);
+        }).listen(c.add, onError: c.addError, onDone: c.close);
+        c.onCancel = sub.cancel;
+      });
+    }
+    return _itemsStream!;
+  }
+
   @override
   Widget build(BuildContext context) {
     final supabase = Supabase.instance.client;
+    _buildGen++;
 
     return StreamBuilder<List<Map<String, dynamic>>>(
-      stream: _ticker().asyncMap((_) async => List<Map<String, dynamic>>.from(
-          await supabase
-              .from('orders')
-              .select()
-              .inFilter('status', ['pending', 'ready', 'incomplete']))),
+      // Solo las órdenes de esta mesa (o esta orden), no todas las abiertas.
+      stream: _ticker().asyncMap((_) async {
+        var q = supabase
+            .from('orders')
+            .select()
+            .inFilter('status', ['pending', 'ready', 'incomplete']);
+        if (widget.tableId != null) {
+          q = q.eq('table_id', widget.tableId!);
+        } else if (widget.orderId != null) {
+          q = q.eq('id', widget.orderId!);
+        }
+        return List<Map<String, dynamic>>.from(await q);
+      }),
       builder: (context, orderSnapshot) {
         if (!orderSnapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
@@ -3403,14 +3449,7 @@ class _TableDetailPanelState extends State<_TableDetailPanel> {
             
             Expanded(
               child: StreamBuilder<List<Map<String, dynamic>>>(
-                stream: _ticker()
-                    .asyncMap((_) async {
-                      final items = await supabase.from('order_items').select('''
-                        id, order_id, quantity, status, price_at_time,
-                        guisados_selected, dishes (name)
-                      ''').inFilter('order_id', orderIds).order('id');
-                      return List<Map<String, dynamic>>.from(items);
-                    }),
+                stream: _itemsStreamFor(orderIds),
                 builder: (context, itemsSnapshot) {
                   if (!itemsSnapshot.hasData) {
                     return const Center(child: CircularProgressIndicator());
