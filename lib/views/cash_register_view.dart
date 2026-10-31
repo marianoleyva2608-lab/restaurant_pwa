@@ -284,6 +284,8 @@ class _CashRegisterViewState extends State<CashRegisterView> {
                         const Divider(color: Color(0xFFA08F70)),
                         Text('Efectivo esperado: \$${expected.toStringAsFixed(2)}',
                             style: const TextStyle(color: Color(0xFFFF6D00), fontWeight: FontWeight.bold, fontSize: 16)),
+                        Text('Venta hoy sin fondo inicial: \$${(expected - breakdown['fondoInicial']!).toStringAsFixed(2)}',
+                            style: const TextStyle(color: Color(0xFF3D2E1A), fontWeight: FontWeight.bold)),
                       ],
                     ),
                   ),
